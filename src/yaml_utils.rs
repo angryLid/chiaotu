@@ -20,6 +20,9 @@ pub fn new_config_from_yaml(yaml_content: &str) -> Result<Config, serde_yaml::Er
 }
 
 impl Config {
+    pub fn from_yaml(yaml_content: &str) -> Result<Config, serde_yaml::Error> {
+        serde_yaml::from_str(yaml_content)
+    }
     pub fn to_yaml(&self) -> Result<String, serde_yaml::Error> {
         serde_yaml::to_string(self)
     }

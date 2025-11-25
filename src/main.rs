@@ -1,19 +1,22 @@
-mod downloader;
 mod base64_decoder;
+mod config_manager;
+mod downloader;
+mod file_reader;
 mod node_parser;
 mod nodes;
 mod yaml_utils;
-mod file_reader;
 
-use downloader::download_text;
-use base64_decoder::decode_interactive;
-use yaml_utils::{create_sample_config, new_config_from_yaml};
 use file_reader::read_file_to_string;
-use std::{env, iter};
-use futures::future::join_all;
+use std::{env};
+use crate::{
+    config_manager::ConfigManager,
+    downloader::download_save_files,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config_manager = ConfigManager::new().unwrap();
+
     let args: Vec<String> = env::args().collect();
 
     // Check if a file path argument is provided
@@ -34,30 +37,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .filter(|line| !line.is_empty())
         .collect();
 
-    println!("Found {} URLs in the file", urls.len());
+    // Create a simple save function using config manager
+    let save_fn = move |filename: &str, content: &str| {
+        println!("Saving file: {}", filename);
+        // Cache the filename
+        config_manager.cache(filename, content)?;
+        Ok(())
+    };
 
-    // Create futures for all URLs
-    let download_futures = urls.iter().map(|url| async move {
-        println!("Downloading from: {}", url);
-        download_text(url).await.unwrap()
-    });
-
-    // Execute all downloads in parallel
-    let results= join_all(download_futures).await;
-
-    let results = results
-    .iter()
-    .map(|raw| {
-        let config = new_config_from_yaml(&raw).unwrap();
-        let proxies = config.proxies;
-        proxies
-    }).flatten();
-
-    for p in results {
-        println!("{}", p.name);
-    }
-
+    download_save_files(urls, &save_fn).await?;
 
     Ok(())
 }
-
