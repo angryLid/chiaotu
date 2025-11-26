@@ -103,6 +103,48 @@ impl ConfigManager {
         fs::write(file_path, content)?;
         Ok(())
     }
+
+    pub fn load_cache(&self) -> Result<Vec<String>, io::Error> {
+        let mut contents = Vec::new();
+
+        if !self.config_dir.exists() {
+            return Ok(contents);
+        }
+
+        for entry in fs::read_dir(&self.config_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Check if it's a file and ends with .yml
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "yml") {
+                let content = fs::read_to_string(&path)?;
+                contents.push(content);
+            }
+        }
+
+        Ok(contents)
+    }
+
+    pub fn save_result(&self, content: &str) -> Result<(), io::Error> {
+        use chrono::Utc;
+
+        // if &self.config_dir/results doesn't exist, create the folder first,
+        let results_dir = self.config_dir.join("results");
+        if !results_dir.exists() {
+            fs::create_dir_all(&results_dir)?;
+        }
+
+        // generate a file name format yyyy-MM-dd-HH-mm-ss.yml
+        let now = Utc::now();
+        let filename = format!("{}.yml", now.format("%Y-%m-%d-%H-%M-%S"));
+        let file_path = results_dir.join(filename);
+
+        // save the content to the file
+        fs::write(file_path, content)?;
+
+        Ok(())
+    }
+
 }
 
 #[cfg(test)]

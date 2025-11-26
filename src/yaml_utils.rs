@@ -6,6 +6,8 @@ pub struct Config {
     #[serde(flatten)]
     pub properties: HashMap<String, serde_yaml::Value>,
     pub proxies: Vec<Proxy>,
+    #[serde(rename = "proxy-groups")]
+    pub proxy_groups: Vec<ProxyGroup>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -119,23 +121,56 @@ pub fn create_sample_config() -> Config {
     Config {
         properties,
         proxies: vec![],
+        proxy_groups: vec![],
     }
 }
 
+pub fn merge_proxies(configs: Vec<Config>) -> Vec<Proxy> {
+    configs
+        .into_iter()
+        .flat_map(|config| config.proxies)
+        .collect()
+}
+pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
+    let mut de = ProxyGroup::from_country("Germany");
+    let mut tw = ProxyGroup::from_country("Taiwan");
+    let mut hk = ProxyGroup::from_country("Hong Kong");
+    let mut jp = ProxyGroup::from_country("Japan");
+    let mut sg = ProxyGroup::from_country("Singapore");
+    let mut us = ProxyGroup::from_country("US");
+    let mut uk = ProxyGroup::from_country("UK");
+    let mut others = ProxyGroup::from_country("Other");
 
-pub fn create_groups_by_country(proxies: Vec<Proxy>) -> Vec<ProxyGroup> {
-    let hk = ProxyGroup::from_country("Hong Kong");
-    let mut eu = ProxyGroup::from_country("Europe");
-    for Proxy { name,.. } in proxies {
-        if name.contains("俄罗斯") {
-            eu.proxies.push(name.clone());
-        } else if name.contains("英国") {
-            eu.proxies.push(name.clone());
-        } else if name.contains("瑞士") {
-            eu.proxies.push(name.clone());
+    for Proxy { name, .. } in proxies {
+        if name.contains("德国") || name.contains("DE") {
+            de.proxies.push(name.clone());
+            continue;
+        } else if name.contains("台湾") || name.contains("TW") {
+            tw.proxies.push(name.clone());
+            continue;
+        } else if name.contains("香港") || name.contains("HK") {
+            hk.proxies.push(name.clone());
+            continue;
+        } else if name.contains("日本") || name.contains("JP") {
+            jp.proxies.push(name.clone());
+            continue;
+        } else if name.contains("新加坡") || name.contains("SG") {
+            sg.proxies.push(name.clone());
+            continue;
+        } else if name.contains("美国") || name.contains("US") {
+            us.proxies.push(name.clone());
+            continue;
+        } else if name.contains("英国") || name.contains("UK") {
+            uk.proxies.push(name.clone());
+            continue;
+        } else if name.contains("剩余") || name.contains("到期") {
+            continue;
+        } else {
+            others.proxies.push(name.clone());
+            continue;
         }
     }
-    vec![]
+    vec![de, tw, hk, jp, sg, us, uk, others]
 }
 #[cfg(test)]
 mod tests {
