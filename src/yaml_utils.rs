@@ -14,7 +14,23 @@ pub struct Proxy {
     #[serde(flatten)]
     pub properties: HashMap<String, serde_yaml::Value>,
 }
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 
+pub struct ProxyGroup {
+    name: String,
+    r#type: String,
+    proxies: Vec<String>,
+}
+
+impl ProxyGroup {
+    pub fn from_country(country: &str) -> Self {
+        ProxyGroup {
+            name: country.to_string(),
+            r#type: "url-test".to_string(),
+            proxies: vec![],
+        }
+    }
+}
 pub fn new_config_from_yaml(yaml_content: &str) -> Result<Config, serde_yaml::Error> {
     serde_yaml::from_str(yaml_content)
 }
@@ -106,6 +122,21 @@ pub fn create_sample_config() -> Config {
     }
 }
 
+
+pub fn create_groups_by_country(proxies: Vec<Proxy>) -> Vec<ProxyGroup> {
+    let hk = ProxyGroup::from_country("Hong Kong");
+    let mut eu = ProxyGroup::from_country("Europe");
+    for Proxy { name,.. } in proxies {
+        if name.contains("俄罗斯") {
+            eu.proxies.push(name.clone());
+        } else if name.contains("英国") {
+            eu.proxies.push(name.clone());
+        } else if name.contains("瑞士") {
+            eu.proxies.push(name.clone());
+        }
+    }
+    vec![]
+}
 #[cfg(test)]
 mod tests {
     use super::*;
