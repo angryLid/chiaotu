@@ -184,7 +184,7 @@ impl ConfigManager {
         Ok(())
     }
 
-    pub fn load_cache(&self) -> Result<Vec<String>, io::Error> {
+    pub fn load_cache(&self) -> Result<Vec<(String, String)>, io::Error> {
         let mut contents = Vec::new();
 
         if !self.config_dir.exists() {
@@ -198,7 +198,16 @@ impl ConfigManager {
             // Check if it's a file and ends with .yml
             if path.is_file() && path.extension().map_or(false, |ext| ext == "yml") {
                 let content = fs::read_to_string(&path)?;
-                contents.push(content);
+
+                let filename = path.file_stem()
+    .map(|s| s.to_string_lossy())
+    .unwrap_or_default().to_string();
+                let t = (
+                    filename,
+                    // I want the path to generate file name here
+                    content
+                );
+                contents.push(t);
             }
         }
 

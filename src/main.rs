@@ -13,7 +13,7 @@ use crate::{
 };
 use file_reader::read_file_to_string;
 use itertools::Itertools;
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, vec};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,10 +24,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check if a file path argument is provided
     if args.len() <= 1 {
         let contents = config_manager.load_cache()?;
-        let configs: Vec<Config> = contents
-            .into_iter()
-            .map(|c| Config::from_yaml(&c).unwrap())
-            .collect();
+        let mut configs = vec![];
+        for (vendor, sub) in contents {
+            let  config = Config::from_yaml(&sub)?;
+
+            let mut proxies = vec![];
+            use crate::yaml_utils::Proxy;
+            for p in config.proxies {
+                let name = p.name;
+                let first = vendor.chars().next().ok_or_else(||"a".to_string())?;
+
+                let last = vendor.chars().last().ok_or_else(||"a".to_string())?;
+
+                let new_name = format!("{}@{}..{}",name, first, last);
+                proxies.push(Proxy {
+                    name: new_name,
+                    ..p
+                });
+            }
+            let new_config = Config {
+                proxies: proxies,
+                ..config
+            };
+            configs.push(new_config);
+        }
+
         let proxies = merge_proxies(configs);
         // remove duplicated items by "name"
         let proxies: Vec<_> = proxies

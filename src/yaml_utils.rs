@@ -27,6 +27,8 @@ pub struct ProxyGroup {
     timeout: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     interval: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    url: Option<String>
 }
 
 impl ProxyGroup {
@@ -37,6 +39,7 @@ impl ProxyGroup {
             proxies: vec![],
             timeout: None,
             interval: Some(60 * 60),
+            url:Some("https://www.gstatic.com/generate_204".to_string())
         }
     }
 }
@@ -201,6 +204,7 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
         ].iter().map(|s| s.to_string()).collect(),
         timeout: None,
         interval: None,
+        url:None,
     };
     let ms = ProxyGroup {
         name: "Microsoft".to_string(),
@@ -218,6 +222,8 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
         ].iter().map(|s| s.to_string()).collect(),
         timeout: None,
         interval: None,
+                url:None,
+
     };
     let apple = ProxyGroup {
         name: "Apple".to_string(),
@@ -235,6 +241,8 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
         ].iter().map(|s| s.to_string()).collect(),
         timeout: None,
         interval: None,
+                url:None,
+
     };
     let google = ProxyGroup {
         name: "Google".to_string(),
@@ -251,6 +259,8 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
         ].iter().map(|s| s.to_string()).collect(),
         timeout: None,
         interval: None,
+                url:None,
+
     };
     vec![select,google,ms,apple, de, tw, hk, jp, sg, us, uk, others]
 }
