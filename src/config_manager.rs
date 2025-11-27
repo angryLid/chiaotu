@@ -1,8 +1,79 @@
+use include_dir::{Dir, include_dir};
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
+use axum::{
+    http::{header, StatusCode},
+    response::Response,
+    routing::{get, Router},
+    serve,
+};
 
+static EMBEDDED_RESOURCES: Dir = include_dir!("resources");
+
+fn extract_embedded_file(
+    embedded_file: &include_dir::File,
+    destination: &Path,
+) -> Result<(), io::Error> {
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let mut file = fs::File::create(destination)?;
+    file.write_all(embedded_file.contents())?;
+    Ok(())
+}
+
+fn extract_embedded_dir(
+    embedded_dir: &include_dir::Dir,
+    destination: &Path,
+) -> Result<(), io::Error> {
+    if !destination.exists() {
+        fs::create_dir_all(destination)?;
+    }
+
+    for entry in embedded_dir.entries() {
+        match entry {
+            include_dir::DirEntry::Dir(dir) => {
+                let dest_path = destination.join(dir.path().file_name().unwrap());
+                extract_embedded_dir(dir, &dest_path)?;
+            }
+            include_dir::DirEntry::File(file) => {
+                let dest_path = destination.join(file.path().file_name().unwrap());
+                extract_embedded_file(file, &dest_path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn copy_recursively(source: &Path, destination: &Path) -> Result<(), io::Error> {
+    if source.is_dir() {
+        if !destination.exists() {
+            fs::create_dir_all(destination)?;
+        }
+
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let file_type = entry.file_type()?;
+            let source_path = entry.path();
+            let destination_path = destination.join(entry.file_name());
+
+            if file_type.is_dir() {
+                copy_recursively(&source_path, &destination_path)?;
+            } else {
+                fs::copy(&source_path, &destination_path)?;
+            }
+        }
+    } else {
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(source, destination)?;
+    }
+    Ok(())
+}
 
 pub struct ConfigManager {
     config_dir: PathBuf,
@@ -17,12 +88,21 @@ impl ConfigManager {
             println!("Created config directory: {}", config_dir.display());
         }
 
-        Ok(ConfigManager { config_dir })
+        let manager = ConfigManager { config_dir };
+
+        // Check if resources folder exists, if not extract embedded files
+        let resources_dir = manager.config_dir.join("resources");
+      
+            manager.extract_resources()?;
+        
+
+        Ok(manager)
     }
 
     fn get_config_dir() -> Result<PathBuf, io::Error> {
-        let home_dir = dirs::home_dir()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Could not find home directory"))?;
+        let home_dir = dirs::home_dir().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "Could not find home directory")
+        })?;
 
         Ok(home_dir.join(".config").join("chiaotu"))
     }
@@ -124,6 +204,49 @@ impl ConfigManager {
 
         Ok(contents)
     }
+    pub fn load_rules(&self) -> Result<Vec<String>, io::Error> {
+        let mut contents = Vec::new();
+
+        if !self.config_dir.exists() {
+            return Ok(contents);
+        }
+
+        let path = self.config_dir
+        .join("resources")
+        .join("rules");
+        for entry in fs::read_dir(&path)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            // Check if it's a file and ends with .yml
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "yml") {
+                let content = fs::read_to_string(&path)?;
+                contents.push(content);
+            }
+        }
+
+        Ok(contents)
+    }
+
+    pub fn load_base_template(&self) -> Result<String, io::Error> {
+        let default_template_path = self
+            .config_dir
+            .join("resources")
+            .join("templates")
+            .join("default.yml");
+
+        if !default_template_path.exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!(
+                    "Default template not found at: {}",
+                    default_template_path.display()
+                ),
+            ));
+        }
+
+        fs::read_to_string(&default_template_path)
+    }
 
     pub fn save_result(&self, content: &str) -> Result<(), io::Error> {
         use chrono::Utc;
@@ -134,17 +257,112 @@ impl ConfigManager {
             fs::create_dir_all(&results_dir)?;
         }
 
-        // generate a file name format yyyy-MM-dd-HH-mm-ss.yml
+        // generate a file name format yyyy-MM-dd-HH-mm-ss.yml (UTC+8)
         let now = Utc::now();
-        let filename = format!("{}.yml", now.format("%Y-%m-%d-%H-%M-%S"));
+        let now_plus_8 = now.with_timezone(&chrono::FixedOffset::east_opt(8 * 3600).unwrap());
+        let filename = format!("{}.yaml", now_plus_8.format("%Y-%m-%d-%H-%M-%S"));
         let file_path = results_dir.join(filename);
 
         // save the content to the file
         fs::write(file_path, content)?;
-
+        fs::write("chiaotu.yaml", content)?;
         Ok(())
     }
 
+    pub fn extract_resources(&self) -> Result<(), io::Error> {
+        // Create resources directory if it doesn't exist
+        let resources_dir = self.config_dir.join("resources");
+        if !resources_dir.exists() {
+            fs::create_dir_all(&resources_dir)?;
+        }
+
+        // Try to extract embedded resources first (for distributed binary)
+        if !EMBEDDED_RESOURCES.entries().is_empty() {
+            extract_embedded_dir(&EMBEDDED_RESOURCES, &resources_dir)?;
+        } else {
+            // Fallback to copying from local resources directory (for development)
+            let project_resources = PathBuf::from("resources");
+            if project_resources.exists() {
+                copy_recursively(&project_resources, &resources_dir)?;
+            }
+        }
+
+        println!("Resources extracted to: {}", resources_dir.display());
+        Ok(())
+    }
+
+    pub async fn start_http_server(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let chiaotu_file_path = self.config_dir.join("results").join("chiaotu.yaml");
+
+        if !chiaotu_file_path.exists() {
+            return Err(format!("File not found: {}", chiaotu_file_path.display()).into());
+        }
+
+        let app = Router::new()
+            .route(
+                "/",
+                get(move || async move {
+                    match fs::read_to_string(&chiaotu_file_path) {
+                        Ok(content) => {
+                            let html_content = format!(
+                                r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chiaotu Config</title>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        .config {{ background: #f5f5f5; padding: 20px; border-radius: 8px; }}
+        .file-path {{ color: #666; margin-bottom: 20px; }}
+        pre {{ background: #fff; padding: 15px; border-radius: 4px; overflow-x: auto; }}
+    </style>
+</head>
+<body>
+    <h1>Chiaotu Configuration</h1>
+    <div class="config">
+        <div class="file-path">📁 {}</div>
+        <pre>{}</pre>
+    </div>
+</body>
+</html>
+                                "#,
+                                chiaotu_file_path.display(),
+                                html_escape::escape(&content)
+                            );
+                            Response::html(html_content)
+                        }
+                        Err(e) => {
+                            Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(format!("Error reading file: {}", e))
+                        }
+                    }
+                }),
+            )
+            .route(
+                "/chiaotu.yaml",
+                get(move || async move {
+                    match fs::read_to_string(&chiaotu_file_path) {
+                        Ok(content) => Response::new(content)
+                            .header("Content-Type", "application/x-yaml")
+                            .header("Content-Disposition", "attachment; filename=\"chiaotu.yaml\""),
+                        Err(e) => Response::builder()
+                            .status(StatusCode::INTERNAL_SERVER_ERROR)
+                            .body(format!("Error reading file: {}", e)),
+                    }
+                }),
+            );
+
+        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+        println!("HTTP server running on http://localhost:3000");
+        println!("Serving file: {}", chiaotu_file_path.display());
+
+        let listener = TcpListener::bind(addr).await?;
+        serve(app, listener).await;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
