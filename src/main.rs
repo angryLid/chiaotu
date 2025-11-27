@@ -6,13 +6,14 @@ mod node_parser;
 mod nodes;
 mod yaml_utils;
 
-use file_reader::read_file_to_string;
-use std::{collections::HashMap, env};
-use itertools::Itertools;
 use crate::{
     config_manager::ConfigManager,
-    downloader::download_save_files, yaml_utils::{Config, create_groups_by_country, merge_proxies},
+    downloader::download_save_files,
+    yaml_utils::{Config, create_groups_by_country, merge_proxies},
 };
+use file_reader::read_file_to_string;
+use itertools::Itertools;
+use std::{collections::HashMap, env};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -21,11 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
     // Check if a file path argument is provided
-    if args.len() == 1 {
-        // Generate config and serve
-        config_manager.start_http_server().await?;
-        return Ok(());
-    } else if args.len() <= 1 {
+    if args.len() <= 1 {
         let contents = config_manager.load_cache()?;
         let configs: Vec<Config> = contents
             .into_iter()
@@ -35,9 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // remove duplicated items by "name"
         let proxies: Vec<_> = proxies
             .into_iter()
-            
-            .unique_by(| proxy| proxy.name.clone())
-
+            .unique_by(|proxy| proxy.name.clone())
             .collect();
         let contents = config_manager.load_rules()?;
         let rules: Vec<_> = contents
@@ -52,10 +47,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.proxies = proxies;
         config.proxy_groups = proxy_groups;
         config.rules = rules;
-        
-        config_manager.save_result(&config.to_yaml().unwrap()).unwrap();
 
-        return Ok(())
+        config_manager
+            .save_result(&config.to_yaml().unwrap())
+            .unwrap();
+
+        return Ok(());
     }
 
     let file_path = &args[1];
