@@ -1,21 +1,36 @@
 proxies: []
 proxy-groups: []
 rules:
-    - 'DOMAIN,bahamut.akamaized.net,Taiwan'
-    - 'DOMAIN-SUFFIX,bahamut.com.tw,Taiwan'
-    - 'DOMAIN-SUFFIX,gamer.com.tw,Taiwan'
-    - 'DOMAIN-SUFFIX,viblast.com,Taiwan'
-    - 'DOMAIN,gamer-cds.cdn.hinet.net,Taiwan'
-    - 'DOMAIN,gamer2-cds.cdn.hinet.net,Taiwan'
-    - 'DOMAIN-SUFFIX,local,DIRECT'
-    - 'IP-CIDR,127.0.0.0/8,DIRECT'
-    - 'IP-CIDR,172.16.0.0/12,DIRECT'
-    - 'IP-CIDR,192.168.0.0/16,DIRECT'
-    - 'IP-CIDR,10.0.0.0/8,DIRECT'
-    - 'IP-CIDR,17.0.0.0/8,DIRECT'
-    - 'IP-CIDR,100.64.0.0/10,DIRECT'
-    - 'IP-CIDR,224.0.0.0/4,DIRECT'
-    - 'IP-CIDR6,fe80::/10,DIRECT'
+    - RULE-SET,ai_non_ip,AI
+    - RULE-SET,stream_tw_non_ip,Taiwan
+
+    - RULE-SET,apple_cdn,Apple
+    - RULE-SET,apple_services,Apple
+    - RULE-SET,apple_cn_non_ip,DIRECT
+
+    - RULE-SET,microsoft_cdn_non_ip,Microsoft
+    - RULE-SET,microsoft_non_ip,Microsoft
+
+    - RULE-SET,lan_non_ip,DIRECT
+    - RULE-SET,domestic_non_ip,DIRECT
+    - RULE-SET,direct_non_ip,DIRECT
+
+    - RULE-SET,global_non_ip,手动选择
+
+    - RULE-SET,domestic_ip,DIRECT
+
+    - IP-CIDR,0.0.0.0/8,DIRECT
+    - IP-CIDR,10.0.0.0/8,DIRECT
+    - IP-CIDR,100.64.0.0/10,DIRECT
+    - IP-CIDR,127.0.0.0/8,DIRECT
+    - IP-CIDR,169.254.0.0/16,DIRECT
+    - IP-CIDR,172.16.0.0/12,DIRECT
+    - IP-CIDR,192.168.0.0/16,DIRECT
+    - IP-CIDR,224.0.0.0/4,DIRECT
+    - IP-CIDR6,::1/128,DIRECT
+    - IP-CIDR6,fc00::/7,DIRECT
+    - IP-CIDR6,fe80::/10,DIRECT
+
     - 'DOMAIN-SUFFIX,cn,DIRECT'
     - 'DOMAIN-KEYWORD,-cn,DIRECT'
     - 'GEOIP,CN,DIRECT'

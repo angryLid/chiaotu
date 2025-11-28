@@ -28,7 +28,7 @@ pub struct ProxyGroup {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     interval: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    url: Option<String>
+    url: Option<String>,
 }
 
 impl ProxyGroup {
@@ -39,7 +39,7 @@ impl ProxyGroup {
             proxies: vec![],
             timeout: None,
             interval: Some(60 * 60),
-            url:Some("https://www.gstatic.com/generate_204".to_string())
+            url: Some("https://www.gstatic.com/generate_204".to_string()),
         }
     }
 }
@@ -132,7 +132,7 @@ pub fn create_sample_config() -> Config {
         properties,
         proxies: vec![],
         proxy_groups: vec![],
-        rules: vec![]
+        rules: vec![],
     }
 }
 
@@ -144,10 +144,7 @@ pub fn merge_proxies(configs: Vec<Config>) -> Vec<Proxy> {
 }
 
 pub fn merge_rules(rules: Vec<Config>) -> Vec<String> {
-    rules
-        .into_iter()
-        .flat_map(|config| config.rules)
-        .collect()
+    rules.into_iter().flat_map(|config| config.rules).collect()
 }
 
 pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
@@ -158,8 +155,24 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
     let mut sg = ProxyGroup::from_country("Singapore");
     let mut us = ProxyGroup::from_country("US");
     let mut uk = ProxyGroup::from_country("UK");
+    let mut asia = ProxyGroup::from_country("Asia");
     let mut others = ProxyGroup::from_country("Other");
 
+    let asia_keyword = vec![
+        "越南",
+        "VN",
+        "泰国",
+        "TH",
+        "马来西亚",
+        "MY",
+        "印尼",
+        "印度尼西亚",
+        "ID",
+        "韩国",
+        "KR",
+        "PH",
+        "菲律宾",
+    ];
     for Proxy { name, .. } in proxies {
         if name.contains("德国") || name.contains("DE") {
             de.proxies.push(name.clone());
@@ -182,6 +195,9 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
         } else if name.contains("英国") || name.contains("UK") {
             uk.proxies.push(name.clone());
             continue;
+        } else if asia_keyword.iter().any(|k| name.as_str().contains(k)) {
+            asia.proxies.push(name.clone());
+            continue;
         } else if name.contains("剩余") || name.contains("到期") {
             continue;
         } else {
@@ -189,80 +205,64 @@ pub fn create_groups_by_country(proxies: &Vec<Proxy>) -> Vec<ProxyGroup> {
             continue;
         }
     }
-    let select = ProxyGroup {
-        name: "手动选择".to_string(),
-        r#type: "select".to_string(),
-        proxies: vec![
-            "Germany",
-            "Taiwan",
+    let base_proxies = vec![
             "Hong Kong",
+            "Taiwan",
             "Japan",
             "Singapore",
+            "Asia",
+            "Germany",
             "US",
             "UK",
             "Other",
-        ].iter().map(|s| s.to_string()).collect(),
+    ];
+    let select = ProxyGroup {
+        name: "手动选择".to_string(),
+        r#type: "select".to_string(),
+        proxies: base_proxies
+        .iter()
+        .map(|s| s.to_string())
+        .collect(),
         timeout: None,
         interval: None,
-        url:None,
+        url: None,
     };
     let ms = ProxyGroup {
         name: "Microsoft".to_string(),
         r#type: "select".to_string(),
-        proxies: vec![
-            "DIRECT",
-            "Germany",
-            "Taiwan",
-            "Hong Kong",
-            "Japan",
-            "Singapore",
-            "US",
-            "UK",
-            "Other",
-        ].iter().map(|s| s.to_string()).collect(),
+        proxies: std::iter::once("DIRECT")
+        .chain(base_proxies.clone().into_iter())
+        .map(|s| s.to_string())
+        .collect(),
         timeout: None,
         interval: None,
-                url:None,
-
+        url: None,
     };
     let apple = ProxyGroup {
         name: "Apple".to_string(),
         r#type: "select".to_string(),
-        proxies: vec![
-            "DIRECT",
-            "Germany",
-            "Taiwan",
-            "Hong Kong",
-            "Japan",
-            "Singapore",
-            "US",
-            "UK",
-            "Other",
-        ].iter().map(|s| s.to_string()).collect(),
+        proxies: std::iter::once("DIRECT")
+        .chain(base_proxies.clone().into_iter())
+        .map(|s| s.to_string())
+        .collect(),
         timeout: None,
         interval: None,
-                url:None,
-
+        url: None,
     };
     let google = ProxyGroup {
-        name: "Google".to_string(),
+        name: "AI".to_string(),
         r#type: "select".to_string(),
-        proxies: vec![
-            "Germany",
-            "Taiwan",
-            "Hong Kong",
-            "Japan",
-            "Singapore",
-            "US",
-            "UK",
-            "Other",
-        ].iter().map(|s| s.to_string()).collect(),
+        proxies: base_proxies
+        .iter()
+        .map(|s| s.to_string())
+        .collect(),
         timeout: None,
         interval: None,
-                url:None,
-
+        url: None,
     };
-    vec![select,google,ms,apple, de, tw, hk, jp, sg, us, uk, others]
+    vec![
+        select, google, ms, apple, tw, hk, jp, sg, asia, us, uk, de, others,
+    ]
 }
 #[cfg(test)]
 mod tests {

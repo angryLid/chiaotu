@@ -9,21 +9,18 @@ dns:
   listen: '0.0.0.0:1053'
 
   default-nameserver:
-  - 'https://120.53.53.53/dns-query'
-  - 'tls://223.5.5.5:853'
-  - '114.114.114.114'
-  - '119.29.29.29'
+  - 'tls://223.5.5.5:853' # aliyun
+  - '223.6.6.6' # aliyun
+  - 'https://120.53.53.53/dns-query' # tencent
+  - '119.29.29.29' # tencent
 
   nameserver:
-  - 'tls://223.5.5.5:853'
-  - 'tls://223.6.6.6:853'
-  - 'https://doh.pub/dns-query'
-  - 'https://dns.alidns.com/dns-query'
+  - system
   
   fallback:
-  - 'https://doh.pub/dns-query'
-  - 'https://dns.cloudflare.com/dns-query'
-  - 'https://doh.dns.sb/dns-query'
+  - '8.8.4.4'
+  - 'https://1.1.1.1/dns-query'
+  - '168.95.192.1'
 
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
@@ -142,3 +139,98 @@ proxies: []
 proxy-groups: []
 
 rules: []
+rule-providers:
+# 台湾相关流媒体
+  stream_tw_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/stream_tw.txt
+    path: ./sukkaw_ruleset/stream_tw_non_ip.txt
+
+  ai_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/ai.txt
+    path: ./sukkaw_ruleset/ai_non_ip.txt
+
+  apple_cdn:
+    type: http
+    behavior: domain
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/domainset/apple_cdn.txt
+    path: ./sukkaw_ruleset/apple_cdn.txt
+
+  apple_services:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/apple_services.txt
+    path: ./sukkaw_ruleset/apple_services.txt
+  
+  apple_cn_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/apple_cn.txt
+    path: ./sukkaw_ruleset/apple_cn_non_ip.txt
+
+  microsoft_cdn_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/microsoft_cdn.txt
+    path: ./sukkaw_ruleset/microsoft_cdn_non_ip.txt
+
+  microsoft_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/microsoft.txt
+    path: ./sukkaw_ruleset/microsoft_non_ip.txt
+  
+
+  lan_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/lan.txt
+    path: ./sukkaw_ruleset/lan_non_ip.txt
+
+  domestic_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/domestic.txt
+    path: ./sukkaw_ruleset/domestic_non_ip.txt
+  direct_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/direct.txt
+    path: ./sukkaw_ruleset/direct_non_ip.txt
+  global_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/global.txt
+    path: ./sukkaw_ruleset/global_non_ip.txt
+  domestic_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/ip/domestic.txt
+    path: ./sukkaw_ruleset/domestic_ip.txt

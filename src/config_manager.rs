@@ -2,13 +2,6 @@ use include_dir::{Dir, include_dir};
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
-use axum::{
-    http::{header, StatusCode},
-    response::Response,
-    routing::{get, Router},
-    serve,
-};
 
 static EMBEDDED_RESOURCES: Dir = include_dir!("resources");
 
@@ -77,6 +70,7 @@ fn copy_recursively(source: &Path, destination: &Path) -> Result<(), io::Error> 
 
 pub struct ConfigManager {
     config_dir: PathBuf,
+    clashx_meta_config_dir: Option<PathBuf>
 }
 
 impl ConfigManager {
@@ -88,7 +82,12 @@ impl ConfigManager {
             println!("Created config directory: {}", config_dir.display());
         }
 
-        let manager = ConfigManager { config_dir };
+        let clashx_meta_config_dir = Self::get_clashx_meta_config_dir();
+        let manager = ConfigManager { 
+            config_dir ,
+            clashx_meta_config_dir,
+        
+        };
 
         // Check if resources folder exists, if not extract embedded files
         let resources_dir = manager.config_dir.join("resources");
@@ -105,6 +104,16 @@ impl ConfigManager {
         })?;
 
         Ok(home_dir.join(".config").join("chiaotu"))
+    }
+
+    fn get_clashx_meta_config_dir() -> Option<PathBuf> {
+        // return ~/.config/clash.meta if the directory exists
+        let dir = dirs::home_dir();
+
+        match dir {
+            Some(d) => Some(d.join(".config").join("clash.meta")),
+            None => None
+        }
     }
 
     pub fn get_config_dir_path(&self) -> &Path {
@@ -274,16 +283,20 @@ impl ConfigManager {
 
         // save the content to the file
         fs::write(file_path, content)?;
-        fs::write("chiaotu.yaml", content)?;
+        if let Some(dir) = &self.clashx_meta_config_dir {
+            fs::write(dir.join("chiaotu.yaml"), content)?;
+        }
+        
         Ok(())
     }
 
     pub fn extract_resources(&self) -> Result<(), io::Error> {
-        // Create resources directory if it doesn't exist
+        // Create resources directory, deleting it first if it exists
         let resources_dir = self.config_dir.join("resources");
-        if !resources_dir.exists() {
-            fs::create_dir_all(&resources_dir)?;
+        if resources_dir.exists() {
+            fs::remove_dir_all(&resources_dir)?;
         }
+        fs::create_dir_all(&resources_dir)?;
 
         // Try to extract embedded resources first (for distributed binary)
         if !EMBEDDED_RESOURCES.entries().is_empty() {
