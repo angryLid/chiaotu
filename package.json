@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "scripts": {
     "start": "ts-node src/index.ts"
   },
@@ -17,8 +21,8 @@
     "url": "https://github.com/angryLid/chiaotu/issues"
   },
   "homepage": "https://github.com/angryLid/chiaotu#readme",
-  "dependencies": {},
   "devDependencies": {
+    "@biomejs/biome": "2.3.8",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
