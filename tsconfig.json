@@ -1,45 +1,33 @@
 {
   "compilerOptions": {
-    /* 基本选项 */
-    "target": "ES2020",
-    "module": "CommonJS", // 或者使用 "NodeNext" / "Node16"
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "node",
     "rootDir": "./src",
     "outDir": "./dist",
-
-    /* 模块解析 */
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-
-    /* 严格性和类型检查 */
-    "strict": true,                         /* 启用所有严格检查，这是核心！ */
-    "skipLibCheck": false,                  /* 严格检查依赖库的类型定义 */
-    "noImplicitReturns": true,              /* 确保所有代码路径都有返回值 */
-    "noUnusedLocals": true,                 /* 警告未使用的局部变量 */
-    "noUnusedParameters": true,             /* 警告未使用的函数参数 */
-    "noFallthroughCasesInSwitch": true,     /* 阻止 switch 语句穿透 */
-    
-    /* 其他选项 */
-    "declaration": true,                    /* 如果要发布库，生成 .d.ts 文件 */
-    "sourceMap": true,                      /* 生成源映射文件，便于调试 */
-    "isolatedModules": true,                /* 帮助确保代码与 Babel/esbuild 兼容 */
-    // 1. 设置基准路径 (Base URL)
-    // 告诉 TypeScript 从哪个目录开始解析相对导入。
-    // 在大多数 Node.js 项目中，这应该设置为项目根目录。
-    "baseUrl": ".", 
-
-    // 2. 定义路径映射 (Path Mapping)
+    "strict": true,
+    "skipLibCheck": false,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "declaration": true,
+    "sourceMap": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
     "paths": {
-      // 定义别名 "~/*" 映射到 "./src/*"
-      // "/*" 表示通配符，例如：
-      // 导入 '~/utils/logger' 就会被解析为 './src/utils/logger'
-      "~/*": ["./src/*"] 
+      "~/*": [
+        "./src/*"
+      ]
     },
-    
-    /* 模块解析配置 */
-    // Node.js 环境中需要确保这些选项正确设置，以便路径映射能生效
-    "moduleResolution": "node", // 或 "NodeNext", "Bundler" 等
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
