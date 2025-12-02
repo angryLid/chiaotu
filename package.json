@@ -30,6 +30,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "minimist": "^1.2.8"
+    "minimist": "^1.2.8",
+    "zod": "^4.1.13"
   }
 }

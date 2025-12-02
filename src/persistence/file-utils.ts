@@ -15,6 +15,14 @@ function resolvePath(filePath: string): string {
 	return filePath;
 }
 
+async function ensureFileExists(filePath: string): Promise<void> {
+	try {
+		await fs.access(filePath);
+	} catch {
+		await writeFile(filePath, "{}");
+	}
+}
+
 export async function saveFile(filePath: string, destination: string) {
 	const resolvedSourcePath = resolvePath(filePath);
 	const resolvedDestinationPath = resolvePath(destination);
@@ -54,6 +62,29 @@ export async function writeFile(filePath: string, content: string) {
 		// Write content to file
 		await fs.writeFile(resolvedPath, content, "utf8");
 	} catch (error) {
-		throw new GenericIOError(`Failed to write file: ${resolvedPath}`, { cause: error });
+		throw new GenericIOError(`Failed to write file: ${resolvedPath}`, {
+			cause: error,
+		});
+	}
+}
+
+export async function readFile(
+	filePath: string,
+	autoCreate = true,
+): Promise<string> {
+	const resolvedPath = resolvePath(filePath);
+
+	if (autoCreate) {
+		await ensureFileExists(resolvedPath);
+	}
+
+	try {
+		// Read file content as string
+		const content = await fs.readFile(resolvedPath, "utf8");
+		return content;
+	} catch (error) {
+		throw new GenericIOError(`Failed to read file: ${resolvedPath}`, {
+			cause: error,
+		});
 	}
 }
