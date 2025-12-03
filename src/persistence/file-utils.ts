@@ -88,3 +88,70 @@ export async function readFile(
 		});
 	}
 }
+
+/**
+ * Retrieves all files with a specific extension from a directory and its subdirectories.
+ *
+ * This function recursively searches through the specified directory and all its subdirectories
+ * to find files that match the given extension. It returns an array of full file paths
+ * for all matching files found.
+ *
+ * @param directoryPath - The path to the directory to search for files. Can be relative or absolute.
+ * @param extensionName - The file extension to search for (e.g., "yaml", "json", "txt").
+ *                       Should not include the dot prefix (e.g., use "yaml", not ".yaml").
+ * @returns A Promise that resolves to an array of strings, where each string is the full path
+ *          to a file with the specified extension.
+ *
+ * @throws {GenericIOError} If the directory cannot be accessed or read.
+ *
+ * @example
+ * // Get all YAML files in the current directory
+ * const yamlFiles = await selectAllFiles("./config", "yaml");
+ * console.log(yamlFiles); // ["./config/settings.yaml", "./config/database.yaml"]
+ *
+ * @example
+ * // Get all JSON files in the documents directory
+ * const jsonFiles = await selectAllFiles("~/Documents", "json");
+ * console.log(jsonFiles); // ["/Users/username/Documents/data.json", "/Users/username/Documents/config.json"]
+ */
+export async function selectAllFiles(
+	directoryPath: string,
+	extensionName: string,
+): Promise<string[]> {
+	const resolvedPath = resolvePath(directoryPath);
+
+	// Normalize extension to remove leading dot if present
+	const normalizedExtension = extensionName.startsWith(".")
+		? extensionName.slice(1)
+		: extensionName;
+
+	const matchingFiles: string[] = [];
+
+	async function scanDirectory(currentPath: string): Promise<void> {
+		try {
+			const entries = await fs.readdir(currentPath, { withFileTypes: true });
+
+			for (const entry of entries) {
+				const fullPath = path.join(currentPath, entry.name);
+
+				if (entry.isDirectory()) {
+					// Recursively scan subdirectories
+					await scanDirectory(fullPath);
+				} else if (entry.isFile()) {
+					// Check if file has the correct extension
+					const fileExtension = path.extname(entry.name).slice(1);
+					if (fileExtension === normalizedExtension) {
+						matchingFiles.push(fullPath);
+					}
+				}
+			}
+		} catch (error) {
+			throw new GenericIOError(`Failed to read directory: ${currentPath}`, {
+				cause: error,
+			});
+		}
+	}
+
+	await scanDirectory(resolvedPath);
+	return matchingFiles;
+}

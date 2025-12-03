@@ -5,6 +5,10 @@ import { readFile, writeFile } from "./file-utils";
 let configuration = {} as Configuration;
 
 export const store = {
+	get state() {
+		return { configuration };
+	},
+
 	set(set: (conf: Configuration) => void) {
 		set(configuration);
 	},

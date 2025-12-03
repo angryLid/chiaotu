@@ -22,5 +22,8 @@ const baseDir = await initBaseDir();
 
 export const address = {
 	preset: path.join(baseDir, "presets"),
+	cache: path.join(baseDir, "cache"),
 	configuration: path.join(baseDir, "configuration.json"),
+	template: path.join(baseDir, "templates", "base.yaml"),
+	result: path.join(baseDir, "results"),
 };
