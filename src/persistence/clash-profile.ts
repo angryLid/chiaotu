@@ -94,7 +94,7 @@ export const ClashProfileSchema = z
 		 * These groups organize proxies for different purposes (e.g., based on regions, protocols, or priorities).
 		 * Note: Field renamed from "proxy_groups" to match TypeScript convention.
 		 */
-		"proxy-groups": z.array(z.unknown()),
+		"proxy-groups": z.array(ProxyGroupSchema),
 
 		/**
 		 * Array of routing rules that determine how traffic should be handled.

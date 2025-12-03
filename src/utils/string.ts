@@ -6,11 +6,6 @@
 export function getFilenameFromContentDisposition(
 	contentDisposition: string,
 ): string | null {
-	console.debug(
-		"%c [contentDisposition]:",
-		"background:linear-gradient(#69c,#258, #69c);color:#fff;font-size:14px",
-		contentDisposition,
-	);
 	const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
 	const match = contentDisposition.match(filenameRegex);
 	if (match?.[1]) {

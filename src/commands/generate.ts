@@ -33,7 +33,7 @@ export async function commandGenerate(skipDownload = false) {
 		proxies.push(
 			...profile.proxies.map(({ name, ...rest }) => ({
 				name: `${name}@..${filePath.slice(-7, -5)}`,
-				rest,
+				...rest,
 			})),
 		);
 	}
@@ -42,15 +42,19 @@ export async function commandGenerate(skipDownload = false) {
 		({ name }) => !name.includes("剩余") && !name.includes("到期"),
 	);
 
-	const group = createGroupsByCountry(filteredProxies);
-
 	baseProfile.proxies = filteredProxies;
-	baseProfile["proxy-groups"] = group;
+	baseProfile["proxy-groups"] = createGroupsByCountry(baseProfile.proxies);
 
-	await writeFile(
-		path.join(address.result, `${formatTimestamp()}.yaml`),
-		yaml.dump(baseProfile, { flowLevel: 2, indent: 2, lineWidth: 80 }),
-	);
+	await overwriteProfileMutation(baseProfile);
+
+	const dump = yaml.dump(baseProfile, {
+		flowLevel: 2,
+		indent: 2,
+		lineWidth: 80,
+	});
+
+	writeFile(path.join(address.result, `${formatTimestamp()}.yaml`), dump);
+	writeFile(path.join(address.clashMeta, `chiaotu.yaml`), dump);
 }
 
 /**
@@ -62,86 +66,44 @@ export async function commandGenerate(skipDownload = false) {
  * @returns Array of proxy groups categorized by country/region and service
  */
 function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
-	const de: ProxyGroup = {
-		name: "Germany",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600, // 60 * 60 seconds
-		url: "https://www.gstatic.com/generate_204",
-	};
+	/**
+	 * Helper function to create a standard url-test group
+	 */
+	function createUrlTestGroup(name: string): ProxyGroup {
+		return {
+			name,
+			type: "url-test",
+			proxies: [],
+			timeout: undefined,
+			interval: 3600, // 60 * 60 seconds
+			url: "https://www.gstatic.com/generate_204",
+		};
+	}
 
-	const tw: ProxyGroup = {
-		name: "Taiwan",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
+	/**
+	 * Helper function to create a select group with specified proxies
+	 */
+	function createSelectGroup(name: string, proxies: string[]): ProxyGroup {
+		return {
+			name,
+			type: "select",
+			proxies,
+			timeout: undefined,
+			interval: undefined,
+			url: undefined,
+		};
+	}
 
-	const hk: ProxyGroup = {
-		name: "Hong Kong",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
-
-	const jp: ProxyGroup = {
-		name: "Japan",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
-
-	const sg: ProxyGroup = {
-		name: "Singapore",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
-
-	const us: ProxyGroup = {
-		name: "US",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
-
-	const uk: ProxyGroup = {
-		name: "UK",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
-
-	const asia: ProxyGroup = {
-		name: "Asia",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
-
-	const others: ProxyGroup = {
-		name: "Other",
-		type: "url-test",
-		proxies: [],
-		timeout: undefined,
-		interval: 3600,
-		url: "https://www.gstatic.com/generate_204",
-	};
+	// Regional proxy groups
+	const de = createUrlTestGroup("Germany");
+	const tw = createUrlTestGroup("Taiwan");
+	const hk = createUrlTestGroup("Hong Kong");
+	const jp = createUrlTestGroup("Japan");
+	const sg = createUrlTestGroup("Singapore");
+	const us = createUrlTestGroup("US");
+	const uk = createUrlTestGroup("UK");
+	const asia = createUrlTestGroup("Asia");
+	const others = createUrlTestGroup("Other");
 
 	const asiaKeywords = [
 		"越南",
@@ -195,42 +157,12 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 		"Other",
 	];
 
-	const select: ProxyGroup = {
-		name: "手动选择",
-		type: "select",
-		proxies: baseProxies,
-		timeout: undefined,
-		interval: undefined,
-		url: undefined,
-	};
-
-	const ms: ProxyGroup = {
-		name: "Microsoft",
-		type: "select",
-		proxies: ["DIRECT", ...baseProxies],
-		timeout: undefined,
-		interval: undefined,
-		url: undefined,
-	};
-
-	const apple: ProxyGroup = {
-		name: "Apple",
-		type: "select",
-		proxies: ["DIRECT", ...baseProxies],
-		timeout: undefined,
-		interval: undefined,
-		url: undefined,
-	};
-
-	const google: ProxyGroup = {
-		name: "AI",
-		type: "select",
-		proxies: baseProxies.slice(),
-		timeout: undefined,
-		interval: undefined,
-		url: undefined,
-	};
-
+	// Special service groups
+	const select = createSelectGroup("手动选择", baseProxies);
+	const ms = createSelectGroup("Microsoft", ["DIRECT", ...baseProxies]);
+	const apple = createSelectGroup("Apple", ["DIRECT", ...baseProxies]);
+	const google = createSelectGroup("AI", baseProxies.slice());
+	// Return groups in the preferred order
 	return [select, google, ms, apple, tw, hk, jp, sg, asia, us, uk, de, others];
 }
 
@@ -296,5 +228,28 @@ async function download() {
 		throw new GenericIOError(`${errors.length} downloads failed`, {
 			cause: errors,
 		});
+	}
+}
+
+async function overwriteProfileMutation(profile: ClashProfile) {
+	const filePathList = await selectAllFiles(address.preset, "yaml");
+
+	const proxies: ClashProfile["proxies"] = [];
+
+	for (const filePath of filePathList) {
+		const fileContent = await readFile(filePath);
+		const rawProfile = yaml.load(fileContent);
+		const profile = ClashProfileSchema.parse(rawProfile);
+		proxies.push(...profile.proxies);
+	}
+
+	const proxyNames = proxies.map(({ name }) => name);
+
+	profile.proxies = [...proxies, ...profile.proxies];
+
+	for (const g of profile["proxy-groups"]) {
+		if (g.type === "select") {
+			g.proxies = [...g.proxies, ...proxyNames];
+		}
 	}
 }
