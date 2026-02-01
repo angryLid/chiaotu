@@ -16,6 +16,11 @@ import {
 } from "~/utils/string";
 
 const USER_AGENT = "ClashMetaForAndroid/2.11.19";
+
+function nameTransform(name: string, vendorName: string): string {
+	return `${name}@..${vendorName.slice(-7, -5)}`;
+}
+
 export async function commandGenerate(skipDownload = false) {
 	if (!skipDownload) {
 		await download();
@@ -26,24 +31,34 @@ export async function commandGenerate(skipDownload = false) {
 	const filePathList = await selectAllFiles(address.cache, "yaml");
 
 	const proxies: ClashProfile["proxies"] = [];
+	const groupsByVendors: ClashProfile["proxy-groups"] = [];
 	for (const filePath of filePathList) {
 		const fileContent = await readFile(filePath);
 		const rawProfile = yaml.load(fileContent);
 		const profile = ClashProfileSchema.parse(rawProfile);
+
+		const filteredProxies = profile.proxies.filter(
+			({ name }) => !name.includes("剩余") && !name.includes("到期"),
+		);
+
 		proxies.push(
-			...profile.proxies.map(({ name, ...rest }) => ({
-				name: `${name}@..${filePath.slice(-7, -5)}`,
+			...filteredProxies.map(({ name, ...rest }) => ({
+				name: nameTransform(name, filePath),
 				...rest,
 			})),
 		);
+		groupsByVendors.push({
+			name: `#${filePath.slice(-7, -5)}`,
+			type: "select",
+			proxies: filteredProxies.map(({ name }) => nameTransform(name, filePath)),
+		});
 	}
 
-	const filteredProxies = proxies.filter(
-		({ name }) => !name.includes("剩余") && !name.includes("到期"),
-	);
-
-	baseProfile.proxies = filteredProxies;
-	baseProfile["proxy-groups"] = createGroupsByCountry(baseProfile.proxies);
+	baseProfile.proxies = proxies;
+	baseProfile["proxy-groups"] = [
+		...groupsByVendors,
+		...createGroupsByCountry(baseProfile.proxies),
+	];
 
 	await overwriteProfileMutation(baseProfile);
 
@@ -150,11 +165,11 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 		"Taiwan",
 		"Japan",
 		"Singapore",
-		"Asia",
+		// "Asia",
 		"Germany",
-		"US",
-		"UK",
-		"Other",
+		// "US",
+		// "UK",
+		// "Other",
 	];
 
 	// Special service groups
@@ -163,7 +178,18 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 	const apple = createSelectGroup("Apple", ["DIRECT", ...baseProxies]);
 	const google = createSelectGroup("AI", baseProxies.slice());
 	// Return groups in the preferred order
-	return [select, google, ms, apple, tw, hk, jp, sg, asia, us, uk, de, others];
+	return [
+		select,
+		google,
+		ms,
+		apple,
+		tw,
+		hk,
+		jp,
+		sg,
+		de,
+		// asia, us, uk, others
+	];
 }
 
 async function download() {
