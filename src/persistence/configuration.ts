@@ -4,6 +4,14 @@ import { ConfigurationError } from "../errors/configuration-error";
 export const ConfigurationSchema = z.object({
 	// An array of URL, can be empty
 	upstreams: z.array(z.url("Each upstream must be a valid URL")).default([]),
+	subscriptions: z.array(
+		z.object({
+			link: z.string(),
+			name: z.string(),
+			updatedTime: z.date(),
+			content: z.string(),
+		}),
+	),
 });
 
 export type Configuration = z.infer<typeof ConfigurationSchema>;

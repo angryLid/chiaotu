@@ -1,5 +1,6 @@
 import path from "node:path";
 import yaml from "js-yaml";
+import { USER_AGENT } from "~/constants";
 import { GenericIOError } from "~/errors/generic-io-error";
 import { address } from "~/persistence/address";
 import {
@@ -14,8 +15,6 @@ import {
 	formatTimestamp,
 	getFilenameFromContentDisposition,
 } from "~/utils/string";
-
-const USER_AGENT = "ClashMetaForAndroid/2.11.19";
 
 function nameTransform(name: string, vendorName: string): string {
 	return `${name}@..${vendorName.slice(-7, -5)}`;

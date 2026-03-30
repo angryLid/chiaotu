@@ -15,6 +15,7 @@ export const store = {
 
 	async load() {
 		const content = await readFile(address.configuration);
+
 		configuration = validateConfiguration(JSON.parse(content));
 	},
 
@@ -22,10 +23,15 @@ export const store = {
 		writeFile(address.configuration, JSON.stringify(configuration));
 	},
 
-	async guard(main: () => void) {
+	async guard(main: () => Promise<void>) {
 		try {
 			await this.load();
-			main();
+		} catch (err) {
+			console.error(err);
+		}
+
+		try {
+			await main();
 		} catch (err) {
 			console.error(err);
 		} finally {
