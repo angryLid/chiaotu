@@ -1,192 +1,25 @@
 import path from "node:path";
-import yaml from "js-yaml";
-import { euRegExp, flagRegExp, USER_AGENT } from "~/constants";
+import { USER_AGENT } from "~/constants";
 import { GenericIOError } from "~/errors/generic-io-error";
 import { address } from "~/persistence/address";
-import {
-	type ClashProfile,
-	ClashProfileSchema,
-	type Proxy as IProxy,
-	type ProxyGroup,
-} from "~/persistence/clash-profile";
-import { readFile, selectAllFiles, writeFile } from "~/persistence/file-utils";
+import { writeFile } from "~/persistence/file-utils";
 import { store } from "~/persistence/store";
+import { produce } from "~/utils/produce";
+
 import {
 	formatTimestamp,
 	getFilenameFromContentDisposition,
-	getFlagByNodeName,
 } from "~/utils/string";
-
-function nameTransform(name: string, vendorName: string): string {
-	return `${name}@..${vendorName.slice(-7, -5)}`;
-}
 
 export async function commandGenerate(skipDownload = true) {
 	if (!skipDownload) {
 		await download();
 	}
 
-	const baseTmpl = await readFile(address.template);
-	const baseProfile = ClashProfileSchema.parse(yaml.load(baseTmpl));
-	const filePathList = await selectAllFiles(address.cache, "yaml");
-
-	const proxies: ClashProfile["proxies"] = [];
-	const groupsByVendors: ClashProfile["proxy-groups"] = [];
-	for (const fileContent of store.state.configuration.subscriptions) {
-		const rawProfile = yaml.load(fileContent.content);
-		const profile = ClashProfileSchema.parse(rawProfile);
-
-		const filteredProxies = profile.proxies.filter(
-			({ name }) => !name.includes("剩余") && !name.includes("到期"),
-		);
-
-		for (const p of filteredProxies) {
-			if (!flagRegExp.test(p.name)) {
-				p.name = `${getFlagByNodeName(p.name)} ${p.name}`;
-			}
-		}
-
-		proxies.push(...filteredProxies);
-		groupsByVendors.push({
-			name: `✈️${fileContent.name}`,
-			type: "select",
-			proxies: filteredProxies.map(({ name }) => name),
-		});
-	}
-
-	baseProfile.proxies = proxies;
-	baseProfile["proxy-groups"] = [
-		...groupsByVendors,
-		...createGroupsByCountry(
-			baseProfile.proxies,
-			groupsByVendors.map(({ name }) => name),
-		),
-	];
-
-	// await overwriteProfileMutation(baseProfile);
-
-	const dump = yaml.dump(baseProfile, {
-		flowLevel: 2,
-		indent: 2,
-		lineWidth: 80,
-	});
+	const dump = await produce();
 
 	writeFile(path.join(address.result, `${formatTimestamp()}.yaml`), dump);
 	writeFile(path.join(address.clashMeta, `chiaotu.yaml`), dump);
-}
-
-/**
- * Creates proxy groups organized by country/region based on proxy names.
- * This function categorizes proxies into regional groups and creates special
- * purpose groups for different services.
- *
- * @param proxies - Array of proxy objects to organize
- * @returns Array of proxy groups categorized by country/region and service
- */
-function createGroupsByCountry(
-	proxies: Array<IProxy>,
-	proxyGroupName: Array<string>,
-): ProxyGroup[] {
-	/**
-	 * Helper function to create a standard url-test group
-	 */
-	function createUrlTestGroup(name: string): ProxyGroup {
-		return {
-			name,
-			type: "select",
-			proxies: [],
-			timeout: undefined,
-			interval: 3600, // 60 * 60 seconds
-			url: "https://www.gstatic.com/generate_204",
-		};
-	}
-
-	/**
-	 * Helper function to create a select group with specified proxies
-	 */
-	function createSelectGroup(name: string, proxies: string[]): ProxyGroup {
-		return {
-			name,
-			type: "select",
-			proxies,
-			timeout: undefined,
-			interval: undefined,
-			url: undefined,
-		};
-	}
-
-	const areas = ["🇭🇰 Hong Kong", "🇼🇸 Taiwan", "🇯🇵 Japan", "🇪🇺 Europe"];
-	// Regional proxy groups
-
-	const [hk, tw, jp, eu] = areas.map((a) => createUrlTestGroup(a));
-
-	const sg = createUrlTestGroup("Singapore");
-	const us = createUrlTestGroup("US");
-	const uk = createUrlTestGroup("UK");
-	const asia = createUrlTestGroup("Asia");
-	const others = createUrlTestGroup("Other");
-
-	const asiaKeywords = [
-		"越南",
-		"VN",
-		"泰国",
-		"TH",
-		"马来西亚",
-		"MY",
-		"印尼",
-		"印度尼西亚",
-		"ID",
-		"韩国",
-		"KR",
-		"PH",
-		"菲律宾",
-	];
-
-	for (const proxy of proxies) {
-		const name = proxy.name as string;
-
-		if (euRegExp.test(name)) {
-			eu.proxies.push(name);
-		} else if (name.includes("台湾") || name.includes("TW")) {
-			tw.proxies.push(name);
-		} else if (name.includes("香港") || name.includes("HK")) {
-			hk.proxies.push(name);
-		} else if (name.includes("日本") || name.includes("JP")) {
-			jp.proxies.push(name);
-		} else if (name.includes("新加坡") || name.includes("SG")) {
-			sg.proxies.push(name);
-		} else if (name.includes("美国") || name.includes("US")) {
-			us.proxies.push(name);
-		} else if (name.includes("英国") || name.includes("UK")) {
-			uk.proxies.push(name);
-		} else if (asiaKeywords.some((keyword) => name.includes(keyword))) {
-			asia.proxies.push(name);
-		} else {
-			others.proxies.push(name);
-		}
-	}
-
-	const baseProxies = [...areas, ...proxyGroupName];
-
-	// Special service groups
-	const select = createSelectGroup("🌐 手动选择", baseProxies);
-	const ms = createSelectGroup("🟦 Microsoft", ["DIRECT", ...baseProxies]);
-	const apple = createSelectGroup("🍎 Apple", ["DIRECT", ...baseProxies]);
-	const google = createSelectGroup("🤖 AI", baseProxies.slice());
-	// Return groups in the preferred order
-	eu.proxies.sort();
-	return [
-		select,
-		google,
-		ms,
-		apple,
-		tw,
-		hk,
-		jp,
-		// sg,
-		eu,
-		// asia, us, uk, others
-	];
 }
 
 async function download() {
@@ -251,28 +84,5 @@ async function download() {
 		throw new GenericIOError(`${errors.length} downloads failed`, {
 			cause: errors,
 		});
-	}
-}
-
-async function overwriteProfileMutation(profile: ClashProfile) {
-	const filePathList = await selectAllFiles(address.preset, "yaml");
-
-	const proxies: ClashProfile["proxies"] = [];
-
-	for (const filePath of filePathList) {
-		const fileContent = await readFile(filePath);
-		const rawProfile = yaml.load(fileContent);
-		const profile = ClashProfileSchema.parse(rawProfile);
-		proxies.push(...profile.proxies);
-	}
-
-	const proxyNames = proxies.map(({ name }) => name);
-
-	profile.proxies = [...proxies, ...profile.proxies];
-
-	for (const g of profile["proxy-groups"]) {
-		if (g.type === "select") {
-			g.proxies = [...g.proxies, ...proxyNames];
-		}
 	}
 }
