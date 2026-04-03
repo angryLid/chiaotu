@@ -57,10 +57,13 @@ export async function commandGenerate(skipDownload = true) {
 	baseProfile.proxies = proxies;
 	baseProfile["proxy-groups"] = [
 		...groupsByVendors,
-		...createGroupsByCountry(baseProfile.proxies),
+		...createGroupsByCountry(
+			baseProfile.proxies,
+			groupsByVendors.map(({ name }) => name),
+		),
 	];
 
-	await overwriteProfileMutation(baseProfile);
+	// await overwriteProfileMutation(baseProfile);
 
 	const dump = yaml.dump(baseProfile, {
 		flowLevel: 2,
@@ -80,7 +83,10 @@ export async function commandGenerate(skipDownload = true) {
  * @param proxies - Array of proxy objects to organize
  * @returns Array of proxy groups categorized by country/region and service
  */
-function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
+function createGroupsByCountry(
+	proxies: Array<IProxy>,
+	proxyGroupName: Array<string>,
+): ProxyGroup[] {
 	/**
 	 * Helper function to create a standard url-test group
 	 */
@@ -109,11 +115,11 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 		};
 	}
 
+	const areas = ["🇭🇰 Hong Kong", "🇼🇸 Taiwan", "🇯🇵 Japan", "🇪🇺 Europe"];
 	// Regional proxy groups
-	const eu = createUrlTestGroup("Europe");
-	const tw = createUrlTestGroup("Taiwan");
-	const hk = createUrlTestGroup("Hong Kong");
-	const jp = createUrlTestGroup("Japan");
+
+	const [hk, tw, jp, eu] = areas.map((a) => createUrlTestGroup(a));
+
 	const sg = createUrlTestGroup("Singapore");
 	const us = createUrlTestGroup("US");
 	const uk = createUrlTestGroup("UK");
@@ -160,17 +166,7 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 		}
 	}
 
-	const baseProxies = [
-		"Hong Kong",
-		"Taiwan",
-		// "Japan",
-		// "Singapore",
-		// "Asia",
-		"Europe",
-		// "US",
-		// "UK",
-		// "Other",
-	];
+	const baseProxies = [...areas, ...proxyGroupName];
 
 	// Special service groups
 	const select = createSelectGroup("手动选择", baseProxies);

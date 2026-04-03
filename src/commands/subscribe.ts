@@ -14,13 +14,29 @@ export async function addSubscription(link: string) {
 		},
 	});
 
-	const contentDisposition = response.headers.get("Content-Disposition");
+	const name = resolveName(
+		() => {
+			const contentDisposition = response.headers.get("Content-Disposition");
+			if (!contentDisposition) {
+				throw new Error("No filename found in Content-Disposition header");
+			}
 
-	if (!contentDisposition) {
-		throw new Error("No filename found in Content-Disposition header");
-	}
-
-	const name = getFilenameFromContentDisposition(contentDisposition);
+			const name = getFilenameFromContentDisposition(contentDisposition);
+			if (name) {
+				return name;
+			} else {
+				throw new Error("Failed to resolve name");
+			}
+		},
+		() => {
+			const name = link.split("/").pop()?.split(".").shift();
+			if (name) {
+				return name;
+			} else {
+				throw new Error("Failed to resolve name from link");
+			}
+		},
+	);
 
 	if (!name) {
 		throw new Error("Failed to parse Content-Disposition");
@@ -52,4 +68,16 @@ export function list() {
 	console.table(
 		subscriptions.map(({ content, link, ...rest }) => ({ ...rest })),
 	);
+}
+
+function resolveName(...args: Array<() => string>) {
+	const resolveErr = new Error("Failed to resolve name");
+	for (const fn of args) {
+		try {
+			return fn();
+		} catch (err) {
+			resolveErr.cause = err;
+		}
+	}
+	throw resolveErr;
 }
