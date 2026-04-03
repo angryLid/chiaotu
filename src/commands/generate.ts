@@ -1,6 +1,6 @@
 import path from "node:path";
 import yaml from "js-yaml";
-import { USER_AGENT } from "~/constants";
+import { euRegExp, flagRegExp, USER_AGENT } from "~/constants";
 import { GenericIOError } from "~/errors/generic-io-error";
 import { address } from "~/persistence/address";
 import {
@@ -14,13 +14,14 @@ import { store } from "~/persistence/store";
 import {
 	formatTimestamp,
 	getFilenameFromContentDisposition,
+	getFlagByNodeName,
 } from "~/utils/string";
 
 function nameTransform(name: string, vendorName: string): string {
 	return `${name}@..${vendorName.slice(-7, -5)}`;
 }
 
-export async function commandGenerate(skipDownload = false) {
+export async function commandGenerate(skipDownload = true) {
 	if (!skipDownload) {
 		await download();
 	}
@@ -31,25 +32,25 @@ export async function commandGenerate(skipDownload = false) {
 
 	const proxies: ClashProfile["proxies"] = [];
 	const groupsByVendors: ClashProfile["proxy-groups"] = [];
-	for (const filePath of filePathList) {
-		const fileContent = await readFile(filePath);
-		const rawProfile = yaml.load(fileContent);
+	for (const fileContent of store.state.configuration.subscriptions) {
+		const rawProfile = yaml.load(fileContent.content);
 		const profile = ClashProfileSchema.parse(rawProfile);
 
 		const filteredProxies = profile.proxies.filter(
 			({ name }) => !name.includes("剩余") && !name.includes("到期"),
 		);
 
-		proxies.push(
-			...filteredProxies.map(({ name, ...rest }) => ({
-				name: nameTransform(name, filePath),
-				...rest,
-			})),
-		);
+		for (const p of filteredProxies) {
+			if (!flagRegExp.test(p.name)) {
+				p.name = `${getFlagByNodeName(p.name)} ${p.name}`;
+			}
+		}
+
+		proxies.push(...filteredProxies);
 		groupsByVendors.push({
-			name: `#${filePath.slice(-7, -5)}`,
+			name: `✈️${fileContent.name}`,
 			type: "select",
-			proxies: filteredProxies.map(({ name }) => nameTransform(name, filePath)),
+			proxies: filteredProxies.map(({ name }) => name),
 		});
 	}
 
@@ -86,7 +87,7 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 	function createUrlTestGroup(name: string): ProxyGroup {
 		return {
 			name,
-			type: "url-test",
+			type: "select",
 			proxies: [],
 			timeout: undefined,
 			interval: 3600, // 60 * 60 seconds
@@ -109,7 +110,7 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 	}
 
 	// Regional proxy groups
-	const de = createUrlTestGroup("Germany");
+	const eu = createUrlTestGroup("Europe");
 	const tw = createUrlTestGroup("Taiwan");
 	const hk = createUrlTestGroup("Hong Kong");
 	const jp = createUrlTestGroup("Japan");
@@ -138,8 +139,8 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 	for (const proxy of proxies) {
 		const name = proxy.name as string;
 
-		if (name.includes("德国") || name.includes("DE")) {
-			de.proxies.push(name);
+		if (euRegExp.test(name)) {
+			eu.proxies.push(name);
 		} else if (name.includes("台湾") || name.includes("TW")) {
 			tw.proxies.push(name);
 		} else if (name.includes("香港") || name.includes("HK")) {
@@ -162,10 +163,10 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 	const baseProxies = [
 		"Hong Kong",
 		"Taiwan",
-		"Japan",
-		"Singapore",
+		// "Japan",
+		// "Singapore",
 		// "Asia",
-		"Germany",
+		"Europe",
 		// "US",
 		// "UK",
 		// "Other",
@@ -185,8 +186,8 @@ function createGroupsByCountry(proxies: Array<IProxy>): ProxyGroup[] {
 		tw,
 		hk,
 		jp,
-		sg,
-		de,
+		// sg,
+		eu,
 		// asia, us, uk, others
 	];
 }

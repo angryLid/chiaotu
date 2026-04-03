@@ -48,3 +48,36 @@ export function formatTimestamp(timestamp?: number): string {
 
 	return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
 }
+
+/**
+ * Get flag emoji by matching keywords in node names
+ * @param {string} nodeName - The proxy node name
+ * @returns {string} The matched flag emoji or empty string
+ */
+export function getFlagByNodeName(nodeName: string) {
+	const flagMap = {
+		日本: "🇯🇵",
+		新加坡: "🇸🇬",
+		香港: "🇭🇰",
+		韩国: "🇰🇷",
+		印度: "🇮🇳",
+		台湾: "🇼🇸",
+		美国: "🇺🇸",
+		加拿大: "🇨🇦",
+		德国: "🇩🇪",
+		英国: "🇬🇧",
+		越南: "🇻🇳",
+		俄罗斯: "🇷🇺",
+		乌克兰: "🇺🇦",
+		土耳其: "🇹🇷",
+		尼日利亚: "🇳🇬",
+	};
+
+	for (const [name, flag] of Object.entries(flagMap)) {
+		if (nodeName.includes(name)) {
+			return flag;
+		}
+	}
+
+	return "";
+}

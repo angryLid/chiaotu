@@ -19,7 +19,7 @@ store.guard(async () => {
 		case "g":
 		case "generate": {
 			const skipDownload = argv["s"] || argv["skip-download"];
-			commandGenerate(skipDownload);
+			commandGenerate(true);
 			break;
 		}
 
