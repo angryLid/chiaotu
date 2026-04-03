@@ -2,7 +2,10 @@ import { address } from "./address";
 import { type Configuration, validateConfiguration } from "./configuration";
 import { readFile, writeFile } from "./file-utils";
 
-let configuration = {} as Configuration;
+let configuration: Configuration = {
+	upstreams: [],
+	subscriptions: [],
+};
 
 export const store = {
 	get state() {
@@ -26,11 +29,6 @@ export const store = {
 	async guard(main: () => Promise<void>) {
 		try {
 			await this.load();
-		} catch (err) {
-			console.error(err);
-		}
-
-		try {
 			await main();
 		} catch (err) {
 			console.error(err);

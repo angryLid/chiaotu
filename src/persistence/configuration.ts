@@ -8,7 +8,7 @@ export const ConfigurationSchema = z.object({
 		z.object({
 			link: z.string(),
 			name: z.string(),
-			updatedTime: z.date(),
+			updatedTime: z.coerce.date(),
 			content: z.string(),
 		}),
 	),

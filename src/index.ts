@@ -1,7 +1,7 @@
 import minimist from "minimist";
 import { commandAdd } from "./commands/add";
 import { commandGenerate } from "./commands/generate";
-import { addSubscription } from "./commands/subscribe";
+import { addSubscription, list } from "./commands/subscribe";
 import { store } from "./persistence/store";
 
 store.guard(async () => {
@@ -25,7 +25,11 @@ store.guard(async () => {
 
 		case "s":
 		case "subscribe": {
-			await addSubscription(argv._[1]);
+			if (argv["l"] || argv["list"]) {
+				list();
+			} else {
+				await addSubscription(argv._[1]);
+			}
 			break;
 		}
 	}

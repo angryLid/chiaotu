@@ -45,3 +45,11 @@ export async function addSubscription(link: string) {
 		}
 	});
 }
+
+export function list() {
+	const { subscriptions } = store.state.configuration;
+
+	console.table(
+		subscriptions.map(({ content, link, ...rest }) => ({ ...rest })),
+	);
+}
