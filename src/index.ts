@@ -23,23 +23,22 @@ store.guard(async () => {
 
 		case "g":
 		case "generate": {
-			const skipDownload = argv["s"] || argv["skip-download"];
 			commandGenerate(true);
 			break;
 		}
 
 		case "s":
 		case "subscribe": {
-			if (argv["l"] || argv["list"]) {
-				list();
-			} else {
-				await addSubscription(argv._[1]);
-			}
+			await addSubscription(argv._[1]);
 			break;
 		}
 		case "serve": {
 			serve();
 			break;
+		}
+		case "list":
+		case "ls": {
+			list();
 		}
 	}
 });
