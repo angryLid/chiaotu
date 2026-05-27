@@ -154,9 +154,20 @@ function createGroupsByCountry(
 
 	// Special service groups
 	const select = createSelectGroup("🌐 手动选择", baseProxies);
-	const ms = createSelectGroup("🟦 Microsoft", ["DIRECT", ...baseProxies]);
-	const apple = createSelectGroup("🍎 Apple", ["DIRECT", ...baseProxies]);
-	const google = createSelectGroup("🤖 AI", baseProxies.slice());
+	const ms = createSelectGroup("🟦 Microsoft", [
+		"DIRECT",
+		"🌐 手动选择",
+		...baseProxies,
+	]);
+	const apple = createSelectGroup("🍎 Apple", [
+		"DIRECT",
+		"🌐 手动选择",
+		...baseProxies,
+	]);
+	const google = createSelectGroup("🤖 AI", [
+		"🌐 手动选择",
+		...baseProxies.slice(),
+	]);
 	// Return groups in the preferred order
 	eu.proxies.sort();
 	return [

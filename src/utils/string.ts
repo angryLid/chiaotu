@@ -71,6 +71,20 @@ export function getFlagByNodeName(nodeName: string) {
 		乌克兰: "🇺🇦",
 		土耳其: "🇹🇷",
 		尼日利亚: "🇳🇬",
+		// Hong Kong
+		HK: "🇭🇰",
+		// Singapore
+		SG: "🇸🇬",
+		// Taiwan
+		TW: "🇼🇸",
+		// Japan
+		JP: "🇯🇵",
+		// United States
+		US: "🇺🇸",
+		// Germany
+		DE: "🇩🇪",
+		// United Kingdom
+		UK: "🇬🇧",
 	};
 
 	for (const [name, flag] of Object.entries(flagMap)) {
