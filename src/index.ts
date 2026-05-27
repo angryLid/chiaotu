@@ -3,6 +3,7 @@ import {
 	addSubscription,
 	commandAdd,
 	commandGenerate,
+	commandRemove,
 	list,
 	serve,
 } from "./commands";
@@ -39,6 +40,12 @@ store.guard(async () => {
 		case "list":
 		case "ls": {
 			list();
+			break;
+		}
+		case "rm":
+		case "remove": {
+			commandRemove(argv._[1]);
+			break;
 		}
 	}
 });
