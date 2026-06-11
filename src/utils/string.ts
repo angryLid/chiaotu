@@ -71,6 +71,8 @@ export function getFlagByNodeName(nodeName: string) {
 		乌克兰: "🇺🇦",
 		土耳其: "🇹🇷",
 		尼日利亚: "🇳🇬",
+		印度尼西亚: "🇮🇩",
+		马来西亚: "🇲🇾",
 		// Hong Kong
 		HK: "🇭🇰",
 		// Singapore
@@ -85,6 +87,10 @@ export function getFlagByNodeName(nodeName: string) {
 		DE: "🇩🇪",
 		// United Kingdom
 		UK: "🇬🇧",
+		// Indonesia
+		ID: "🇮🇩",
+		// Malaysia
+		MY: "🇲🇾",
 	};
 
 	for (const [name, flag] of Object.entries(flagMap)) {
