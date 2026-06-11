@@ -6,170 +6,98 @@ log-level: info
 
 dns:
   enable: true
-  listen: '0.0.0.0:1053'
+  listen: "0.0.0.0:1053"
 
   default-nameserver:
-  - 'tls://223.5.5.5:853' # aliyun
-  - '223.6.6.6' # aliyun
-  - 'https://120.53.53.53/dns-query' # tencent
-  - '119.29.29.29' # tencent
+    - "tls://223.5.5.5:853" # aliyun
+    - "223.6.6.6" # aliyun
+    - "https://120.53.53.53/dns-query" # tencent
+    - "119.29.29.29" # tencent
 
   nameserver:
-  - system
-  
+    - system
+
   fallback:
-  - '8.8.4.4'
-  - 'https://1.1.1.1/dns-query'
-  - '168.95.192.1'
+    - "8.8.4.4"
+    - "https://1.1.1.1/dns-query"
+    - "168.95.192.1"
 
   enhanced-mode: fake-ip
   fake-ip-range: 198.18.0.1/16
-  fallback-filter: { geoip: true, geoip-code: CN, ipcidr: [240.0.0.0/4, 127.0.0.1/8, 0.0.0.0/32] }
+  fallback-filter:
+    {
+      geoip: true,
+      geoip-code: CN,
+      ipcidr: [240.0.0.0/4, 127.0.0.1/8, 0.0.0.0/32],
+    }
 
 fake-ip-filter:
-  # --- 局域网与本地地址 (LAN & Local) ---
-  - '*.lan'
-  - '*.local'
-  - '*.localhost'
-  - '*.localdomain'
-  - '*.home.arpa'
-  - 'local.adguard.org'
-  - 'localhost.ptlogin2.qq.com'
-  - 'localhost.sec.qq.com'
-  - '*.router.asus.com'
-  - '*.linksys.com'
-  - '*.linksyssmartwifi.com'
-  - 'heartbeat.belkin.com'
+  # 局域网与本地地址
+  - "*.lan"
+  - "*.local"
+  - "*.home.arpa"
+  - "localhost"
+  - "router.asus.com"
+  - "miwifi.com"
 
-  # --- 系统连接性检测 (Connectivity Check) ---
-  - '+.msftconnecttest.com'
-  - '+.msftncsi.com'
-  - 'msftncsi.com'
-  - 'dns.msftncsi.com'
-  - 'mesu.apple.com' # Apple 服务
-  - 'swscan.apple.com'
-  - 'swquery.apple.com'
-  - 'swdownload.apple.com'
-  - 'swcdn.apple.com'
-  - 'swdist.apple.com'
-  - 'lens.l.google.com' # 解决 Google Lens 连通性
+  # 微信及腾讯核心服务
+  - "+..weixin.qq.com"
+  - "+..qq.com"
+  - "+..tencent.com"
+  - "+..qlogo.cn"
+  - "+..qpic.cn"
 
-  # --- 时间同步 (NTP Services) ---
-  - '+.pool.ntp.org'
-  - '*.ntp.org.cn'
-  - 'ntp.*.com'
-  - 'ntp[1-7].*.com'
-  - 'time.*.com'
-  - 'time[1-7].*.com'
-  - 'time.*.apple.com'
-  - 'time-ios.apple.com'
-  - 'time.*.edu.cn'
-  - 'time.*.gov'
-  - 'time1.cloud.tencent.com'
+  # 阿里与高德
+  - "+..alipay.com"
+  - "+..taobao.com"
+  - "+..amap.com"
+  - "+..alicdn.com"
 
-  # --- 游戏服务与穿透 (Gaming & STUN) ---
-  - '+.stun.*.*'
-  - '+.stun.*.*.*'
-  - '+.stun.*.*.*.*'
-  - '+.stun.*.*.*.*.*'
-  - 'stun.l.google.com'
-  - '+.stun.playstation.net'
-  - '+.srv.nintendo.net'
-  - '*.n.n.srv.nintendo.net'
-  - '+.battlenet.com.cn'
-  - '+.wargaming.net'
-  - '+.wggames.cn'
-  - '+.wotgame.cn'
-  - '+.wowsgame.cn'
-  - '*.xboxlive.com'
-  - 'xnotify.xboxlive.com'
-  - 'xbox.*.microsoft.com'
-  - 'xbox.*.*.microsoft.com'
-  - '*.ff14.sdo.com'
-  - '*.ffxiv.com'
-  - '*.finalfantasyxiv.com'
-  - '*.square-enix.com'
-  - 'ff.dorado.sdo.com'
+  # 系统与联网检测
+  - "*.msftconnecttest.com"
+  - "*.msftncsi.com"
+  - "*.apple.com"
+  - "*.icloud.com"
 
-  # --- 音乐与流媒体 (Media & Music) ---
-  - '+.qq.com' # 包含 y.qq.com, aqqmusic 等
-  - '+.tencent.com'
-  - '+.music.163.com'
-  - '*.126.net'
-  - '*.music.migu.cn'
-  - '*.kuwo.cn'
-  - '*.xiami.com'
-  - 'music.taihe.com'
-  - 'musicapi.taihe.com'
-  - 'songsearch.kugou.com'
-  - 'trackercdn.kugou.com'
-  - 'joox.com'
-  - 'api.joox.com'
-  - 'api-jooxtt.sanook.com'
-  - '+.nflxvideo.net'
-  - '+.media.dssott.com'
-  - '*.mcdn.bilivideo.cn'
+  # 主流游戏平台
+  - "+..xboxlive.com"
+  - "+..sony.com"
+  - "+..playstation.net"
+  - "*.nintendo.net"
+  - "+..steamcommunity.com"
 
-  # --- 其他 (Others) ---
-  - '+.cmbchina.com' # 招商银行
-  - '+.cmbimg.com'
-  - '+.sandai.net' # 迅雷
-  - '+.n0808.com'
-  - 'proxy.golang.org'
-  - 'shark007.net'
-  - '*.test'
-  - '*.example'
-  - '*.invalid'
+  # NTP 时间同步
+  - "time.*.com"
+  - "time.*.apple.com"
+  - "time.nstl.gov.cn"
+  - "*.ntp.org.cn"
 
 proxies: []
 proxy-groups: []
 rules:
-    - RULE-SET,ai_non_ip,🤖 AI
-    - RULE-SET,Gemini,🤖 AI
-    - RULE-SET,stream_tw_non_ip,🇼🇸 Taiwan
+  - RULE-SET,ai_non_ip,🤖 AI
+  - RULE-SET,Gemini,🤖 AI
 
-    - RULE-SET,apple_cdn,🍎 Apple
-    - RULE-SET,apple_services,🍎 Apple
-    - RULE-SET,apple_cn_non_ip,DIRECT
+  - RULE-SET,apple_cdn,🍎 Apple
+  - RULE-SET,apple_services,🍎 Apple
+  - RULE-SET,apple_cn_non_ip,DIRECT
 
-    - RULE-SET,microsoft_cdn_non_ip,🟦 Microsoft
-    - RULE-SET,microsoft_non_ip,🟦 Microsoft
+  - RULE-SET,microsoft_cdn_non_ip,🟦 Microsoft
+  - RULE-SET,microsoft_non_ip,🟦 Microsoft
 
-    - RULE-SET,lan_non_ip,DIRECT
-    - RULE-SET,domestic_non_ip,DIRECT
-    - RULE-SET,direct_non_ip,DIRECT
+  - RULE-SET,lan_ip,DIRECT
+  - RULE-SET,lan_non_ip,DIRECT
+  - RULE-SET,direct_non_ip,DIRECT
+  - RULE-SET,domestic_non_ip,DIRECT
+  - RULE-SET,domestic_ip,DIRECT
+  - "DOMAIN-SUFFIX,cn,DIRECT"
+  - "DOMAIN-KEYWORD,-cn,DIRECT"
+  - "GEOIP,CN,DIRECT"
 
-    - RULE-SET,global_non_ip,🌐 手动选择
+  - RULE-SET,global_non_ip,🌐 手动选择
+  - "MATCH,🌐 手动选择"
 
-    - RULE-SET,domestic_ip,DIRECT
-
-    - IP-CIDR,0.0.0.0/8,DIRECT
-    - IP-CIDR,10.0.0.0/8,DIRECT
-    - IP-CIDR,100.64.0.0/10,DIRECT
-    - IP-CIDR,127.0.0.0/8,DIRECT
-    - IP-CIDR,169.254.0.0/16,DIRECT
-    - IP-CIDR,172.16.0.0/12,DIRECT
-    - IP-CIDR,192.168.0.0/16,DIRECT
-    - IP-CIDR,224.0.0.0/4,DIRECT
-    - IP-CIDR6,::1/128,DIRECT
-    - IP-CIDR6,fc00::/7,DIRECT
-    - IP-CIDR6,fe80::/10,DIRECT
-
-    - 'DOMAIN-SUFFIX,cn,DIRECT'
-    - 'DOMAIN-KEYWORD,-cn,DIRECT'
-    - 'GEOIP,CN,DIRECT'
-    - 'MATCH,🌐 手动选择'
-    
 rule-providers:
-# 台湾相关流媒体
-  stream_tw_non_ip:
-    type: http
-    behavior: classical
-    format: text
-    interval: 43200
-    url: https://ruleset.skk.moe/Clash/non_ip/stream_tw.txt
-    path: ./sukkaw_ruleset/stream_tw_non_ip.txt
-
   ai_non_ip:
     type: http
     behavior: classical
@@ -177,7 +105,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/non_ip/ai.txt
     path: ./sukkaw_ruleset/ai_non_ip.txt
-  
+
   Gemini:
     type: http
     behavior: classical
@@ -201,7 +129,7 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/non_ip/apple_services.txt
     path: ./sukkaw_ruleset/apple_services.txt
-  
+
   apple_cn_non_ip:
     type: http
     behavior: classical
@@ -225,7 +153,14 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/non_ip/microsoft.txt
     path: ./sukkaw_ruleset/microsoft_non_ip.txt
-  
+
+  lan_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/ip/lan.txt
+    path: ./sukkaw_ruleset/lan_ip.txt
 
   lan_non_ip:
     type: http
