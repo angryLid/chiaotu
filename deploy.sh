@@ -19,7 +19,7 @@ NAME_PREFIX="${NAME_PREFIX:-}"
 # [REQUIRED] Fallback destination for VLESS-Vision (e.g., www.microsoft.com:443)
 FALLBACK_DEST="${FALLBACK_DEST:-}"
 
-# [OPTIONAL] Command executed after certificate renewal (Left empty by default)
+# [OPTIONAL] Command executed after certificate renewal
 CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box}"
 
 
@@ -66,34 +66,76 @@ esac
 
 
 # =============================================================================
-# 3. ACME.SH INSTALLATION AND CERTIFICATE ISSUANCE (WITH EDGE CASE HANDLING)
+# 3. SING-BOX CORE INSTALLATION (MOVED UPFRONT TO PREVENT SYSTEMD UNIT ERRORS)
+# =============================================================================
+
+# Fetch the latest stable version of sing-box from GitHub API
+echo "[Step 2/7] Fetching the latest sing-box version..."
+LATEST_VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r .tag_name)
+VERSION_NUM=${LATEST_VERSION#v}
+echo "Latest version found: $LATEST_VERSION"
+
+# Download and install sing-box core binary
+DOWNLOAD_URL="https://github.com/SagerNet/sing-box/releases/download/${LATEST_VERSION}/sing-box-${VERSION_NUM}-${SINGBOX_ARCH}.tar.gz"
+echo "Downloading sing-box from $DOWNLOAD_URL ..."
+curl -Lo sing-box.tar.gz "$DOWNLOAD_URL"
+
+tar -zxf sing-box.tar.gz
+cd sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
+mv sing-box /usr/local/bin/
+cd .. && rm -rf sing-box.tar.gz sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
+
+# Create Systemd service unit descriptor for sing-box core
+cat <<EOF > /etc/systemd/system/sing-box.service
+[Unit]
+Description=sing-box service
+Documentation=https://sing-box.sagernet.org
+After=network.target nss-lookup.target
+
+[Service]
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/config.json
+Restart=on-failure
+RestartSec=18s
+LimitNOFILE=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd to register the new service unit
+systemctl daemon-reload
+
+
+# =============================================================================
+# 4. ACME.SH INSTALLATION AND CERTIFICATE ISSUANCE
 # =============================================================================
 
 # Check and install acme.sh
 if [ ! -f "${HOME}/.acme.sh/acme.sh" ]; then
-  echo "[Step 2/7] acme.sh not detected. Initializing installation..."
+  echo "[Step 3/7] acme.sh not detected. Initializing installation..."
   curl https://get.acme.sh | sh -s email="${CERT_EMAIL}"
   export LE_WORKING_DIR="${HOME}/.acme.sh"
 else
-  echo "[Step 2/7] acme.sh is already installed. Skipping installation."
+  echo "[Step 3/7] acme.sh is already installed. Skipping installation."
 fi
 
 # Set binary path for acme.sh
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
 # Set default CA to Let's Encrypt
-echo "[Step 3/7] Setting default CA to Let's Encrypt..."
+echo "[Step 4/7] Setting default CA to Let's Encrypt..."
 "${ACME_BIN}" --set-default-ca --server letsencrypt
 
 # Issue certificate using Standalone mode
-# CRITICAL FIX: Temporarily disable 'set -e' or use '|| true' to handle acme.sh skipping exit codes
-echo "[Step 4/7] Issuing certificate via Standalone mode (Ensure port 80 is open)..."
+echo "[Step 5/7] Issuing certificate via Standalone mode (Ensure port 80 is open)..."
 if ! "${ACME_BIN}" --issue -d "${MY_DOMAIN}" --standalone; then
-  echo "[Notice] acme.sh skipped renewal or encountered an expected non-zero state. Checking further..."
+  echo "[Notice] acme.sh skipped renewal or encountered an expected non-zero state. Proceeding safely..."
 fi
 
 # Install certificates into the persistent directory and register the reload command
-echo "[Step 5/7] Deploying certificates to destination and binding reload hook..."
+echo "[Step 6/7] Deploying certificates to destination and binding reload hook..."
 sudo mkdir -p "${CERT_EXPORT_DIR}"
 
 # Define absolute paths for certificate files used by sing-box
@@ -111,34 +153,15 @@ if [ -n "${CERT_RELOAD_CMD}" ]; then
   INSTALL_ARGS+=(--reloadcmd "${CERT_RELOAD_CMD}")
 fi
 
-# Force run install-cert to ensure files exist even if the issuance step was skipped
+# This will succeed now because the systemd unit file already exists
 "${ACME_BIN}" "${INSTALL_ARGS[@]}"
 
 
 # =============================================================================
-# 4. SING-BOX CORE INSTALLATION
+# 5. CONFIGURATION GENERATION (PORTS, CREDENTIALS, AND STARTUP)
 # =============================================================================
 
-# Fetch the latest stable version of sing-box from GitHub API
-echo "[Step 6/7] Fetching the latest sing-box version..."
-LATEST_VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r .tag_name)
-VERSION_NUM=${LATEST_VERSION#v}
-echo "Latest version found: $LATEST_VERSION"
-
-# Download and install sing-box core binary
-DOWNLOAD_URL="https://github.com/SagerNet/sing-box/releases/download/${LATEST_VERSION}/sing-box-${VERSION_NUM}-${SINGBOX_ARCH}.tar.gz"
-echo "Downloading sing-box from $DOWNLOAD_URL ..."
-curl -Lo sing-box.tar.gz "$DOWNLOAD_URL"
-
-tar -zxf sing-box.tar.gz
-cd sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
-mv sing-box /usr/local/bin/
-cd .. && rm -rf sing-box.tar.gz sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
-
-
-# =============================================================================
-# 5. CONFIGURATION GENERATION (PORTS, CREDENTIALS, AND CONFIGS)
-# =============================================================================
+echo "[Step 7/7] Generating configurations and bringing up service..."
 
 # Generate 3 unique random ports between 10000 and 20000
 while true; do
@@ -286,39 +309,13 @@ cat <<EOF > /etc/sing-box/config.json
 }
 EOF
 
-
-# =============================================================================
-# 6. SYSTEMD SERVICE AND STARTUP
-# =============================================================================
-
-# Create Systemd service unit descriptor for sing-box core
-cat <<EOF > /etc/systemd/system/sing-box.service
-[Unit]
-Description=sing-box service
-Documentation=https://sing-box.sagernet.org
-After=network.target nss-lookup.target
-
-[Service]
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
-ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/config.json
-Restart=on-failure
-RestartSec=18s
-LimitNOFILE=infinity
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Reload systemd configuration, enable on startup, and trigger start
-echo "[Step 7/7] Starting sing-box service..."
-systemctl daemon-reload
+# Enable on startup and trigger the actual final start
 systemctl enable sing-box
-systemctl start sing-box
+systemctl restart sing-box
 
 
 # =============================================================================
-# 7. EXPORT DEPLOYMENT DETAILS
+# 6. EXPORT DEPLOYMENT DETAILS
 # =============================================================================
 echo "--------------------------------------------------"
 echo " All deployments and certificate tasks completed successfully!"
