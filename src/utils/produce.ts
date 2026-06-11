@@ -102,58 +102,16 @@ function createGroupsByCountry(
 		};
 	}
 
-	const areas = ["🇭🇰 Hong Kong", "🇼🇸 Taiwan", "🇯🇵 Japan", "🇪🇺 Europe"];
-	// Regional proxy groups
-
-	const [hk, tw, jp, eu] = areas.map((a) => createUrlTestGroup(a));
-
-	const sg = createUrlTestGroup("Singapore");
-	const us = createUrlTestGroup("US");
-	const uk = createUrlTestGroup("UK");
-	const asia = createUrlTestGroup("Asia");
-	const others = createUrlTestGroup("Other");
-
-	const asiaKeywords = [
-		"越南",
-		"VN",
-		"泰国",
-		"TH",
-		"马来西亚",
-		"MY",
-		"印尼",
-		"印度尼西亚",
-		"ID",
-		"韩国",
-		"KR",
-		"PH",
-		"菲律宾",
-	];
+	const eu = createUrlTestGroup("🇪🇺 Europe");
 
 	for (const proxy of proxies) {
 		const name = proxy.name as string;
-
 		if (euRegExp.test(name)) {
 			eu.proxies.push(name);
-		} else if (name.includes("台湾") || name.includes("TW")) {
-			tw.proxies.push(name);
-		} else if (name.includes("香港") || name.includes("HK")) {
-			hk.proxies.push(name);
-		} else if (name.includes("日本") || name.includes("JP")) {
-			jp.proxies.push(name);
-		} else if (name.includes("新加坡") || name.includes("SG")) {
-			sg.proxies.push(name);
-		} else if (name.includes("美国") || name.includes("US")) {
-			us.proxies.push(name);
-		} else if (name.includes("英国") || name.includes("UK")) {
-			uk.proxies.push(name);
-		} else if (asiaKeywords.some((keyword) => name.includes(keyword))) {
-			asia.proxies.push(name);
-		} else {
-			others.proxies.push(name);
 		}
 	}
 
-	const baseProxies = [...areas, ...proxyGroupName];
+	const baseProxies = ["🇪🇺 Europe", ...proxyGroupName];
 
 	// Special service groups
 	const select = createSelectGroup("🌐 手动选择", baseProxies);
@@ -173,16 +131,5 @@ function createGroupsByCountry(
 	]);
 	// Return groups in the preferred order
 	eu.proxies.sort();
-	return [
-		select,
-		google,
-		ms,
-		apple,
-		tw,
-		hk,
-		jp,
-		// sg,
-		eu,
-		// asia, us, uk, others
-	];
+	return [select, google, ms, apple, eu];
 }
