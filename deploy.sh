@@ -17,6 +17,7 @@ CERT_EMAIL="${CERT_EMAIL:-}"
 NAME_PREFIX="${NAME_PREFIX:-}"
 
 # [REQUIRED] Fallback destination for VLESS-Vision (e.g., www.microsoft.com:443)
+# Note: Retained for backward compatibility in variables, but logic below keeps config clean
 FALLBACK_DEST="${FALLBACK_DEST:-}"
 
 # [OPTIONAL] Command executed after certificate renewal
@@ -224,7 +225,7 @@ proxy-groups:
       - "${VLESS_NODE_NAME}"
 EOF
 
-# Generate sing-box server JSON configuration file (FIXED: removed invalid tls_passthrough)
+# Generate sing-box server JSON configuration file (FIXED: removed legacy fallbacks completely)
 cat <<EOF > /etc/sing-box/config.json
 {
   "log": {
@@ -270,12 +271,7 @@ cat <<EOF > /etc/sing-box/config.json
       },
       "multiplex": {
         "enabled": false
-      },
-      "fallbacks": [
-        {
-          "dest": "${FALLBACK_DEST}"
-        }
-      ]
+      }
     },
     {
       "type": "http",
