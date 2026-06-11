@@ -77,27 +77,28 @@ fake-ip-filter:
 proxies: []
 proxy-groups: []
 rules:
-  - RULE-SET,ai_non_ip,🤖 AI
-  - RULE-SET,Gemini,🤖 AI
-
-  - RULE-SET,apple_cdn,🍎 Apple
-  - RULE-SET,apple_services,🍎 Apple
-  - RULE-SET,apple_cn_non_ip,DIRECT
-
-  - RULE-SET,microsoft_cdn_non_ip,🟦 Microsoft
-  - RULE-SET,microsoft_non_ip,🟦 Microsoft
-
   - RULE-SET,lan_ip,DIRECT
   - RULE-SET,lan_non_ip,DIRECT
+
+  - RULE-SET,ai_non_ip,🤖 AI
+
+  - RULE-SET,apple_cn_non_ip,DIRECT
+  - RULE-SET,apple_cdn,🍎 Apple
+  - RULE-SET,apple_services,🍎 Apple
+
+  - RULE-SET,microsoft_cdn_non_ip,DIRECT
+  - RULE-SET,microsoft_non_ip,🟦 Microsoft
+
   - RULE-SET,direct_non_ip,DIRECT
   - RULE-SET,domestic_non_ip,DIRECT
-  - RULE-SET,domestic_ip,DIRECT
-  - "DOMAIN-SUFFIX,cn,DIRECT"
-  - "DOMAIN-KEYWORD,-cn,DIRECT"
-  - "GEOIP,CN,DIRECT"
+  - DOMAIN-SUFFIX,cn,DIRECT
+  - DOMAIN-KEYWORD,-cn,DIRECT
+
+  - RULE-SET,domestic_ip,DIRECT,no-resolve
+  - GEOIP,CN,DIRECT,no-resolve
 
   - RULE-SET,global_non_ip,🌐 手动选择
-  - "MATCH,🌐 手动选择"
+  - MATCH,🌐 手动选择
 
 rule-providers:
   ai_non_ip:
@@ -107,14 +108,6 @@ rule-providers:
     interval: 43200
     url: https://ruleset.skk.moe/Clash/non_ip/ai.txt
     path: ./sukkaw_ruleset/ai_non_ip.txt
-
-  Gemini:
-    type: http
-    behavior: classical
-    format: text
-    interval: 43200
-    url: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Gemini/Gemini.yaml
-    path: ./blackmatrix7/Gemini.txt
 
   apple_cdn:
     type: http
