@@ -66,7 +66,7 @@ esac
 
 
 # =============================================================================
-# 3. SING-BOX CORE INSTALLATION (MOVED UPFRONT TO PREVENT SYSTEMD UNIT ERRORS)
+# 3. SING-BOX CORE INSTALLATION
 # =============================================================================
 
 # Fetch the latest stable version of sing-box from GitHub API
@@ -153,7 +153,6 @@ if [ -n "${CERT_RELOAD_CMD}" ]; then
   INSTALL_ARGS+=(--reloadcmd "${CERT_RELOAD_CMD}")
 fi
 
-# This will succeed now because the systemd unit file already exists
 "${ACME_BIN}" "${INSTALL_ARGS[@]}"
 
 
@@ -225,7 +224,7 @@ proxy-groups:
       - "${VLESS_NODE_NAME}"
 EOF
 
-# Generate sing-box server JSON configuration file
+# Generate sing-box server JSON configuration file (FIXED: flow moved to VLESS root level)
 cat <<EOF > /etc/sing-box/config.json
 {
   "log": {
@@ -257,6 +256,7 @@ cat <<EOF > /etc/sing-box/config.json
       "tag": "vless-in",
       "listen": "::",
       "listen_port": ${VLESS_PORT},
+      "flow": "xtls-rprx-vision",
       "users": [
         {
           "uuid": "${UUID}"
@@ -266,8 +266,7 @@ cat <<EOF > /etc/sing-box/config.json
         "enabled": true,
         "server_name": "${MY_DOMAIN}",
         "certificate_path": "${CERT_PATH}",
-        "key_path": "${KEY_PATH}",
-        "flow": "xtls-rprx-vision"
+        "key_path": "${KEY_PATH}"
       },
       "multiplex": {
         "enabled": false
