@@ -20,7 +20,6 @@ NAME_PREFIX="${NAME_PREFIX:-}"
 FALLBACK_DEST="${FALLBACK_DEST:-}"
 
 # [OPTIONAL] Command executed after certificate renewal (Left empty by default)
-# Note: Since sing-box will be installed later, we preset its reload command here
 CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box}"
 
 
@@ -67,7 +66,7 @@ esac
 
 
 # =============================================================================
-# 3. ACME.SH INSTALLATION AND CERTIFICATE ISSUANCE
+# 3. ACME.SH INSTALLATION AND CERTIFICATE ISSUANCE (WITH EDGE CASE HANDLING)
 # =============================================================================
 
 # Check and install acme.sh
@@ -86,12 +85,15 @@ ACME_BIN="${HOME}/.acme.sh/acme.sh"
 echo "[Step 3/7] Setting default CA to Let's Encrypt..."
 "${ACME_BIN}" --set-default-ca --server letsencrypt
 
-# Issue certificate using Standalone mode (Requires port 80 to be free)
+# Issue certificate using Standalone mode
+# CRITICAL FIX: Temporarily disable 'set -e' or use '|| true' to handle acme.sh skipping exit codes
 echo "[Step 4/7] Issuing certificate via Standalone mode (Ensure port 80 is open)..."
-"${ACME_BIN}" --issue -d "${MY_DOMAIN}" --standalone
+if ! "${ACME_BIN}" --issue -d "${MY_DOMAIN}" --standalone; then
+  echo "[Notice] acme.sh skipped renewal or encountered an expected non-zero state. Checking further..."
+fi
 
 # Install certificates into the persistent directory and register the reload command
-echo "[Step 5/7] Copying certificates to persistent directory and binding reload hook..."
+echo "[Step 5/7] Deploying certificates to destination and binding reload hook..."
 sudo mkdir -p "${CERT_EXPORT_DIR}"
 
 # Define absolute paths for certificate files used by sing-box
@@ -109,6 +111,7 @@ if [ -n "${CERT_RELOAD_CMD}" ]; then
   INSTALL_ARGS+=(--reloadcmd "${CERT_RELOAD_CMD}")
 fi
 
+# Force run install-cert to ensure files exist even if the issuance step was skipped
 "${ACME_BIN}" "${INSTALL_ARGS[@]}"
 
 
