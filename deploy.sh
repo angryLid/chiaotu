@@ -285,8 +285,12 @@ cat <<EOF > /etc/sing-box/config.json
 }
 EOF
 
+# Ensure Nginx conf.d directory exists before writing
+mkdir -p /etc/nginx/conf.d
+
 # Configure Nginx as a Secure HTTPS Static Web Server for subscription distribution
-cat <<EOF > /etc/nginx/sites-available/singbox-sub
+# FIXED: Writing directly to conf.d/singbox-sub.conf for non-Debian standard layouts
+cat <<EOF > /etc/nginx/conf.d/singbox-sub.conf
 server {
     listen ${SUB_PORT} ssl;
     listen [::]:${SUB_PORT} ssl;
@@ -308,19 +312,11 @@ server {
         alias /var/www/subscribe/clash.yaml;
         default_type text/yaml;
         add_header Content-Type "text/yaml; charset=utf-8";
-        # ADDED: Standard filename guidance header matching your domain
+        # Standard filename guidance header matching your domain
         add_header Content-Disposition "attachment; filename=\"${MY_DOMAIN}.yaml\"";
     }
 }
 EOF
-
-# Enable the Nginx site configuration if not already symlinked
-if [ ! -f /etc/nginx/sites-enabled/singbox-sub ]; then
-  ln -s /etc/nginx/sites-available/singbox-sub /etc/nginx/sites-enabled/
-fi
-
-# Remove default site to clear up port 80 conflicts if any exist
-rm -f /etc/nginx/sites-enabled/default
 
 # Enable on startup and trigger final start for both services
 systemctl enable sing-box nginx
