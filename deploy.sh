@@ -224,7 +224,7 @@ proxy-groups:
       - "${VLESS_NODE_NAME}"
 EOF
 
-# Generate sing-box server JSON configuration file (FIXED: flow moved to VLESS root level)
+# Generate sing-box server JSON configuration file (CORRECTED: flow moved into users[0] scope)
 cat <<EOF > /etc/sing-box/config.json
 {
   "log": {
@@ -256,10 +256,10 @@ cat <<EOF > /etc/sing-box/config.json
       "tag": "vless-in",
       "listen": "::",
       "listen_port": ${VLESS_PORT},
-      "flow": "xtls-rprx-vision",
       "users": [
         {
-          "uuid": "${UUID}"
+          "uuid": "${UUID}",
+          "flow": "xtls-rprx-vision"
         }
       ],
       "tls": {
