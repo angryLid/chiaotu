@@ -336,4 +336,6 @@ echo "VLESS Node:     ${VLESS_NODE_NAME} (Port: ${VLESS_PORT})"
 echo "--------------------------------------------------"
 echo "YOUR SECURE CLASH/MIHOMO SUBSCRIPTION URL (HTTPS):"
 echo "https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}"
+echo "Writing the link to ~/sub.txt"
+echo "https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}" >> ~/sub.txt
 echo "--------------------------------------------------"
