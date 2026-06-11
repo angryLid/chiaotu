@@ -251,7 +251,8 @@ cat <<EOF > /etc/sing-box/config.json
         "enabled": true,
         "server_name": "${MY_DOMAIN}",
         "certificate_path": "${CERT_PATH}",
-        "key_path": "${KEY_PATH}"
+        "key_path": "${KEY_PATH}",
+        "alpn": ["h3"]
       }
     },
     {
