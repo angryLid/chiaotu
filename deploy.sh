@@ -224,7 +224,7 @@ proxy-groups:
       - "${VLESS_NODE_NAME}"
 EOF
 
-# Generate sing-box server JSON configuration file (CORRECTED: flow moved into users[0] scope)
+# Generate sing-box server JSON configuration file (FIXED: removed invalid tls_passthrough)
 cat <<EOF > /etc/sing-box/config.json
 {
   "log": {
@@ -271,7 +271,6 @@ cat <<EOF > /etc/sing-box/config.json
       "multiplex": {
         "enabled": false
       },
-      "tls_passthrough": false,
       "fallbacks": [
         {
           "dest": "${FALLBACK_DEST}"
