@@ -4,6 +4,12 @@
 set -euo pipefail
 
 # =============================================================================
+# 0. COLOR DEFINITIONS FOR OUTPUT HIGHLIGHTING
+# =============================================================================
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+# =============================================================================
 # 1. ENVIRONMENT VARIABLES CONFIGURATION (ALL DEFINED AT THE BEGINNING)
 # =============================================================================
 
@@ -15,10 +21,6 @@ CERT_EMAIL="${CERT_EMAIL:-}"
 
 # [REQUIRED] Name prefix for your proxy nodes (e.g., MasonHK)
 NAME_PREFIX="${NAME_PREFIX:-}"
-
-# [REQUIRED] Fallback destination for VLESS-Vision (e.g., www.microsoft.com:443)
-# Note: Retained for backward compatibility in variables, but logic below keeps config clean
-FALLBACK_DEST="${FALLBACK_DEST:-}"
 
 # [OPTIONAL] Command executed after certificate renewal
 CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box}"
@@ -35,9 +37,9 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Validate all required environment variables
-if [ -z "${MY_DOMAIN}" ] || [ -z "${CERT_EMAIL}" ] || [ -z "${NAME_PREFIX}" ] || [ -z "${FALLBACK_DEST}" ]; then
+if [ -z "${MY_DOMAIN}" ] || [ -z "${CERT_EMAIL}" ] || [ -z "${NAME_PREFIX}" ]; then
   echo "[Error] Missing required environment variables." >&2
-  echo "Please set MY_DOMAIN, CERT_EMAIL, NAME_PREFIX, and FALLBACK_DEST before running this script." >&2
+  echo "Please set MY_DOMAIN, CERT_EMAIL, and NAME_PREFIX before running this script." >&2
   exit 1
 fi
 
@@ -48,13 +50,13 @@ echo "=================================================="
 echo "Target Domain:      ${MY_DOMAIN}"
 echo "Contact Email:      ${CERT_EMAIL}"
 echo "Node Name Prefix:   ${NAME_PREFIX}"
-echo "VLESS Fallback:     ${FALLBACK_DEST}"
 echo "Cert Export Dir:    ${CERT_EXPORT_DIR}"
 echo "Cert Reload Cmd:    ${CERT_RELOAD_CMD}"
 echo "=================================================="
 
 # Install basic dependencies via apt (Debian)
-echo "[Step 1/7] Updating package list and installing dependencies..."
+# Note: Using 'echo -e' to enable interpretation of backslash escapes for colors
+echo -e "${GREEN}[Step 1/7]${NC} Updating package list and installing dependencies..."
 apt-get update && apt-get install -y curl jq uuid-runtime sudo
 
 # Detect system architecture for sing-box core
@@ -71,7 +73,7 @@ esac
 # =============================================================================
 
 # Fetch the latest stable version of sing-box from GitHub API
-echo "[Step 2/7] Fetching the latest sing-box version..."
+echo -e "${GREEN}[Step 2/7]${NC} Fetching the latest sing-box version..."
 LATEST_VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r .tag_name)
 VERSION_NUM=${LATEST_VERSION#v}
 echo "Latest version found: $LATEST_VERSION"
@@ -115,28 +117,28 @@ systemctl daemon-reload
 
 # Check and install acme.sh
 if [ ! -f "${HOME}/.acme.sh/acme.sh" ]; then
-  echo "[Step 3/7] acme.sh not detected. Initializing installation..."
+  echo -e "${GREEN}[Step 3/7]${NC} acme.sh not detected. Initializing installation..."
   curl https://get.acme.sh | sh -s email="${CERT_EMAIL}"
   export LE_WORKING_DIR="${HOME}/.acme.sh"
 else
-  echo "[Step 3/7] acme.sh is already installed. Skipping installation."
+  echo -e "${GREEN}[Step 3/7]${NC} acme.sh is already installed. Skipping installation."
 fi
 
 # Set binary path for acme.sh
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
 # Set default CA to Let's Encrypt
-echo "[Step 4/7] Setting default CA to Let's Encrypt..."
+echo -e "${GREEN}[Step 4/7]${NC} Setting default CA to Let's Encrypt..."
 "${ACME_BIN}" --set-default-ca --server letsencrypt
 
 # Issue certificate using Standalone mode
-echo "[Step 5/7] Issuing certificate via Standalone mode (Ensure port 80 is open)..."
+echo -e "${GREEN}[Step 5/7]${NC} Issuing certificate via Standalone mode (Ensure port 80 is open)..."
 if ! "${ACME_BIN}" --issue -d "${MY_DOMAIN}" --standalone; then
   echo "[Notice] acme.sh skipped renewal or encountered an expected non-zero state. Proceeding safely..."
 fi
 
 # Install certificates into the persistent directory and register the reload command
-echo "[Step 6/7] Deploying certificates to destination and binding reload hook..."
+echo -e "${GREEN}[Step 6/7]${NC} Deploying certificates to destination and binding reload hook..."
 sudo mkdir -p "${CERT_EXPORT_DIR}"
 
 # Define absolute paths for certificate files used by sing-box
@@ -161,7 +163,7 @@ fi
 # 5. CONFIGURATION GENERATION (PORTS, CREDENTIALS, AND STARTUP)
 # =============================================================================
 
-echo "[Step 7/7] Generating configurations and bringing up service..."
+echo -e "${GREEN}[Step 7/7]${NC} Generating configurations and bringing up service..."
 
 # Generate 3 unique random ports between 10000 and 20000
 while true; do
