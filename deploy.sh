@@ -23,7 +23,8 @@ CERT_EMAIL="${CERT_EMAIL:-}"
 NAME_PREFIX="${NAME_PREFIX:-}"
 
 # [OPTIONAL] Command executed after certificate renewal
-CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box}"
+# FIXED: Now renewals will restart both sing-box and nginx to apply new certs
+CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box nginx}"
 
 
 # =============================================================================
@@ -55,9 +56,8 @@ echo "Cert Reload Cmd:    ${CERT_RELOAD_CMD}"
 echo "=================================================="
 
 # Install basic dependencies via apt (Debian)
-# Note: Using 'echo -e' to enable interpretation of backslash escapes for colors
 echo -e "${GREEN}[Step 1/7]${NC} Updating package list and installing dependencies..."
-apt-get update && apt-get install -y curl jq uuid-runtime sudo
+apt-get update && apt-get install -y curl jq uuid-runtime sudo nginx
 
 # Detect system architecture for sing-box core
 ARCH=$(uname -m)
@@ -141,7 +141,7 @@ fi
 echo -e "${GREEN}[Step 6/7]${NC} Deploying certificates to destination and binding reload hook..."
 sudo mkdir -p "${CERT_EXPORT_DIR}"
 
-# Define absolute paths for certificate files used by sing-box
+# Define absolute paths for certificate files used by sing-box and nginx
 CERT_PATH="${CERT_EXPORT_DIR}/fullchain.cer"
 KEY_PATH="${CERT_EXPORT_DIR}/private.key"
 
@@ -227,7 +227,7 @@ proxy-groups:
       - "${VLESS_NODE_NAME}"
 EOF
 
-# Generate sing-box server JSON configuration file (FIXED: removed legacy fallbacks completely)
+# Generate sing-box server JSON configuration file (Pure core proxies)
 cat <<EOF > /etc/sing-box/config.json
 {
   "log": {
@@ -274,26 +274,6 @@ cat <<EOF > /etc/sing-box/config.json
       "multiplex": {
         "enabled": false
       }
-    },
-    {
-      "type": "http",
-      "tag": "sub-in",
-      "listen": "::",
-      "listen_port": ${SUB_PORT},
-      "tls": {
-        "enabled": true,
-        "server_name": "${MY_DOMAIN}",
-        "certificate_path": "${CERT_PATH}",
-        "key_path": "${KEY_PATH}"
-      },
-      "users": [],
-      "response_by_path": {
-        "/${SUB_PATH}": {
-          "status_code": 200,
-          "content_type": "text/yaml; charset=utf-8",
-          "body": $(jq -Rs . /var/www/subscribe/clash.yaml)
-        }
-      }
     }
   ],
   "outbounds": [
@@ -305,9 +285,46 @@ cat <<EOF > /etc/sing-box/config.json
 }
 EOF
 
-# Enable on startup and trigger the actual final start
-systemctl enable sing-box
-systemctl restart sing-box
+# Configure Nginx as a Secure HTTPS Static Web Server for subscription distribution
+cat <<EOF > /etc/nginx/sites-available/singbox-sub
+server {
+    listen ${SUB_PORT} ssl;
+    listen [::]:${SUB_PORT} ssl;
+    server_name ${MY_DOMAIN};
+
+    ssl_certificate ${CERT_PATH};
+    ssl_certificate_key ${KEY_PATH};
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Root location returns 404 to block generic scanner probes
+    location / {
+        return 404;
+    }
+
+    # Only requests matching the secure random sub path will get the yaml file
+    location /${SUB_PATH} {
+        alias /var/www/subscribe/clash.yaml;
+        default_type text/yaml;
+        add_header Content-Type "text/yaml; charset=utf-8";
+        # ADDED: Standard filename guidance header matching your domain
+        add_header Content-Disposition "attachment; filename=\"${MY_DOMAIN}.yaml\"";
+    }
+}
+EOF
+
+# Enable the Nginx site configuration if not already symlinked
+if [ ! -f /etc/nginx/sites-enabled/singbox-sub ]; then
+  ln -s /etc/nginx/sites-available/singbox-sub /etc/nginx/sites-enabled/
+fi
+
+# Remove default site to clear up port 80 conflicts if any exist
+rm -f /etc/nginx/sites-enabled/default
+
+# Enable on startup and trigger final start for both services
+systemctl enable sing-box nginx
+systemctl restart sing-box nginx
 
 
 # =============================================================================
@@ -320,6 +337,6 @@ echo "Server Domain:  ${MY_DOMAIN}"
 echo "TUIC Node:      ${TUIC_NODE_NAME} (Port: ${TUIC_PORT})"
 echo "VLESS Node:     ${VLESS_NODE_NAME} (Port: ${VLESS_PORT})"
 echo "--------------------------------------------------"
-echo "YOUR CLASH/MIHOMO SUBSCRIPTION URL:"
+echo "YOUR SECURE CLASH/MIHOMO SUBSCRIPTION URL (HTTPS):"
 echo "https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}"
 echo "--------------------------------------------------"
