@@ -1,7 +1,6 @@
 import minimist from "minimist";
 import {
 	addSubscription,
-	commandAdd,
 	commandGenerate,
 	commandRemove,
 	list,
@@ -16,19 +15,17 @@ store.guard(async () => {
 	const subCommand = argv._[0];
 
 	switch (subCommand) {
-		case "a":
-		case "add": {
-			commandAdd(argv._[1]);
-			break;
-		}
-
 		case "g":
+		case "gen":
 		case "generate": {
 			commandGenerate(true);
 			break;
 		}
 
+		case "a":
 		case "s":
+		case "add":
+		case "sub":
 		case "subscribe": {
 			await addSubscription(argv._[1]);
 			break;

@@ -4,6 +4,7 @@ import { address } from "~/persistence/address";
 import {
 	type ClashProfile,
 	ClashProfileSchema,
+	ClashProfileSegmentSchema,
 	type Proxy as IProxy,
 	type ProxyGroup,
 } from "~/persistence/clash-profile";
@@ -13,17 +14,19 @@ import { getFlagByNodeName } from "./string";
 
 export async function produce() {
 	const baseTmpl = await readFile(address.template);
-	const baseProfile = ClashProfileSchema.parse(yaml.load(baseTmpl));
+	const rawYaml = yaml.load(baseTmpl);
+	const baseProfile = ClashProfileSchema.parse(rawYaml);
 
 	const proxies: ClashProfile["proxies"] = [];
 	const groupsByVendors: ClashProfile["proxy-groups"] = [];
 	for (const fileContent of store.state.configuration.subscriptions) {
 		const rawProfile = yaml.load(fileContent.content);
-		const profile = ClashProfileSchema.parse(rawProfile);
+		const profile = ClashProfileSegmentSchema.parse(rawProfile);
 
-		const filteredProxies = profile.proxies.filter(
-			({ name }) => !name.includes("剩余") && !name.includes("到期"),
-		);
+		const filteredProxies =
+			profile.proxies?.filter(
+				({ name }) => !name.includes("剩余") && !name.includes("到期"),
+			) || [];
 
 		for (const p of filteredProxies) {
 			if (!flagRegExp.test(p.name)) {
