@@ -33,46 +33,46 @@ dns:
       - 127.0.0.1/8
       - 0.0.0.0/32
 
-fake-ip-filter:
-  # 局域网与本地地址
-  - "*.lan"
-  - "*.local"
-  - "*.home.arpa"
-  - "localhost"
-  - "router.asus.com"
-  - "miwifi.com"
+  fake-ip-filter:
+    # 局域网与本地地址
+    - "*.lan"
+    - "*.local"
+    - "*.home.arpa"
+    - "localhost"
+    - "router.asus.com"
+    - "miwifi.com"
 
-  # 微信及腾讯核心服务
-  - "+..weixin.qq.com"
-  - "+..qq.com"
-  - "+..tencent.com"
-  - "+..qlogo.cn"
-  - "+..qpic.cn"
+    # 微信及腾讯核心服务
+    - "+..weixin.qq.com"
+    - "+..qq.com"
+    - "+..tencent.com"
+    - "+..qlogo.cn"
+    - "+..qpic.cn"
 
-  # 阿里与高德
-  - "+..alipay.com"
-  - "+..taobao.com"
-  - "+..amap.com"
-  - "+..alicdn.com"
+    # 阿里与高德
+    - "+..alipay.com"
+    - "+..taobao.com"
+    - "+..amap.com"
+    - "+..alicdn.com"
 
-  # 系统与联网检测
-  - "*.msftconnecttest.com"
-  - "*.msftncsi.com"
-  - "*.apple.com"
-  - "*.icloud.com"
+    # 系统与联网检测
+    - "*.msftconnecttest.com"
+    - "*.msftncsi.com"
+    - "*.apple.com"
+    - "*.icloud.com"
 
-  # 主流游戏平台
-  - "+..xboxlive.com"
-  - "+..sony.com"
-  - "+..playstation.net"
-  - "*.nintendo.net"
-  - "+..steamcommunity.com"
+    # 主流游戏平台
+    - "+..xboxlive.com"
+    - "+..sony.com"
+    - "+..playstation.net"
+    - "*.nintendo.net"
+    - "+..steamcommunity.com"
 
-  # NTP 时间同步
-  - "time.*.com"
-  - "time.*.apple.com"
-  - "time.nstl.gov.cn"
-  - "*.ntp.org.cn"
+    # NTP 时间同步
+    - "time.*.com"
+    - "time.*.apple.com"
+    - "time.nstl.gov.cn"
+    - "*.ntp.org.cn"
 
 proxies: []
 proxy-groups: []
