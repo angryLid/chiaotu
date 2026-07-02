@@ -193,6 +193,201 @@ mkdir -p /var/www/subscribe
 
 # Create the Clash/Mihomo Subscription YAML File
 cat <<EOF > /var/www/subscribe/clash.yaml
+mixed-port: 7890
+allow-lan: true
+bind-address: "*"
+mode: rule
+log-level: info
+
+dns:
+  enable: true
+  listen: "0.0.0.0:1053"
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+
+  direct-nameserver:
+    - system
+
+  proxy-server-nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+
+  nameserver:
+    - 119.29.29.29
+    - 180.184.1.1
+
+  fallback:
+    - 77.88.8.8
+    - 168.95.1.1
+    - https://dns.google/dns-query
+    - https://1.1.1.1/dns-query
+
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+      - 127.0.0.1/8
+      - 0.0.0.0/32
+
+  fake-ip-filter:
+    # 局域网与本地地址
+    - "*.lan"
+    - "*.local"
+    - "*.home.arpa"
+    - "localhost"
+    - "router.asus.com"
+    - "miwifi.com"
+
+    # 微信及腾讯核心服务
+    - "+.weixin.qq.com"
+    - "+.qq.com"
+    - "+.tencent.com"
+    - "+.qlogo.cn"
+    - "+.qpic.cn"
+
+    # 阿里与高德
+    - "+.alipay.com"
+    - "+.taobao.com"
+    - "+.amap.com"
+    - "+.alicdn.com"
+
+    # 系统与联网检测
+    - "*.msftconnecttest.com"
+    - "*.msftncsi.com"
+    - "*.apple.com"
+    - "*.icloud.com"
+
+    # 主流游戏平台
+    - "+.xboxlive.com"
+    - "+.sony.com"
+    - "+.playstation.net"
+    - "*.nintendo.net"
+    - "+.steamcommunity.com"
+
+    # NTP 时间同步
+    - "time.*.com"
+    - "time.*.apple.com"
+    - "time.nstl.gov.cn"
+    - "*.ntp.org.cn"
+rules:
+  - RULE-SET,lan_ip,DIRECT
+  - RULE-SET,lan_non_ip,DIRECT
+
+  - RULE-SET,ai_non_ip,🤖 AI
+
+  - RULE-SET,apple_cn_non_ip,DIRECT
+  - RULE-SET,apple_cdn,🍎 Apple
+  - RULE-SET,apple_services,🍎 Apple
+
+  - RULE-SET,microsoft_cdn_non_ip,DIRECT
+  - RULE-SET,microsoft_non_ip,🟦 Microsoft
+
+  - RULE-SET,direct_non_ip,DIRECT
+  - RULE-SET,domestic_non_ip,DIRECT
+  - DOMAIN-SUFFIX,cn,DIRECT
+  - DOMAIN-KEYWORD,-cn,DIRECT
+
+  - RULE-SET,domestic_ip,DIRECT,no-resolve
+  - GEOIP,CN,DIRECT,no-resolve
+
+  - RULE-SET,global_non_ip,🌐 手动选择
+  - MATCH,🌐 手动选择
+
+rule-providers:
+  ai_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/ai.txt
+    path: ./sukkaw_ruleset/ai_non_ip.txt
+
+  apple_cdn:
+    type: http
+    behavior: domain
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/domainset/apple_cdn.txt
+    path: ./sukkaw_ruleset/apple_cdn.txt
+
+  apple_services:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/apple_services.txt
+    path: ./sukkaw_ruleset/apple_services.txt
+
+  apple_cn_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/apple_cn.txt
+    path: ./sukkaw_ruleset/apple_cn_non_ip.txt
+
+  microsoft_cdn_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/microsoft_cdn.txt
+    path: ./sukkaw_ruleset/microsoft_cdn_non_ip.txt
+
+  microsoft_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/microsoft.txt
+    path: ./sukkaw_ruleset/microsoft_non_ip.txt
+
+  lan_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/ip/lan.txt
+    path: ./sukkaw_ruleset/lan_ip.txt
+
+  lan_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/lan.txt
+    path: ./sukkaw_ruleset/lan_non_ip.txt
+
+  domestic_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/domestic.txt
+    path: ./sukkaw_ruleset/domestic_non_ip.txt
+  direct_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/direct.txt
+    path: ./sukkaw_ruleset/direct_non_ip.txt
+  global_non_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/non_ip/global.txt
+    path: ./sukkaw_ruleset/global_non_ip.txt
+  domestic_ip:
+    type: http
+    behavior: classical
+    format: text
+    interval: 43200
+    url: https://ruleset.skk.moe/Clash/ip/domestic.txt
+    path: ./sukkaw_ruleset/domestic_ip.txt
+
 proxies:
   - name: "${TUIC_NODE_NAME}"
     type: tuic
@@ -220,11 +415,15 @@ proxies:
     sni: ${MY_DOMAIN}
 
 proxy-groups:
-  - name: 🚀 Proxy
+  - name: 🌐 手动选择
     type: select
     proxies:
       - "${TUIC_NODE_NAME}"
       - "${VLESS_NODE_NAME}"
+  - {name: 🤖 AI, type: select, proxies: [🌐 手动选择]}
+  - {name: 🟦 Microsoft, type: select, proxies: [DIRECT, 🌐 手动选择]}
+  - {name: 🍎 Apple, type: select, proxies: [DIRECT, 🌐 手动选择]}
+
 EOF
 
 # Generate sing-box server JSON configuration file (Pure core proxies)

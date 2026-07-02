@@ -18,10 +18,12 @@ dns:
     - 119.29.29.29
 
   nameserver:
-    - https://dns.alicdn.com/dns-query
-    - https://doh.pub/dns-query
+    - 119.29.29.29
+    - 180.184.1.1
 
   fallback:
+    - 77.88.8.8
+    - 168.95.1.1
     - https://dns.google/dns-query
     - https://1.1.1.1/dns-query
 
