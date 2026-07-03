@@ -41,8 +41,8 @@ echo "=================================================="
 # INSTALL DEPENDENCIES
 # =============================================================================
 echo -e "${GREEN}[Step 1/7]${NC} Installing dependencies..."
-apt-get update && apt-get install -y curl jq uuid-runtime sudo nginx
-
+apt-get update && apt-get install -y curl jq uuid-runtime sudo nginx cron
+systemctl enable --now cron
 # =============================================================================
 # ARCH DETECTION
 # =============================================================================
