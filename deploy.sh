@@ -488,11 +488,6 @@ cat <<EOF > /etc/sing-box/config.json
       "up_mbps": 200,
       "down_mbps": 500,
 
-      "obfs": {
-        "type": "salamander",
-        "password": "${HY2_PASSWORD}"
-      },
-
       "ignore_client_bandwidth": false,
 
       "tls": {
@@ -501,7 +496,6 @@ cat <<EOF > /etc/sing-box/config.json
         "certificate_path": "${CERT_PATH}",
         "key_path": "${KEY_PATH}"
       },
-
       "masquerade": "file:///var/www/hy2"
     }
   ],
@@ -534,6 +528,34 @@ server {
         add_header Content-Type "text/yaml; charset=utf-8";
         add_header Content-Disposition "attachment; filename=\"${MY_DOMAIN}.yaml\"";
     }
+}
+EOF
+
+cat <<EOF > /etc/nginx/conf.d/hy2.conf
+server {
+    listen 443 ssl; # 监听 TCP 443
+    http2 on; # 开启 HTTP/2
+    server_name ${MY_DOMAIN};
+
+    ssl_certificate /etc/ssl/private/${MY_DOMAIN}/fullchain.cer;
+    ssl_certificate_key /etc/ssl/private/${MY_DOMAIN}/private.key;
+
+    add_header Alt-Svc 'h3=":443"; ma=86400; persist=1';
+
+    location / {
+        root /var/www/hy2;
+        index index.html;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${MY_DOMAIN};
+
+    # 使用 301 永久重定向，对 SEO 最好
+
+    return 301 https://\$host\$request_uri;
 }
 EOF
 
