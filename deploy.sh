@@ -502,7 +502,7 @@ cat <<EOF > /etc/sing-box/config.json
 
       "masquerade": {
         "type": "file",
-        "directory": "/var/www/hy2"
+        "directory": "file:///var/www/hy2/index.html"
       },
 
       "bbr_profile": "standard"
