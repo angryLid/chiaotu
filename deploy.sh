@@ -392,10 +392,7 @@ proxies:
     alpn:
       - h3
     sni: ${MY_DOMAIN}
-    skip-cert-verify: false
-    obfs "salamander",
-    obfs-password: "${HY2_PASSWORD}"
-      
+    skip-cert-verify: false  
 
   - name: "${TUIC_NODE_NAME}"
     type: tuic
