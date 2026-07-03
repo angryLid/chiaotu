@@ -1,94 +1,75 @@
 #!/usr/bin/env bash
 
-# Exit immediately if a command exits with a non-zero status, and catch undefined variables
 set -euo pipefail
 
 # =============================================================================
-# 0. COLOR DEFINITIONS FOR OUTPUT HIGHLIGHTING
+# 0. COLOR DEFINITIONS
 # =============================================================================
 GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # =============================================================================
-# 1. ENVIRONMENT VARIABLES CONFIGURATION (ALL DEFINED AT THE BEGINNING)
+# 1. ENVIRONMENT VARIABLES
 # =============================================================================
-
-# [REQUIRED] The domain name pointed to this server (e.g., example.com)
 MY_DOMAIN="${MY_DOMAIN:-}"
-
-# [REQUIRED] Contact email used for Let's Encrypt certificate registration
 CERT_EMAIL="${CERT_EMAIL:-}"
-
-# [REQUIRED] Name prefix for your proxy nodes (e.g., MasonHK)
 NAME_PREFIX="${NAME_PREFIX:-}"
-
-# [OPTIONAL] Command executed after certificate renewal
-# FIXED: Now renewals will restart both sing-box and nginx to apply new certs
 CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box nginx}"
 
-
 # =============================================================================
-# 2. VALIDATION AND PRE-REQUISITES
+# 2. VALIDATION
 # =============================================================================
-
-# Ensure the script is run as root
 if [ "$EUID" -ne 0 ]; then
-  echo "[Error] Please run this script as root." >&2
+  echo "[Error] Please run as root"
   exit 1
 fi
 
-# Validate all required environment variables
 if [ -z "${MY_DOMAIN}" ] || [ -z "${CERT_EMAIL}" ] || [ -z "${NAME_PREFIX}" ]; then
-  echo "[Error] Missing required environment variables." >&2
-  echo "Please set MY_DOMAIN, CERT_EMAIL, and NAME_PREFIX before running this script." >&2
+  echo "[Error] Missing env vars"
   exit 1
 fi
 
-# Define persistent storage path for the certificates
 CERT_EXPORT_DIR="/etc/ssl/private/${MY_DOMAIN}"
 
 echo "=================================================="
-echo "Target Domain:      ${MY_DOMAIN}"
-echo "Contact Email:      ${CERT_EMAIL}"
-echo "Node Name Prefix:   ${NAME_PREFIX}"
-echo "Cert Export Dir:    ${CERT_EXPORT_DIR}"
-echo "Cert Reload Cmd:    ${CERT_RELOAD_CMD}"
+echo "Target Domain: ${MY_DOMAIN}"
+echo "Cert Email:    ${CERT_EMAIL}"
+echo "Prefix:        ${NAME_PREFIX}"
 echo "=================================================="
 
-# Install basic dependencies via apt (Debian)
-echo -e "${GREEN}[Step 1/7]${NC} Updating package list and installing dependencies..."
+# =============================================================================
+# INSTALL DEPENDENCIES
+# =============================================================================
+echo -e "${GREEN}[Step 1/7]${NC} Installing dependencies..."
 apt-get update && apt-get install -y curl jq uuid-runtime sudo nginx
 
-# Detect system architecture for sing-box core
+# =============================================================================
+# ARCH DETECTION
+# =============================================================================
 ARCH=$(uname -m)
 case "$ARCH" in
-  x86_64)  SINGBOX_ARCH="linux-amd64" ;;
+  x86_64) SINGBOX_ARCH="linux-amd64" ;;
   aarch64) SINGBOX_ARCH="linux-arm64" ;;
-  *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
+  *) echo "Unsupported arch"; exit 1 ;;
 esac
 
-
 # =============================================================================
-# 3. SING-BOX CORE INSTALLATION
+# INSTALL SING-BOX
 # =============================================================================
+echo -e "${GREEN}[Step 2/7]${NC} Installing sing-box..."
 
-# Fetch the latest stable version of sing-box from GitHub API
-echo -e "${GREEN}[Step 2/7]${NC} Fetching the latest sing-box version..."
 LATEST_VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r .tag_name)
 VERSION_NUM=${LATEST_VERSION#v}
-echo "Latest version found: $LATEST_VERSION"
 
-# Download and install sing-box core binary
-DOWNLOAD_URL="https://github.com/SagerNet/sing-box/releases/download/${LATEST_VERSION}/sing-box-${VERSION_NUM}-${SINGBOX_ARCH}.tar.gz"
-echo "Downloading sing-box from $DOWNLOAD_URL ..."
-curl -Lo sing-box.tar.gz "$DOWNLOAD_URL"
+curl -Lo sing-box.tar.gz \
+"https://github.com/SagerNet/sing-box/releases/download/${LATEST_VERSION}/sing-box-${VERSION_NUM}-${SINGBOX_ARCH}.tar.gz"
 
 tar -zxf sing-box.tar.gz
 cd sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
 mv sing-box /usr/local/bin/
-cd .. && rm -rf sing-box.tar.gz sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
+cd ..
+rm -rf sing-box*
 
-# Create Systemd service unit descriptor for sing-box core
 cat <<EOF > /etc/systemd/system/sing-box.service
 [Unit]
 Description=sing-box service
@@ -107,91 +88,105 @@ LimitNOFILE=infinity
 WantedBy=multi-user.target
 EOF
 
-# Reload systemd to register the new service unit
 systemctl daemon-reload
 
-
 # =============================================================================
-# 4. ACME.SH INSTALLATION AND CERTIFICATE ISSUANCE
+# ACME CERT
 # =============================================================================
+echo -e "${GREEN}[Step 3/7]${NC} Installing acme..."
 
-# Check and install acme.sh
 if [ ! -f "${HOME}/.acme.sh/acme.sh" ]; then
-  echo -e "${GREEN}[Step 3/7]${NC} acme.sh not detected. Initializing installation..."
   curl https://get.acme.sh | sh -s email="${CERT_EMAIL}"
-  export LE_WORKING_DIR="${HOME}/.acme.sh"
-else
-  echo -e "${GREEN}[Step 3/7]${NC} acme.sh is already installed. Skipping installation."
 fi
 
-# Set binary path for acme.sh
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
-# Set default CA to Let's Encrypt
-echo -e "${GREEN}[Step 4/7]${NC} Setting default CA to Let's Encrypt..."
 "${ACME_BIN}" --set-default-ca --server letsencrypt
+"${ACME_BIN}" --issue -d "${MY_DOMAIN}" --standalone || true
 
-# Issue certificate using Standalone mode
-echo -e "${GREEN}[Step 5/7]${NC} Issuing certificate via Standalone mode (Ensure port 80 is open)..."
-if ! "${ACME_BIN}" --issue -d "${MY_DOMAIN}" --standalone; then
-  echo "[Notice] acme.sh skipped renewal or encountered an expected non-zero state. Proceeding safely..."
-fi
+mkdir -p "${CERT_EXPORT_DIR}"
 
-# Install certificates into the persistent directory and register the reload command
-echo -e "${GREEN}[Step 6/7]${NC} Deploying certificates to destination and binding reload hook..."
-sudo mkdir -p "${CERT_EXPORT_DIR}"
-
-# Define absolute paths for certificate files used by sing-box and nginx
 CERT_PATH="${CERT_EXPORT_DIR}/fullchain.cer"
 KEY_PATH="${CERT_EXPORT_DIR}/private.key"
 
-INSTALL_ARGS=(
-  --install-cert
-  -d "${MY_DOMAIN}"
-  --key-file       "${KEY_PATH}"
-  --fullchain-file "${CERT_PATH}"
-)
-
-if [ -n "${CERT_RELOAD_CMD}" ]; then
-  INSTALL_ARGS+=(--reloadcmd "${CERT_RELOAD_CMD}")
-fi
-
-"${ACME_BIN}" "${INSTALL_ARGS[@]}"
-
+"${ACME_BIN}" --install-cert -d "${MY_DOMAIN}" \
+  --key-file "${KEY_PATH}" \
+  --fullchain-file "${CERT_PATH}" \
+  --reloadcmd "${CERT_RELOAD_CMD}"
 
 # =============================================================================
-# 5. CONFIGURATION GENERATION (PORTS, CREDENTIALS, AND STARTUP)
+# PORTS
 # =============================================================================
+echo -e "${GREEN}[Step 4/7]${NC} Generating ports..."
 
-echo -e "${GREEN}[Step 7/7]${NC} Generating configurations and bringing up service..."
-
-# Generate 3 unique random ports between 10000 and 20000
 while true; do
-  P1=$((10000 + RANDOM % 10001))
-  P2=$((10000 + RANDOM % 10001))
-  P3=$((10000 + RANDOM % 10001))
-  if [ "$P1" -ne "$P2" ] && [ "$P2" -ne "$P3" ] && [ "$P1" -ne "$P3" ]; then
-    TUIC_PORT=$P1
-    VLESS_PORT=$P2
-    SUB_PORT=$P3
+  TUIC_PORT=$((10000 + RANDOM % 20000))
+  VLESS_PORT=$((10000 + RANDOM % 20000))
+  SUB_PORT=$((10000 + RANDOM % 20000))
+
+  if [ "$TUIC_PORT" -ne "$VLESS_PORT" ] && \
+     [ "$TUIC_PORT" -ne "$SUB_PORT" ] && \
+     [ "$VLESS_PORT" -ne "$SUB_PORT" ]; then
     break
   fi
 done
 
-# Generate random credentials for proxies and subscription security
+# HY2 固定 443
+HY2_PORT=443
+
 UUID=$(uuidgen)
 PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)
+HY2_PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 20)
+
 SUB_PATH=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 12)
 
-# Define node names using the prefix environment variable
 TUIC_NODE_NAME="${NAME_PREFIX}-TUIC"
-VLESS_NODE_NAME="${NAME_PREFIX}-VLESS_Vision"
+VLESS_NODE_NAME="${NAME_PREFIX}-VLESS"
+HY2_NODE_NAME="${NAME_PREFIX}-HY2"
 
-# Create standard configuration and web directory paths
+# =============================================================================
+# DIRECTORY
+# =============================================================================
 mkdir -p /etc/sing-box
 mkdir -p /var/www/subscribe
+mkdir -p /var/www/hy2
 
-# Create the Clash/Mihomo Subscription YAML File
+# =============================================================================
+# DOMAIN SALE PAGE
+# =============================================================================
+echo -e "${GREEN}[Step 5/7]${NC} Writing domain page..."
+
+cat <<EOF > /var/www/hy2/index.html
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Domain For Sale</title>
+<style>
+body{margin:0;background:#0b0f17;color:#e8eefc;
+font-family:Arial;display:flex;align-items:center;justify-content:center;height:100vh}
+.container{text-align:center;max-width:600px}
+h1{font-size:42px}
+.domain{color:#6ea8fe;margin:20px}
+.card{padding:20px;border:1px solid #1f2a44;border-radius:12px}
+.btn{display:inline-block;margin-top:20px;padding:12px 20px;
+background:#3b82f6;color:#fff;text-decoration:none;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>This Domain Is For Sale</h1>
+<div class="domain">${MY_DOMAIN}</div>
+<div class="card">
+<p>Serious inquiries only.</p>
+<a class="btn" href="mailto:sales@${MY_DOMAIN}">Contact Owner</a>
+</div>
+</div>
+</body>
+</html>
+EOF
+
 cat <<EOF > /var/www/subscribe/clash.yaml
 mixed-port: 7890
 allow-lan: true
@@ -389,6 +384,17 @@ rule-providers:
     path: ./sukkaw_ruleset/domestic_ip.txt
 
 proxies:
+  - name: "${HY2_NODE_NAME}"
+    type: hysteria2
+    server: ${MY_DOMAIN}
+    port: 443
+    password: ${HY2_PASSWORD}
+    alpn:
+      - h3
+    sni: ${MY_DOMAIN}
+    skip-cert-verify: false
+    congestion-controller: bbr
+
   - name: "${TUIC_NODE_NAME}"
     type: tuic
     server: ${MY_DOMAIN}
@@ -420,32 +426,29 @@ proxy-groups:
     proxies:
       - "${TUIC_NODE_NAME}"
       - "${VLESS_NODE_NAME}"
+      - "${HY2_NODE_NAME}"
   - {name: 🤖 AI, type: select, proxies: [🌐 手动选择]}
   - {name: 🟦 Microsoft, type: select, proxies: [DIRECT, 🌐 手动选择]}
   - {name: 🍎 Apple, type: select, proxies: [DIRECT, 🌐 手动选择]}
 
 EOF
 
-# Generate sing-box server JSON configuration file (Pure core proxies)
+# =============================================================================
+# SING-BOX CONFIG
+# =============================================================================
+echo -e "${GREEN}[Step 6/7]${NC} Writing sing-box config..."
+
 cat <<EOF > /etc/sing-box/config.json
 {
-  "log": {
-    "level": "info",
-    "timestamp": true
-  },
+  "log": { "level": "info" },
+
   "inbounds": [
+
     {
       "type": "tuic",
-      "tag": "tuic-in",
       "listen": "::",
       "listen_port": ${TUIC_PORT},
-      "users": [
-        {
-          "uuid": "${UUID}",
-          "password": "${PASSWORD}"
-        }
-      ],
-      "congestion_control": "bbr",
+      "users": [{ "uuid": "${UUID}", "password": "${PASSWORD}" }],
       "tls": {
         "enabled": true,
         "server_name": "${MY_DOMAIN}",
@@ -454,87 +457,104 @@ cat <<EOF > /etc/sing-box/config.json
         "alpn": ["h3"]
       }
     },
+
     {
       "type": "vless",
-      "tag": "vless-in",
       "listen": "::",
       "listen_port": ${VLESS_PORT},
+      "users": [{ "uuid": "${UUID}", "flow": "xtls-rprx-vision" }],
+      "tls": {
+        "enabled": true,
+        "server_name": "${MY_DOMAIN}",
+        "certificate_path": "${CERT_PATH}",
+        "key_path": "${KEY_PATH}"
+      }
+    },
+
+    {
+      "type": "hysteria2",
+      "listen": "::",
+      "listen_port": 443,
+
       "users": [
         {
-          "uuid": "${UUID}",
-          "flow": "xtls-rprx-vision"
+          "name": "hy2",
+          "password": "${HY2_PASSWORD}"
         }
       ],
+
+      "up_mbps": 200,
+      "down_mbps": 500,
+
+      "obfs": {
+        "type": "salamander",
+        "password": "${HY2_PASSWORD}"
+      },
+
+      "ignore_client_bandwidth": false,
+
       "tls": {
         "enabled": true,
         "server_name": "${MY_DOMAIN}",
         "certificate_path": "${CERT_PATH}",
         "key_path": "${KEY_PATH}"
       },
-      "multiplex": {
-        "enabled": false
-      }
+
+      "masquerade": {
+        "type": "file",
+        "directory": "/var/www/hy2"
+      },
+
+      "bbr_profile": "standard"
     }
+
   ],
+
   "outbounds": [
-    {
-      "type": "direct",
-      "tag": "direct"
-    }
+    { "type": "direct" }
   ]
 }
 EOF
 
-# Ensure Nginx conf.d directory exists before writing
+# =============================================================================
+# NGINX SUB
+# =============================================================================
 mkdir -p /etc/nginx/conf.d
 
-# Configure Nginx as a Secure HTTPS Static Web Server for subscription distribution
-# FIXED: Writing directly to conf.d/singbox-sub.conf for non-Debian standard layouts
-cat <<EOF > /etc/nginx/conf.d/singbox-sub.conf
+cat <<EOF > /etc/nginx/conf.d/sub.conf
 server {
     listen ${SUB_PORT} ssl;
-    listen [::]:${SUB_PORT} ssl;
     server_name ${MY_DOMAIN};
 
     ssl_certificate ${CERT_PATH};
     ssl_certificate_key ${KEY_PATH};
 
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    # Root location returns 404 to block generic scanner probes
     location / {
         return 404;
     }
 
-    # Only requests matching the secure random sub path will get the yaml file
     location /${SUB_PATH} {
         alias /var/www/subscribe/clash.yaml;
-        default_type text/yaml;
-        add_header Content-Type "text/yaml; charset=utf-8";
-        # Standard filename guidance header matching your domain
-        add_header Content-Disposition "attachment; filename=\"${MY_DOMAIN}.yaml\"";
+        add_header Content-Type text/yaml;
     }
 }
 EOF
 
-# Enable on startup and trigger final start for both services
+# =============================================================================
+# START SERVICES
+# =============================================================================
+echo -e "${GREEN}[Step 7/7]${NC} Starting services..."
+
 systemctl enable sing-box nginx
 systemctl restart sing-box nginx
 
-
 # =============================================================================
-# 6. EXPORT DEPLOYMENT DETAILS
+# OUTPUT
 # =============================================================================
-echo "--------------------------------------------------"
-echo " All deployments and certificate tasks completed successfully!"
-echo "--------------------------------------------------"
-echo "Server Domain:  ${MY_DOMAIN}"
-echo "TUIC Node:      ${TUIC_NODE_NAME} (Port: ${TUIC_PORT})"
-echo "VLESS Node:     ${VLESS_NODE_NAME} (Port: ${VLESS_PORT})"
-echo "--------------------------------------------------"
-echo "YOUR SECURE CLASH/MIHOMO SUBSCRIPTION URL (HTTPS):"
-echo "https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}"
-echo "Writing the link to ~/sub.txt"
-echo "https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}" >> ~/sub.txt
-echo "--------------------------------------------------"
+echo "=================================================="
+echo "TUIC:   ${TUIC_PORT}"
+echo "VLESS:  ${VLESS_PORT}"
+echo "HY2:    443"
+echo "SUB:    https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}"
+echo "HY2 SITE: https://${MY_DOMAIN}/ (masquerade)"
+echo "=================================================="
