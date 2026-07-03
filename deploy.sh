@@ -535,7 +535,8 @@ server {
 
     location /${SUB_PATH} {
         alias /var/www/subscribe/clash.yaml;
-        add_header Content-Type text/yaml;
+        add_header Content-Type "text/yaml; charset=utf-8";
+        add_header Content-Disposition "attachment; filename=\"${MY_DOMAIN}.yaml\"";
     }
 }
 EOF
