@@ -544,16 +544,6 @@ server {
         index index.html;
     }
 }
-
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${MY_DOMAIN};
-
-    # 使用 301 永久重定向，对 SEO 最好
-
-    return 301 https://\$host\$request_uri;
-}
 EOF
 
 # =============================================================================
