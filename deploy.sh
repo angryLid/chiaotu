@@ -393,7 +393,9 @@ proxies:
       - h3
     sni: ${MY_DOMAIN}
     skip-cert-verify: false
-    congestion-controller: bbr
+    obfs "salamander",
+    obfs-password: "${HY2_PASSWORD}"
+      
 
   - name: "${TUIC_NODE_NAME}"
     type: tuic
@@ -500,14 +502,8 @@ cat <<EOF > /etc/sing-box/config.json
         "key_path": "${KEY_PATH}"
       },
 
-      "masquerade": {
-        "type": "file",
-        "directory": "file:///var/www/hy2"
-      },
-
-      "bbr_profile": "standard"
+      "masquerade": "file:///var/www/hy2"
     }
-
   ],
 
   "outbounds": [
