@@ -106,6 +106,7 @@ mkdir -p /var/www/hy2 /etc/nginx/conf.d
 cat <<EOF > /etc/nginx/conf.d/http.conf
 server {
     listen 80;
+    listen [::]:80;
     server_name ${DOMAIN};
     location / {
         root /var/www/hy2;
@@ -525,6 +526,7 @@ mkdir -p /etc/nginx/conf.d
 cat <<EOF > /etc/nginx/conf.d/sub.conf
 server {
     listen ${SUB_PORT} ssl;
+    listen [::]:${SUB_PORT} ssl;
     server_name ${DOMAIN};
 
     ssl_certificate ${CERT_PATH};
@@ -545,6 +547,7 @@ EOF
 cat <<EOF > /etc/nginx/conf.d/hy2.conf
 server {
     listen 443 ssl; # 监听 TCP 443
+    listen [::]:443 ssl;
     http2 on; # 开启 HTTP/2
     server_name ${DOMAIN};
 
