@@ -11,9 +11,9 @@ NC='\033[0m'
 # =============================================================================
 # 1. ENVIRONMENT VARIABLES
 # =============================================================================
-MY_DOMAIN="${MY_DOMAIN:-}"
-CERT_EMAIL="${CERT_EMAIL:-}"
-NAME_PREFIX="${NAME_PREFIX:-}"
+DOMAIN="${DOMAIN:-}"
+EMAIL="${EMAIL:-}"
+PREFIX="${PREFIX:-}"
 CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box nginx}"
 
 # =============================================================================
@@ -24,17 +24,17 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-if [ -z "${MY_DOMAIN}" ] || [ -z "${CERT_EMAIL}" ] || [ -z "${NAME_PREFIX}" ]; then
+if [ -z "${DOMAIN}" ] || [ -z "${EMAIL}" ] || [ -z "${PREFIX}" ]; then
   echo "[Error] Missing env vars"
   exit 1
 fi
 
-CERT_EXPORT_DIR="/etc/ssl/private/${MY_DOMAIN}"
+CERT_EXPORT_DIR="/etc/ssl/private/${DOMAIN}"
 
 echo "=================================================="
-echo "Target Domain: ${MY_DOMAIN}"
-echo "Cert Email:    ${CERT_EMAIL}"
-echo "Prefix:        ${NAME_PREFIX}"
+echo "Target Domain: ${DOMAIN}"
+echo "Cert Email:    ${EMAIL}"
+echo "Prefix:        ${PREFIX}"
 echo "=================================================="
 
 # =============================================================================
@@ -96,20 +96,20 @@ systemctl daemon-reload
 echo -e "${GREEN}[Step 3/7]${NC} Installing acme..."
 
 if [ ! -f "${HOME}/.acme.sh/acme.sh" ]; then
-  curl https://get.acme.sh | sh -s email="${CERT_EMAIL}"
+  curl https://get.acme.sh | sh -s email="${EMAIL}"
 fi
 
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
 "${ACME_BIN}" --set-default-ca --server letsencrypt
-"${ACME_BIN}" --issue -d "${MY_DOMAIN}" --nginx || true
+"${ACME_BIN}" --issue -d "${DOMAIN}" --nginx || true
 
 mkdir -p "${CERT_EXPORT_DIR}"
 
 CERT_PATH="${CERT_EXPORT_DIR}/fullchain.cer"
 KEY_PATH="${CERT_EXPORT_DIR}/private.key"
 
-"${ACME_BIN}" --install-cert -d "${MY_DOMAIN}" \
+"${ACME_BIN}" --install-cert -d "${DOMAIN}" \
   --key-file "${KEY_PATH}" \
   --fullchain-file "${CERT_PATH}" \
   --reloadcmd "${CERT_RELOAD_CMD}"
@@ -140,9 +140,9 @@ HY2_PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 20)
 
 SUB_PATH=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 12)
 
-TUIC_NODE_NAME="${NAME_PREFIX}-TUIC"
-VLESS_NODE_NAME="${NAME_PREFIX}-VLESS"
-HY2_NODE_NAME="${NAME_PREFIX}-HY2"
+TUIC_NODE_NAME="${PREFIX}-TUIC"
+VLESS_NODE_NAME="${PREFIX}-VLESS"
+HY2_NODE_NAME="${PREFIX}-HY2"
 
 # =============================================================================
 # DIRECTORY
@@ -177,10 +177,10 @@ background:#3b82f6;color:#fff;text-decoration:none;border-radius:8px}
 <body>
 <div class="container">
 <h1>This Domain Is For Sale</h1>
-<div class="domain">${MY_DOMAIN}</div>
+<div class="domain">${DOMAIN}</div>
 <div class="card">
 <p>Serious inquiries only.</p>
-<a class="btn" href="mailto:sales@${MY_DOMAIN}">Contact Owner</a>
+<a class="btn" href="mailto:sales@${DOMAIN}">Contact Owner</a>
 </div>
 </div>
 </body>
@@ -386,17 +386,17 @@ rule-providers:
 proxies:
   - name: "${HY2_NODE_NAME}"
     type: hysteria2
-    server: ${MY_DOMAIN}
+    server: ${DOMAIN}
     port: 443
     password: ${HY2_PASSWORD}
     alpn:
       - h3
-    sni: ${MY_DOMAIN}
+    sni: ${DOMAIN}
     skip-cert-verify: false  
 
   - name: "${TUIC_NODE_NAME}"
     type: tuic
-    server: ${MY_DOMAIN}
+    server: ${DOMAIN}
     port: ${TUIC_PORT}
     uuid: ${UUID}
     password: ${PASSWORD}
@@ -405,11 +405,11 @@ proxies:
     congestion-controller: bbr
     disable-sni: true
     reduce-rtt: true
-    sni: ${MY_DOMAIN}
+    sni: ${DOMAIN}
 
   - name: "${VLESS_NODE_NAME}"
     type: vless
-    server: ${MY_DOMAIN}
+    server: ${DOMAIN}
     port: ${VLESS_PORT}
     uuid: ${UUID}
     network: tcp
@@ -417,7 +417,7 @@ proxies:
     udp: true
     flow: xtls-rprx-vision
     client-fingerprint: chrome
-    sni: ${MY_DOMAIN}
+    sni: ${DOMAIN}
 
 proxy-groups:
   - name: 🌐 手动选择
@@ -450,7 +450,7 @@ cat <<EOF > /etc/sing-box/config.json
       "users": [{ "uuid": "${UUID}", "password": "${PASSWORD}" }],
       "tls": {
         "enabled": true,
-        "server_name": "${MY_DOMAIN}",
+        "server_name": "${DOMAIN}",
         "certificate_path": "${CERT_PATH}",
         "key_path": "${KEY_PATH}",
         "alpn": ["h3"]
@@ -464,7 +464,7 @@ cat <<EOF > /etc/sing-box/config.json
       "users": [{ "uuid": "${UUID}", "flow": "xtls-rprx-vision" }],
       "tls": {
         "enabled": true,
-        "server_name": "${MY_DOMAIN}",
+        "server_name": "${DOMAIN}",
         "certificate_path": "${CERT_PATH}",
         "key_path": "${KEY_PATH}"
       }
@@ -489,7 +489,7 @@ cat <<EOF > /etc/sing-box/config.json
 
       "tls": {
         "enabled": true,
-        "server_name": "${MY_DOMAIN}",
+        "server_name": "${DOMAIN}",
         "certificate_path": "${CERT_PATH}",
         "key_path": "${KEY_PATH}"
       },
@@ -511,7 +511,7 @@ mkdir -p /etc/nginx/conf.d
 cat <<EOF > /etc/nginx/conf.d/sub.conf
 server {
     listen ${SUB_PORT} ssl;
-    server_name ${MY_DOMAIN};
+    server_name ${DOMAIN};
 
     ssl_certificate ${CERT_PATH};
     ssl_certificate_key ${KEY_PATH};
@@ -523,7 +523,7 @@ server {
     location /${SUB_PATH} {
         alias /var/www/subscribe/clash.yaml;
         add_header Content-Type "text/yaml; charset=utf-8";
-        add_header Content-Disposition "attachment; filename=\"${MY_DOMAIN}.yaml\"";
+        add_header Content-Disposition "attachment; filename=\"${DOMAIN}.yaml\"";
     }
 }
 EOF
@@ -532,10 +532,10 @@ cat <<EOF > /etc/nginx/conf.d/hy2.conf
 server {
     listen 443 ssl; # 监听 TCP 443
     http2 on; # 开启 HTTP/2
-    server_name ${MY_DOMAIN};
+    server_name ${DOMAIN};
 
-    ssl_certificate /etc/ssl/private/${MY_DOMAIN}/fullchain.cer;
-    ssl_certificate_key /etc/ssl/private/${MY_DOMAIN}/private.key;
+    ssl_certificate /etc/ssl/private/${DOMAIN}/fullchain.cer;
+    ssl_certificate_key /etc/ssl/private/${DOMAIN}/private.key;
 
     add_header Alt-Svc 'h3=":443"; ma=86400; persist=1';
 
@@ -561,6 +561,6 @@ echo "=================================================="
 echo "TUIC:   ${TUIC_PORT}"
 echo "VLESS:  ${VLESS_PORT}"
 echo "HY2:    443"
-echo "SUB:    https://${MY_DOMAIN}:${SUB_PORT}/${SUB_PATH}"
-echo "HY2 SITE: https://${MY_DOMAIN}/ (masquerade)"
+echo "SUB:    https://${DOMAIN}:${SUB_PORT}/${SUB_PATH}"
+echo "HY2 SITE: https://${DOMAIN}/ (masquerade)"
 echo "=================================================="
