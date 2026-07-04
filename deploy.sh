@@ -101,6 +101,21 @@ fi
 
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
+mkdir -p /var/www/hy2 /etc/nginx/conf.d
+
+cat <<EOF > /etc/nginx/conf.d/http.conf
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    location / {
+        root /var/www/hy2;
+        index index.html;
+    }
+}
+EOF
+
+nginx -t && systemctl enable nginx && systemctl restart nginx
+
 "${ACME_BIN}" --set-default-ca --server letsencrypt
 "${ACME_BIN}" --issue -d "${DOMAIN}" --nginx --force
 
@@ -111,8 +126,7 @@ KEY_PATH="${CERT_EXPORT_DIR}/private.key"
 
 "${ACME_BIN}" --install-cert -d "${DOMAIN}" \
   --key-file "${KEY_PATH}" \
-  --fullchain-file "${CERT_PATH}" \
-  --reloadcmd "${CERT_RELOAD_CMD}"
+  --fullchain-file "${CERT_PATH}"
 
 # =============================================================================
 # PORTS
@@ -553,6 +567,8 @@ echo -e "${GREEN}[Step 7/7]${NC} Starting services..."
 
 systemctl enable sing-box nginx
 systemctl restart sing-box nginx
+
+"${ACME_BIN}" --install-cert -d "${DOMAIN}" --reloadcmd "${CERT_RELOAD_CMD}"
 
 # =============================================================================
 # OUTPUT
