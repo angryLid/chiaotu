@@ -102,7 +102,7 @@ fi
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
 "${ACME_BIN}" --set-default-ca --server letsencrypt
-"${ACME_BIN}" --issue -d "${DOMAIN}" --nginx || true
+"${ACME_BIN}" --issue -d "${DOMAIN}" --nginx --force
 
 mkdir -p "${CERT_EXPORT_DIR}"
 
