@@ -546,9 +546,8 @@ EOF
 
 cat <<EOF > /etc/nginx/conf.d/hy2.conf
 server {
-    listen 443 ssl; # 监听 TCP 443
-    listen [::]:443 ssl;
-    http2 on; # 开启 HTTP/2
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name ${DOMAIN};
 
     ssl_certificate /etc/ssl/private/${DOMAIN}/fullchain.cer;
