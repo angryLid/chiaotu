@@ -739,9 +739,18 @@ EOF
 # =============================================================================
 # NGINX SUB
 # =============================================================================
-mkdir -p /etc/nginx/conf.d
+# Alpine includes http{} server blocks from /etc/nginx/http.d/; Debian/Ubuntu
+# use /etc/nginx/conf.d/. Writing a server{} into the wrong dir triggers
+# 'nginx: [emerg] "server" directive is not allowed here'.
+case "$OS_ID" in
+  alpine)  NGINX_CONF_DIR="/etc/nginx/http.d" ;;
+  debian|ubuntu) NGINX_CONF_DIR="/etc/nginx/conf.d" ;;
+  *) NGINX_CONF_DIR="/etc/nginx/conf.d" ;;
+esac
 
-cat <<EOF > /etc/nginx/conf.d/sub.conf
+mkdir -p "${NGINX_CONF_DIR}"
+
+cat <<EOF > "${NGINX_CONF_DIR}/sub.conf"
 server {
     listen ${SUB_PORT} ssl;
     listen [::]:${SUB_PORT} ssl;
