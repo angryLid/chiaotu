@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+#
+# Supported OS:    Debian / Ubuntu (systemd)
+#                  Alpine Linux    (OpenRC or systemd)
+# Prerequisites:   bash (Alpine: apk add bash)
+# Usage:           DOMAIN=... EMAIL=... PREFIX=... bash deploy.sh
+# Force redeploy:  FORCE=1 DOMAIN=... EMAIL=... PREFIX=... bash deploy.sh
+#
 
 set -euo pipefail
 
@@ -6,6 +13,8 @@ set -euo pipefail
 # 0. COLOR DEFINITIONS
 # =============================================================================
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
 # =============================================================================
@@ -14,44 +23,183 @@ NC='\033[0m'
 DOMAIN="${DOMAIN:-}"
 EMAIL="${EMAIL:-}"
 PREFIX="${PREFIX:-}"
-CERT_RELOAD_CMD="${CERT_RELOAD_CMD:-systemctl restart sing-box nginx}"
+FORCE="${FORCE:-0}"
 
 # =============================================================================
 # 2. VALIDATION
 # =============================================================================
 if [ "$EUID" -ne 0 ]; then
-  echo "[Error] Please run as root"
+  echo -e "${RED}[Error]${NC} Please run as root"
   exit 1
 fi
 
 if [ -z "${DOMAIN}" ] || [ -z "${EMAIL}" ] || [ -z "${PREFIX}" ]; then
-  echo "[Error] Missing env vars"
+  echo -e "${RED}[Error]${NC} Missing env vars (DOMAIN, EMAIL, PREFIX)"
   exit 1
 fi
 
 CERT_EXPORT_DIR="/etc/ssl/private/${DOMAIN}"
 
+# =============================================================================
+# 3. OS & INIT DETECTION
+# =============================================================================
+if [ -f /etc/os-release ]; then
+  # shellcheck source=/dev/null
+  . /etc/os-release
+  OS_ID="${ID:-unknown}"
+else
+  OS_ID="unknown"
+fi
+
+# Detect init system
+if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+  INIT_SYSTEM="systemd"
+elif command -v rc-service >/dev/null 2>&1 && [ -d /etc/init.d ]; then
+  INIT_SYSTEM="openrc"
+else
+  INIT_SYSTEM="unknown"
+fi
+
+# -----------------------------------------------------------------------------
+# Abstracted: package install
+# -----------------------------------------------------------------------------
+pkg_install() {
+  case "$OS_ID" in
+    alpine)
+      apk update
+      apk add --no-cache "$@"
+      ;;
+    debian|ubuntu)
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y "$@"
+      ;;
+    *)
+      echo -e "${RED}[Error]${NC} Unsupported OS: ${OS_ID}"
+      exit 1
+      ;;
+  esac
+}
+
+# -----------------------------------------------------------------------------
+# Abstracted: enable and start a service
+# -----------------------------------------------------------------------------
+svc_enable_start() {
+  local svc="$1"
+  case "$INIT_SYSTEM" in
+    systemd)
+      systemctl enable --now "$svc"
+      ;;
+    openrc)
+      rc-update add "$svc" default
+      rc-service "$svc" start
+      ;;
+    *)
+      echo -e "${RED}[Error]${NC} Unsupported init system: ${INIT_SYSTEM}"
+      exit 1
+      ;;
+  esac
+}
+
+# -----------------------------------------------------------------------------
+# Abstracted: restart a service
+# -----------------------------------------------------------------------------
+svc_restart() {
+  local svc="$1"
+  case "$INIT_SYSTEM" in
+    systemd) systemctl restart "$svc" ;;
+    openrc)  rc-service "$svc" restart ;;
+    *)
+      echo -e "${RED}[Error]${NC} Unsupported init system: ${INIT_SYSTEM}"
+      exit 1
+      ;;
+  esac
+}
+
+# -----------------------------------------------------------------------------
+# Abstracted: enable a service (without starting)
+# -----------------------------------------------------------------------------
+svc_enable() {
+  local svc="$1"
+  case "$INIT_SYSTEM" in
+    systemd) systemctl enable "$svc" ;;
+    openrc)  rc-update add "$svc" default ;;
+    *)
+      echo -e "${RED}[Error]${NC} Unsupported init system: ${INIT_SYSTEM}"
+      exit 1
+      ;;
+  esac
+}
+
+# -----------------------------------------------------------------------------
+# Default cert reload command (can be overridden by env var)
+# -----------------------------------------------------------------------------
+if [ -z "${CERT_RELOAD_CMD:-}" ]; then
+  case "$INIT_SYSTEM" in
+    systemd)
+      CERT_RELOAD_CMD="systemctl restart sing-box nginx"
+      ;;
+    openrc)
+      CERT_RELOAD_CMD="rc-service sing-box restart && rc-service nginx restart"
+      ;;
+    *)
+      CERT_RELOAD_CMD=""
+      ;;
+  esac
+fi
+
+# =============================================================================
+# 4. IDEMPOTENCY GUARD
+# =============================================================================
+SINGBOX_CONFIG="/etc/sing-box/config.json"
+
+if [ -f "${SINGBOX_CONFIG}" ] && [ "${FORCE}" != "1" ]; then
+  echo -e "${YELLOW}[Warn]${NC} Existing deployment detected at ${SINGBOX_CONFIG}"
+  echo "       Set FORCE=1 to redeploy and overwrite existing configuration."
+  exit 1
+fi
+
 echo "=================================================="
-echo "Target Domain: ${DOMAIN}"
-echo "Cert Email:    ${EMAIL}"
-echo "Prefix:        ${PREFIX}"
+echo "Target Domain:   ${DOMAIN}"
+echo "Cert Email:      ${EMAIL}"
+echo "Prefix:          ${PREFIX}"
+echo "OS:              ${OS_ID} (${INIT_SYSTEM})"
 echo "=================================================="
 
 # =============================================================================
 # INSTALL DEPENDENCIES
 # =============================================================================
 echo -e "${GREEN}[Step 1/7]${NC} Installing dependencies..."
-apt-get update && apt-get install -y curl jq uuid-runtime sudo nginx cron
-systemctl enable --now cron
+
+case "$OS_ID" in
+  alpine)
+    pkg_install bash curl jq util-linux nginx dcron sudo
+    svc_enable_start dcron
+    ;;
+  debian|ubuntu)
+    pkg_install curl jq uuid-runtime sudo nginx cron
+    svc_enable_start cron
+    ;;
+  *)
+    echo -e "${RED}[Error]${NC} Unsupported OS: ${OS_ID}"
+    exit 1
+    ;;
+esac
+
 # =============================================================================
 # ARCH DETECTION
 # =============================================================================
 ARCH=$(uname -m)
 case "$ARCH" in
-  x86_64) SINGBOX_ARCH="linux-amd64" ;;
+  x86_64)  SINGBOX_ARCH="linux-amd64" ;;
   aarch64) SINGBOX_ARCH="linux-arm64" ;;
-  *) echo "Unsupported arch"; exit 1 ;;
+  *) echo "Unsupported arch: $ARCH"; exit 1 ;;
 esac
+
+# Alpine uses musl libc — use musl build
+if [ "$OS_ID" = "alpine" ]; then
+  SINGBOX_ARCH="${SINGBOX_ARCH}-musl"
+fi
 
 # =============================================================================
 # INSTALL SING-BOX
@@ -65,12 +213,14 @@ curl -Lo sing-box.tar.gz \
 "https://github.com/SagerNet/sing-box/releases/download/${LATEST_VERSION}/sing-box-${VERSION_NUM}-${SINGBOX_ARCH}.tar.gz"
 
 tar -zxf sing-box.tar.gz
-cd sing-box-${VERSION_NUM}-${SINGBOX_ARCH}
+cd "sing-box-${VERSION_NUM}-${SINGBOX_ARCH}"
 mv sing-box /usr/local/bin/
 cd ..
 rm -rf sing-box*
 
-cat <<EOF > /etc/systemd/system/sing-box.service
+case "$INIT_SYSTEM" in
+  systemd)
+    cat <<'EOF' > /etc/systemd/system/sing-box.service
 [Unit]
 Description=sing-box service
 Documentation=https://sing-box.sagernet.org
@@ -87,8 +237,31 @@ LimitNOFILE=infinity
 [Install]
 WantedBy=multi-user.target
 EOF
+    systemctl daemon-reload
+    ;;
 
-systemctl daemon-reload
+  openrc)
+    cat <<'EOF' > /etc/init.d/sing-box
+#!/sbin/openrc-run
+
+description="sing-box service"
+command="/usr/local/bin/sing-box"
+command_args="run -c /etc/sing-box/config.json"
+command_background="yes"
+pidfile="/run/${RC_SVCNAME}.pid"
+respawn_delay=18
+respawn_max=0
+
+capabilities="CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW"
+
+depend() {
+    need net
+    after nss-lookup.target
+}
+EOF
+    chmod +x /etc/init.d/sing-box
+    ;;
+esac
 
 # =============================================================================
 # ACME CERT
@@ -115,7 +288,7 @@ server {
 }
 EOF
 
-nginx -t && systemctl enable nginx && systemctl restart nginx
+nginx -t && svc_enable nginx && svc_restart nginx
 
 "${ACME_BIN}" --set-default-ca --server letsencrypt
 "${ACME_BIN}" --issue -d "${DOMAIN}" --nginx --force
@@ -146,7 +319,7 @@ while true; do
   fi
 done
 
-# HY2 固定 443
+# HY2 fixed at 443
 HY2_PORT=443
 
 UUID=$(uuidgen)
@@ -241,7 +414,7 @@ dns:
       - 0.0.0.0/32
 
   fake-ip-filter:
-    # 局域网与本地地址
+    # LAN & local addresses
     - "*.lan"
     - "*.local"
     - "*.home.arpa"
@@ -249,33 +422,33 @@ dns:
     - "router.asus.com"
     - "miwifi.com"
 
-    # 微信及腾讯核心服务
+    # WeChat & Tencent core services
     - "+.weixin.qq.com"
     - "+.qq.com"
     - "+.tencent.com"
     - "+.qlogo.cn"
     - "+.qpic.cn"
 
-    # 阿里与高德
+    # Alibaba & Amap
     - "+.alipay.com"
     - "+.taobao.com"
     - "+.amap.com"
     - "+.alicdn.com"
 
-    # 系统与联网检测
+    # System & connectivity checks
     - "*.msftconnecttest.com"
     - "*.msftncsi.com"
     - "*.apple.com"
     - "*.icloud.com"
 
-    # 主流游戏平台
+    # Major gaming platforms
     - "+.xboxlive.com"
     - "+.sony.com"
     - "+.playstation.net"
     - "*.nintendo.net"
     - "+.steamcommunity.com"
 
-    # NTP 时间同步
+    # NTP time sync
     - "time.*.com"
     - "time.*.apple.com"
     - "time.nstl.gov.cn"
@@ -407,7 +580,7 @@ proxies:
     alpn:
       - h3
     sni: ${DOMAIN}
-    skip-cert-verify: false  
+    skip-cert-verify: false
 
   - name: "${TUIC_NODE_NAME}"
     type: tuic
@@ -567,18 +740,23 @@ EOF
 # =============================================================================
 echo -e "${GREEN}[Step 7/7]${NC} Starting services..."
 
-systemctl enable sing-box nginx
-systemctl restart sing-box nginx
+svc_enable sing-box
+svc_enable nginx
+svc_restart sing-box
+svc_restart nginx
 
-"${ACME_BIN}" --install-cert -d "${DOMAIN}" --reloadcmd "${CERT_RELOAD_CMD}"
+if [ -n "${CERT_RELOAD_CMD}" ]; then
+  "${ACME_BIN}" --install-cert -d "${DOMAIN}" --reloadcmd "${CERT_RELOAD_CMD}"
+fi
 
 # =============================================================================
 # OUTPUT
 # =============================================================================
 echo "=================================================="
-echo "TUIC:   ${TUIC_PORT}"
-echo "VLESS:  ${VLESS_PORT}"
-echo "HY2:    443"
-echo "SUB:    https://${DOMAIN}:${SUB_PORT}/${SUB_PATH}"
-echo "HY2 SITE: https://${DOMAIN}/ (masquerade)"
+echo "OS / Init:  ${OS_ID} (${INIT_SYSTEM})"
+echo "TUIC:       ${TUIC_PORT}"
+echo "VLESS:      ${VLESS_PORT}"
+echo "HY2:        443"
+echo "SUB:        https://${DOMAIN}:${SUB_PORT}/${SUB_PATH}"
+echo "HY2 SITE:   https://${DOMAIN}/ (masquerade)"
 echo "=================================================="
