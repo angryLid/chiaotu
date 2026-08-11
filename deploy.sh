@@ -248,22 +248,33 @@ EOF
     ;;
 
   openrc)
+    # Manual start/stop via start-stop-daemon. Plain command_background=yes
+    # either crashes or needs a pidfile the daemon never writes; declaring
+    # capabilities can also fail on restricted containers. This proven init
+    # script lets OpenRC create the pidfile and supervise the process.
     cat <<'EOF' > /etc/init.d/sing-box
 #!/sbin/openrc-run
 
+name="sing-box"
 description="sing-box service"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
-command_background="yes"
-pidfile="/run/${RC_SVCNAME}.pid"
-respawn_delay=18
+pidfile="/run/$RC_SVCNAME.pid"
+respawn_delay=5
 respawn_max=0
 
-capabilities="CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW"
+start() {
+    ebegin "Starting sing-box"
+    start-stop-daemon --start --background \
+        --make-pidfile --pidfile "$pidfile" \
+        --exec "$command" -- $command_args
+    eend $?
+}
 
-depend() {
-    need net
-    after nss-lookup.target
+stop() {
+    ebegin "Stopping sing-box"
+    start-stop-daemon --stop --pidfile "$pidfile"
+    eend $?
 }
 EOF
     chmod +x /etc/init.d/sing-box
