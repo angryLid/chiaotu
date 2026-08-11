@@ -5,6 +5,7 @@
 # Prerequisites:   bash (Alpine: apk add bash)
 # Usage:           DOMAIN=... EMAIL=... PREFIX=... bash deploy.sh
 # Force redeploy:  FORCE=1 DOMAIN=... EMAIL=... PREFIX=... bash deploy.sh
+# Optional ports:  TUIC_PORT  VLESS_PORT  HY2_PORT  SUB_PORT  (random if unset)
 #
 
 set -euo pipefail
@@ -307,20 +308,46 @@ KEY_PATH="${CERT_EXPORT_DIR}/private.key"
 # =============================================================================
 echo -e "${GREEN}[Step 4/7]${NC} Generating ports..."
 
-while true; do
-  TUIC_PORT=$((10000 + RANDOM % 20000))
-  VLESS_PORT=$((10000 + RANDOM % 20000))
-  SUB_PORT=$((10000 + RANDOM % 20000))
+_rand_port() {
+  echo $((10000 + RANDOM % 20000))
+}
 
-  if [ "$TUIC_PORT" -ne "$VLESS_PORT" ] && \
-     [ "$TUIC_PORT" -ne "$SUB_PORT" ] && \
-     [ "$VLESS_PORT" -ne "$SUB_PORT" ]; then
-    break
+# Remember which ports were explicitly provided via env
+USER_TUIC="${TUIC_PORT:-}"
+USER_VLESS="${VLESS_PORT:-}"
+USER_SUB="${SUB_PORT:-}"
+USER_HY2="${HY2_PORT:-}"
+
+# Fill in defaults / random for unset ports
+TUIC_PORT="${TUIC_PORT:-$(_rand_port)}"
+VLESS_PORT="${VLESS_PORT:-$(_rand_port)}"
+SUB_PORT="${SUB_PORT:-$(_rand_port)}"
+HY2_PORT="${HY2_PORT:-443}"
+
+# Re-roll random ports until no conflicts (user-provided ports are never changed)
+_attempts=0
+while [ "$TUIC_PORT" -eq "$VLESS_PORT" ] || \
+      [ "$TUIC_PORT" -eq "$SUB_PORT" ] || \
+      [ "$TUIC_PORT" -eq "$HY2_PORT" ] || \
+      [ "$VLESS_PORT" -eq "$SUB_PORT" ] || \
+      [ "$VLESS_PORT" -eq "$HY2_PORT" ] || \
+      [ "$SUB_PORT" -eq "$HY2_PORT" ]; do
+  [ -z "$USER_TUIC" ]  && TUIC_PORT=$(_rand_port)
+  [ -z "$USER_VLESS" ] && VLESS_PORT=$(_rand_port)
+  [ -z "$USER_SUB" ]   && SUB_PORT=$(_rand_port)
+  [ -z "$USER_HY2" ]   && HY2_PORT=$(_rand_port)
+
+  _attempts=$((_attempts + 1))
+  if [ "$_attempts" -gt 100 ]; then
+    echo -e "${RED}[Error]${NC} Port conflict detected and cannot resolve automatically."
+    echo "       TUIC_PORT=${TUIC_PORT}"
+    echo "       VLESS_PORT=${VLESS_PORT}"
+    echo "       HY2_PORT=${HY2_PORT}"
+    echo "       SUB_PORT=${SUB_PORT}"
+    echo "       Please ensure all user-provided ports are unique."
+    exit 1
   fi
 done
-
-# HY2 fixed at 443
-HY2_PORT=443
 
 UUID=$(uuidgen)
 PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)
