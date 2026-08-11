@@ -180,7 +180,7 @@ echo -e "${GREEN}[Step 1/7]${NC} Installing dependencies..."
 
 case "$OS_ID" in
   alpine)
-    pkg_install bash curl jq util-linux nginx dcron sudo
+    pkg_install bash curl jq util-linux nginx dcron sudo openssl
     svc_enable_start dcron
     ;;
   debian|ubuntu)
@@ -281,6 +281,12 @@ fi
 
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
+# Defensive: acme.sh needs openssl to generate keys. Install it if missing.
+if ! command -v openssl >/dev/null 2>&1; then
+  echo -e "${YELLOW}[Warn]${NC} openssl not found - installing it..."
+  pkg_install openssl
+fi
+
 if [ -z "${DNS_PROVIDER}" ]; then
   echo -e "${RED}[Error]${NC} DNS_PROVIDER is required for the DNS-01 challenge"
   echo "       (e.g. dns_cf for Cloudflare). Also export the matching DNS API"
@@ -347,10 +353,13 @@ while [ "$TUIC_PORT" -eq "$VLESS_PORT" ] || \
 done
 
 UUID=$(uuidgen)
-PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16)
-HY2_PASSWORD=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 20)
+# Use openssl rand instead of head|tr|head pipelines: the trailing
+# `head -c N` closes the pipe early and, under `set -o pipefail`, the
+# upstream SIGPIPE (141) makes `set -e` abort the script silently.
+PASSWORD=$(openssl rand -hex 8)
+HY2_PASSWORD=$(openssl rand -hex 10)
 
-SUB_PATH=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 12)
+SUB_PATH=$(openssl rand -hex 6)
 
 TUIC_NODE_NAME="${PREFIX}-TUIC"
 VLESS_NODE_NAME="${PREFIX}-VLESS"
