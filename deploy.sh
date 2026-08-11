@@ -296,11 +296,23 @@ fi
 
 mkdir -p "${CERT_EXPORT_DIR}" /var/www/hy2
 
-"${ACME_BIN}" --set-default-ca --server letsencrypt
-"${ACME_BIN}" --issue -d "${DOMAIN}" --dns "${DNS_PROVIDER}"
-
 CERT_PATH="${CERT_EXPORT_DIR}/fullchain.cer"
 KEY_PATH="${CERT_EXPORT_DIR}/private.key"
+
+"${ACME_BIN}" --set-default-ca --server letsencrypt
+
+# acme.sh exits non-zero both when it renews successfully-when-unneeded
+# ("Skipping. Next renewal time is ...") and on real failures. Under set -e
+# that would abort the whole deploy. Only treat a non-zero exit as fatal if
+# no cert exists yet (i.e. nothing to fall back on); otherwise keep going.
+if [ -f "${CERT_PATH}" ]; then
+  if ! "${ACME_BIN}" --issue -d "${DOMAIN}" --dns "${DNS_PROVIDER}"; then
+    echo -e "${YELLOW}[Warn]${NC} acme.sh skipped/failed to renew the cert"
+    echo "       A valid cert exists at ${CERT_PATH} - continuing with it."
+  fi
+else
+  "${ACME_BIN}" --issue -d "${DOMAIN}" --dns "${DNS_PROVIDER}"
+fi
 
 "${ACME_BIN}" --install-cert -d "${DOMAIN}" \
   --key-file "${KEY_PATH}" \
