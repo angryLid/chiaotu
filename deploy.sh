@@ -3,9 +3,12 @@
 # Supported OS:    Debian / Ubuntu (systemd)
 #                  Alpine Linux    (OpenRC or systemd)
 # Prerequisites:   bash (Alpine: apk add bash)
-# Usage:           DOMAIN=... EMAIL=... PREFIX=... bash deploy.sh
-# Force redeploy:  FORCE=1 DOMAIN=... EMAIL=... PREFIX=... bash deploy.sh
+# Usage:           DOMAIN=... EMAIL=... PREFIX=... DNS_PROVIDER=dns_cf bash deploy.sh
+#                  (also export the DNS provider API env vars, e.g. CF_Token/CF_Zone_ID)
+# Force redeploy:  FORCE=1 DOMAIN=... EMAIL=... PREFIX=... DNS_PROVIDER=dns_cf bash deploy.sh
 # Optional ports:  TUIC_PORT  VLESS_PORT  HY2_PORT  SUB_PORT  (random if unset)
+# Note:            Certs are issued via DNS-01 (no public port 80 required),
+#                  so this works behind LXC hosts that don't forward :80/:443.
 #
 
 set -euo pipefail
@@ -25,6 +28,9 @@ DOMAIN="${DOMAIN:-}"
 EMAIL="${EMAIL:-}"
 PREFIX="${PREFIX:-}"
 FORCE="${FORCE:-0}"
+# ACME DNS-01 provider (e.g. dns_cf for Cloudflare). Requires the
+# corresponding DNS API env vars (CF_Token / CF_Zone_ID for dns_cf, etc.).
+DNS_PROVIDER="${DNS_PROVIDER:-}"
 
 # =============================================================================
 # 2. VALIDATION
@@ -275,26 +281,17 @@ fi
 
 ACME_BIN="${HOME}/.acme.sh/acme.sh"
 
-mkdir -p /var/www/hy2 /etc/nginx/conf.d
+if [ -z "${DNS_PROVIDER}" ]; then
+  echo -e "${RED}[Error]${NC} DNS_PROVIDER is required for the DNS-01 challenge"
+  echo "       (e.g. dns_cf for Cloudflare). Also export the matching DNS API"
+  echo "       env vars (e.g. CF_Token, CF_Zone_ID)."
+  exit 1
+fi
 
-cat <<EOF > /etc/nginx/conf.d/http.conf
-server {
-    listen 80;
-    listen [::]:80;
-    server_name ${DOMAIN};
-    location / {
-        root /var/www/hy2;
-        index index.html;
-    }
-}
-EOF
-
-nginx -t && svc_enable nginx && svc_restart nginx
+mkdir -p "${CERT_EXPORT_DIR}" /var/www/hy2
 
 "${ACME_BIN}" --set-default-ca --server letsencrypt
-"${ACME_BIN}" --issue -d "${DOMAIN}" --nginx --force
-
-mkdir -p "${CERT_EXPORT_DIR}"
+"${ACME_BIN}" --issue -d "${DOMAIN}" --dns "${DNS_PROVIDER}"
 
 CERT_PATH="${CERT_EXPORT_DIR}/fullchain.cer"
 KEY_PATH="${CERT_EXPORT_DIR}/private.key"
@@ -740,24 +737,6 @@ server {
         alias /var/www/subscribe/clash.yaml;
         add_header Content-Type "text/yaml; charset=utf-8";
         add_header Content-Disposition "attachment; filename=\"${DOMAIN}.yaml\"";
-    }
-}
-EOF
-
-cat <<EOF > /etc/nginx/conf.d/hy2.conf
-server {
-    listen ${HY2_PORT} ssl http2;
-    listen [::]:${HY2_PORT} ssl http2;
-    server_name ${DOMAIN};
-
-    ssl_certificate /etc/ssl/private/${DOMAIN}/fullchain.cer;
-    ssl_certificate_key /etc/ssl/private/${DOMAIN}/private.key;
-
-    add_header Alt-Svc 'h3=":${HY2_PORT}"; ma=86400; persist=1';
-
-    location / {
-        root /var/www/hy2;
-        index index.html;
     }
 }
 EOF
