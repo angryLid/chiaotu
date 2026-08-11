@@ -602,7 +602,7 @@ proxies:
   - name: "${HY2_NODE_NAME}"
     type: hysteria2
     server: ${DOMAIN}
-    port: 443
+    port: ${HY2_PORT}
     password: ${HY2_PASSWORD}
     alpn:
       - h3
@@ -688,7 +688,7 @@ cat <<EOF > /etc/sing-box/config.json
     {
       "type": "hysteria2",
       "listen": "::",
-      "listen_port": 443,
+      "listen_port": ${HY2_PORT},
 
       "users": [
         {
@@ -746,14 +746,14 @@ EOF
 
 cat <<EOF > /etc/nginx/conf.d/hy2.conf
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen ${HY2_PORT} ssl http2;
+    listen [::]:${HY2_PORT} ssl http2;
     server_name ${DOMAIN};
 
     ssl_certificate /etc/ssl/private/${DOMAIN}/fullchain.cer;
     ssl_certificate_key /etc/ssl/private/${DOMAIN}/private.key;
 
-    add_header Alt-Svc 'h3=":443"; ma=86400; persist=1';
+    add_header Alt-Svc 'h3=":${HY2_PORT}"; ma=86400; persist=1';
 
     location / {
         root /var/www/hy2;
@@ -783,7 +783,11 @@ echo "=================================================="
 echo "OS / Init:  ${OS_ID} (${INIT_SYSTEM})"
 echo "TUIC:       ${TUIC_PORT}"
 echo "VLESS:      ${VLESS_PORT}"
-echo "HY2:        443"
+echo "HY2:        ${HY2_PORT}"
 echo "SUB:        https://${DOMAIN}:${SUB_PORT}/${SUB_PATH}"
-echo "HY2 SITE:   https://${DOMAIN}/ (masquerade)"
+if [ "${HY2_PORT}" = "443" ]; then
+  echo "HY2 SITE:   https://${DOMAIN}/ (masquerade)"
+else
+  echo "HY2 SITE:   https://${DOMAIN}:${HY2_PORT}/ (masquerade)"
+fi
 echo "=================================================="
