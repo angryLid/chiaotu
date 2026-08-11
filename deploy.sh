@@ -73,7 +73,11 @@ fi
 pkg_install() {
   case "$OS_ID" in
     alpine)
-      apk update
+      # Tolerate a failed `apk update` (e.g. mirror unreachable from some
+      # regions). If the stale index already covers the needed packages,
+      # the script can still proceed; otherwise the subsequent apk add will
+      # surface the real error.
+      apk update || echo -e "${YELLOW}[Warn]${NC} apk update failed - continuing anyway"
       apk add --no-cache "$@"
       ;;
     debian|ubuntu)
