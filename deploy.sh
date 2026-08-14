@@ -6,7 +6,10 @@
 # Usage:           DOMAIN=... EMAIL=... PREFIX=... DNS_PROVIDER=dns_cf bash deploy.sh
 #                  (also export the DNS provider API env vars, e.g. CF_Token/CF_Zone_ID)
 # Force redeploy:  FORCE=1 DOMAIN=... EMAIL=... PREFIX=... DNS_PROVIDER=dns_cf bash deploy.sh
-# Optional ports:  TUIC_PORT  VLESS_PORT  HY2_PORT  SUB_PORT  (random if unset)
+# Optional:        PORT (random if unset; second pair uses PORT+1)
+#                  MASQUERADE=1 (serve a "domain for sale" page via HY2, default off)
+# Ports:           PORT   = VLESS (TCP) + TUIC (UDP)
+#                  PORT+1 = HY2 (UDP) + SUB/nginx (TCP)
 # Note:            Certs are issued via DNS-01 (no public port 80 required),
 #                  so this works behind LXC hosts that don't forward :80/:443.
 #
@@ -28,6 +31,10 @@ DOMAIN="${DOMAIN:-}"
 EMAIL="${EMAIL:-}"
 PREFIX="${PREFIX:-}"
 FORCE="${FORCE:-0}"
+# Single port input: PORT (VLESS+TUIC) and PORT+1 (HY2+SUB). Random if unset.
+PORT="${PORT:-}"
+# Serve a "domain for sale" page via HY2 masquerade (default off).
+MASQUERADE="${MASQUERADE:-0}"
 # ACME DNS-01 provider (e.g. dns_cf for Cloudflare). Requires the
 # corresponding DNS API env vars (CF_Token / CF_Zone_ID for dns_cf, etc.).
 DNS_PROVIDER="${DNS_PROVIDER:-}"
@@ -309,7 +316,7 @@ if [ -z "${DNS_PROVIDER}" ]; then
   exit 1
 fi
 
-mkdir -p "${CERT_EXPORT_DIR}" /var/www/hy2
+mkdir -p "${CERT_EXPORT_DIR}"
 
 CERT_PATH="${CERT_EXPORT_DIR}/fullchain.cer"
 KEY_PATH="${CERT_EXPORT_DIR}/private.key"
@@ -342,42 +349,25 @@ _rand_port() {
   echo $((10000 + RANDOM % 20000))
 }
 
-# Remember which ports were explicitly provided via env
-USER_TUIC="${TUIC_PORT:-}"
-USER_VLESS="${VLESS_PORT:-}"
-USER_SUB="${SUB_PORT:-}"
-USER_HY2="${HY2_PORT:-}"
-
-# Fill in defaults / random for unset ports
-TUIC_PORT="${TUIC_PORT:-$(_rand_port)}"
-VLESS_PORT="${VLESS_PORT:-$(_rand_port)}"
-SUB_PORT="${SUB_PORT:-$(_rand_port)}"
-HY2_PORT="${HY2_PORT:-443}"
-
-# Re-roll random ports until no conflicts (user-provided ports are never changed)
-_attempts=0
-while [ "$TUIC_PORT" -eq "$VLESS_PORT" ] || \
-      [ "$TUIC_PORT" -eq "$SUB_PORT" ] || \
-      [ "$TUIC_PORT" -eq "$HY2_PORT" ] || \
-      [ "$VLESS_PORT" -eq "$SUB_PORT" ] || \
-      [ "$VLESS_PORT" -eq "$HY2_PORT" ] || \
-      [ "$SUB_PORT" -eq "$HY2_PORT" ]; do
-  [ -z "$USER_TUIC" ]  && TUIC_PORT=$(_rand_port)
-  [ -z "$USER_VLESS" ] && VLESS_PORT=$(_rand_port)
-  [ -z "$USER_SUB" ]   && SUB_PORT=$(_rand_port)
-  [ -z "$USER_HY2" ]   && HY2_PORT=$(_rand_port)
-
-  _attempts=$((_attempts + 1))
-  if [ "$_attempts" -gt 100 ]; then
-    echo -e "${RED}[Error]${NC} Port conflict detected and cannot resolve automatically."
-    echo "       TUIC_PORT=${TUIC_PORT}"
-    echo "       VLESS_PORT=${VLESS_PORT}"
-    echo "       HY2_PORT=${HY2_PORT}"
-    echo "       SUB_PORT=${SUB_PORT}"
-    echo "       Please ensure all user-provided ports are unique."
+# Single user input: PORT. The second pair reuses PORT + 1.
+#   PORT     = VLESS (TCP) + TUIC (UDP)
+#   PORT + 1 = HY2 (UDP) + SUB/nginx (TCP)
+# TCP and UDP are independent namespaces, so each pair safely shares one
+# port number; the +1 offset guarantees the two pairs stay distinct.
+if [ -n "${PORT}" ]; then
+  if ! [[ "${PORT}" =~ ^[0-9]{1,5}$ ]] || [ "${PORT}" -lt 1 ] || [ "${PORT}" -gt 65534 ]; then
+    echo -e "${RED}[Error]${NC} PORT must be a number between 1 and 65534 (PORT+1 is also used)"
     exit 1
   fi
-done
+  PORT=$((10#$PORT))
+else
+  PORT=$(_rand_port)
+fi
+
+VLESS_PORT="${PORT}"
+TUIC_PORT="${PORT}"
+HY2_PORT=$((PORT + 1))
+SUB_PORT=$((PORT + 1))
 
 UUID=$(uuidgen)
 # Use openssl rand instead of head|tr|head pipelines: the trailing
@@ -397,14 +387,15 @@ HY2_NODE_NAME="${PREFIX}-HY2"
 # =============================================================================
 mkdir -p /etc/sing-box
 mkdir -p /var/www/subscribe
-mkdir -p /var/www/hy2
 
 # =============================================================================
-# DOMAIN SALE PAGE
+# DOMAIN SALE PAGE (masquerade, optional)
 # =============================================================================
-echo -e "${GREEN}[Step 5/7]${NC} Writing domain page..."
+echo -e "${GREEN}[Step 5/7]${NC} Writing config files..."
 
-cat <<EOF > /var/www/hy2/index.html
+if [ "${MASQUERADE}" = "1" ]; then
+  mkdir -p /var/www/hy2
+  cat <<EOF > /var/www/hy2/index.html
 <!doctype html>
 <html>
 <head>
@@ -434,6 +425,7 @@ background:#3b82f6;color:#fff;text-decoration:none;border-radius:8px}
 </body>
 </html>
 EOF
+fi
 
 cat <<EOF > /var/www/subscribe/clash.yaml
 mixed-port: 7890
@@ -685,6 +677,14 @@ EOF
 # =============================================================================
 echo -e "${GREEN}[Step 6/7]${NC} Writing sing-box config..."
 
+# Optional HY2 masquerade (serves the sale page to non-HY2 QUIC probes)
+if [ "${MASQUERADE}" = "1" ]; then
+  MASQUERADE_FIELD=',
+      "masquerade": "file:///var/www/hy2"'
+else
+  MASQUERADE_FIELD=""
+fi
+
 cat <<EOF > /etc/sing-box/config.json
 {
   "log": { "level": "info" },
@@ -740,8 +740,7 @@ cat <<EOF > /etc/sing-box/config.json
         "server_name": "${DOMAIN}",
         "certificate_path": "${CERT_PATH}",
         "key_path": "${KEY_PATH}"
-      },
-      "masquerade": "file:///var/www/hy2"
+      }${MASQUERADE_FIELD}
     }
   ],
 
@@ -804,14 +803,11 @@ fi
 # OUTPUT
 # =============================================================================
 echo "=================================================="
-echo "OS / Init:  ${OS_ID} (${INIT_SYSTEM})"
-echo "TUIC:       ${TUIC_PORT}"
-echo "VLESS:      ${VLESS_PORT}"
-echo "HY2:        ${HY2_PORT}"
-echo "SUB:        https://${DOMAIN}:${SUB_PORT}/${SUB_PATH}"
-if [ "${HY2_PORT}" = "443" ]; then
-  echo "HY2 SITE:   https://${DOMAIN}/ (masquerade)"
-else
-  echo "HY2 SITE:   https://${DOMAIN}:${HY2_PORT}/ (masquerade)"
+echo "OS / Init:      ${OS_ID} (${INIT_SYSTEM})"
+echo "VLESS + TUIC:   ${PORT} (TCP + UDP)"
+echo "HY2 + SUB:      ${HY2_PORT} (UDP + TCP)"
+echo "SUB:            https://${DOMAIN}:${SUB_PORT}/${SUB_PATH}"
+if [ "${MASQUERADE}" = "1" ]; then
+  echo "MASQUERADE:     https://${DOMAIN}:${HY2_PORT}/ (domain sale page)"
 fi
 echo "=================================================="
