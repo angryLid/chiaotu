@@ -3,22 +3,18 @@
  *
  * What it does:
  * - shows a live summary of the app data (subscriptions / rules / nodes / sync time);
- * - lets the user pick a rule and generate a clash YAML config in the browser:
- *   apply the rule to the nodes parsed from the initial dump, run the produce
- *   pipeline (buildProfile) over the matched nodes, then upload the result
- *   (name = nanoid) to the backend via POST /api/generated;
+ * - lets the user pick one or more rules (multi-select; the union of the matched
+ *   nodes, deduped by subId+name, feeds the produce pipeline) and generate a
+ *   clash YAML config in the browser: apply each selected rule to the nodes
+ *   parsed from the initial dump, run the produce pipeline (buildProfile) over
+ *   the matched nodes, then upload the result (name = nanoid) to the backend
+ *   via POST /api/generated;
  * - shows the most recently generated result (GET /api/generated) with a
  *   content preview and a download button.
  */
 
 import { nanoid } from "nanoid";
-import {
-	type FormEvent,
-	type ReactNode,
-	useEffect,
-	useMemo,
-	useState,
-} from "react";
+import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "~/api/errors";
 import {
@@ -31,16 +27,17 @@ import type { Rule } from "~/persistence/rules";
 import { useAppStore } from "~/store/app-store";
 import type { NodeProxy } from "~/utils/nodes";
 import { buildProfile, type VendorSource } from "~/utils/produceProfile";
-import { applyRule, type NodeSource } from "~/utils/ruleEngine";
+import {
+	applyRule,
+	type MatchedNode,
+	type NodeSource,
+} from "~/utils/ruleEngine";
 // The base clash template is imported at build time (Vite ?raw); this is the
 // browser-side replacement for the CLI's `address.template` file read.
 import baseTemplate from "../../resources/templates/base.yaml?raw";
 
 /** Length of the auto-generated result name (nanoid). */
 const GENERATED_NAME_LENGTH = 10;
-
-const selectClass =
-	"mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500";
 
 function ErrorBox({ children }: { children: ReactNode }) {
 	return (
@@ -84,20 +81,12 @@ export default function StatusPage() {
 	const parsed = useAppStore((s) => s.parsed);
 	const hydratedAt = useAppStore((s) => s.hydratedAt);
 
-	const [selectedRuleId, setSelectedRuleId] = useState<number | "">("");
+	const [selectedRuleIds, setSelectedRuleIds] = useState<number[]>([]);
 	const [generationError, setGenerationError] = useState<string | null>(null);
 
-	// Auto-select the first rule once rules are loaded (the store hydrates after
-	// the initial dump resolves).
-	useEffect(() => {
-		if (selectedRuleId === "" && rules.length > 0) {
-			setSelectedRuleId(rules[0].id);
-		}
-	}, [selectedRuleId, rules]);
-
-	const selectedRule: Rule | null = useMemo(
-		() => rules.find((rule) => rule.id === selectedRuleId) ?? null,
-		[rules, selectedRuleId],
+	const selectedRules: Rule[] = useMemo(
+		() => rules.filter((rule) => selectedRuleIds.includes(rule.id)),
+		[rules, selectedRuleIds],
 	);
 
 	/** Nodes parsed in the browser from the initial dump, as rule-engine input. */
@@ -112,14 +101,43 @@ export default function StatusPage() {
 		return items;
 	}, [subscriptions, parsed]);
 
-	/** How many nodes the selected rule would match (live; mirrors the rules page preview). */
-	const matchedCount = useMemo(
-		() =>
-			selectedRule === null
-				? 0
-				: applyRule(selectedRule.filter, nodeSources).length,
-		[selectedRule, nodeSources],
-	);
+	/**
+	 * Union of the nodes matched by the selected rules, deduped by subId+name —
+	 * a node matched by several rules appears once (buildProfile does not dedupe).
+	 */
+	const matchedNodes = useMemo(() => {
+		const seen = new Set<string>();
+		const merged: MatchedNode[] = [];
+		for (const rule of selectedRules) {
+			for (const node of applyRule(rule.filter, nodeSources)) {
+				const key = `${node.subId}:${node.name}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				merged.push(node);
+			}
+		}
+		return merged;
+	}, [selectedRules, nodeSources]);
+
+	/** How many nodes the selected rules would match in total (union). */
+	const matchedCount = matchedNodes.length;
+
+	function toggleRuleId(id: number) {
+		setSelectedRuleIds((prev) =>
+			prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+		);
+		setGenerationError(null);
+	}
+
+	/** All rules selected (drives the select-all checkbox). */
+	const allSelected = rules.length > 0 && selectedRuleIds.length === rules.length;
+	/** Some but not all rules selected (drives the indeterminate state). */
+	const someSelected = selectedRuleIds.length > 0 && !allSelected;
+
+	function toggleSelectAll() {
+		setSelectedRuleIds(allSelected ? [] : rules.map((rule) => rule.id));
+		setGenerationError(null);
+	}
 
 	const totalNodes = useMemo(
 		() => nodeSources.reduce((sum, item) => sum + item.content.length, 0),
@@ -128,12 +146,11 @@ export default function StatusPage() {
 
 	async function handleGenerate(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (selectedRule === null) {
+		if (selectedRules.length === 0) {
 			setGenerationError(t("status.generate.noRule"));
 			return;
 		}
-		const matched = applyRule(selectedRule.filter, nodeSources);
-		if (matched.length === 0) {
+		if (matchedNodes.length === 0) {
 			setGenerationError(t("status.generate.noMatch"));
 			return;
 		}
@@ -147,7 +164,7 @@ export default function StatusPage() {
 			]),
 		);
 		const bySub = new Map<string, NodeProxy[]>();
-		for (const node of matched) {
+		for (const node of matchedNodes) {
 			const list = bySub.get(node.subId) ?? [];
 			list.push(node);
 			bySub.set(node.subId, list);
@@ -246,7 +263,7 @@ export default function StatusPage() {
 						type="submit"
 						disabled={
 							query.isLoading ||
-							selectedRule === null ||
+							selectedRules.length === 0 ||
 							createMutation.isPending
 						}
 						className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -257,30 +274,70 @@ export default function StatusPage() {
 					</button>
 				</div>
 
-				<label className="mt-3 block">
+				<div className="mt-3">
 					<span className="text-sm font-medium text-slate-700">
 						{t("status.generate.rule")}
 					</span>
-					<select
-						value={selectedRuleId}
-						onChange={(event) => {
-							const value = event.target.value;
-							setSelectedRuleId(value === "" ? "" : Number(value));
-							setGenerationError(null);
-						}}
-						className={selectClass}
-					>
-						<option value="">{t("status.generate.rulePlaceholder")}</option>
-						{rules.map((rule) => (
-							<option key={rule.id} value={rule.id}>
-								{rule.name}
-							</option>
-						))}
-					</select>
-					<span className="mt-1 block text-xs text-slate-400">
-						{t("status.generate.matchCount", { count: matchedCount })}
-					</span>
-				</label>
+					{rules.length === 0 ? (
+						<p className="mt-2 text-sm text-slate-400">
+							{t("status.generate.noRules")}
+						</p>
+					) : (
+						<>
+							<div className="mt-2 rounded-md border border-slate-200 p-2">
+								<label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-slate-50">
+									<input
+										type="checkbox"
+										checked={allSelected}
+										ref={(el) => {
+											if (el) el.indeterminate = someSelected;
+										}}
+										onChange={toggleSelectAll}
+										className="accent-slate-900"
+									/>
+									<span className="font-medium text-slate-700">
+										{t("status.generate.selectAll")}
+									</span>
+								</label>
+								<div className="mx-2 my-1 border-t border-slate-100" />
+								<div className="space-y-1">
+									{rules.map((rule) => {
+										const checked = selectedRuleIds.includes(rule.id);
+										return (
+											<label
+												key={rule.id}
+												className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-slate-50"
+											>
+												<input
+													type="checkbox"
+													checked={checked}
+													onChange={() => toggleRuleId(rule.id)}
+													className="accent-slate-900"
+												/>
+												<span className="min-w-0">
+													<span className="block truncate font-medium text-slate-700">
+														{rule.name}
+													</span>
+													<span className="block text-xs text-slate-400">
+														#{rule.id}
+													</span>
+												</span>
+											</label>
+										);
+									})}
+								</div>
+							</div>
+							<span className="mt-1 block text-xs text-slate-400">
+								{selectedRules.length === 0
+									? t("status.generate.noRule")
+									: t("status.generate.matchCount", {
+											count: selectedRules.length,
+											nodeCount: matchedCount,
+										})}
+							</span>
+						</>
+					)}
+				</div>
 
 				<p className="mt-2 text-xs text-slate-400">
 					{t("status.generate.hint")}
