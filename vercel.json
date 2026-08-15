@@ -4,6 +4,10 @@
 		{
 			"source": "/healthz",
 			"destination": "/api/healthz"
+		},
+		{
+			"source": "/(.*)",
+			"destination": "/index.html"
 		}
 	]
 }
