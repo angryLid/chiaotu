@@ -178,6 +178,8 @@ export const zhCN = {
 			link: "下载链接",
 			copy: "复制链接",
 			copied: "已复制",
+			qrTitle: "扫码订阅",
+			qrHint: "用手机相机扫码即可获取订阅链接。",
 		},
 	},
 	errors: {

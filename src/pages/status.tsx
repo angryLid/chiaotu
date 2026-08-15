@@ -13,6 +13,7 @@
  */
 
 import { nanoid } from "nanoid";
+import { QRCodeSVG } from "qrcode.react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "~/api/errors";
@@ -448,6 +449,24 @@ export default function StatusPage() {
 									: t("status.latest.copy")}
 							</button>
 						</div>
+						{/* QR code for the shareable link — scan with a phone to subscribe */}
+						{downloadUrl !== "" ? (
+							<div className="mt-2 flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-2">
+								<div className="shrink-0 rounded bg-white p-2">
+									<QRCodeSVG
+										value={downloadUrl}
+										size={96}
+										marginSize={1}
+									/>
+								</div>
+								<div className="min-w-0 text-xs text-slate-500">
+									<p className="font-medium text-slate-600">
+										{t("status.latest.qrTitle")}
+									</p>
+									<p className="mt-0.5">{t("status.latest.qrHint")}</p>
+								</div>
+							</div>
+						) : null}
 						<pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-700">
 							{latestQuery.data.content}
 						</pre>

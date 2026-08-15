@@ -186,6 +186,8 @@ export const en: DeepString<typeof zhCN> = {
 			link: "Download link",
 			copy: "Copy link",
 			copied: "Copied",
+			qrTitle: "Scan to subscribe",
+			qrHint: "Point your phone camera at the code to open the subscription link.",
 		},
 	},
 	errors: {
