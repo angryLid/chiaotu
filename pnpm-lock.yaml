@@ -20,6 +20,9 @@ importers:
       minimist:
         specifier: ^1.2.8
         version: 1.2.8
+      nanoid:
+        specifier: ^6.0.1
+        version: 6.0.1
       qrcode-terminal:
         specifier: ^0.12.0
         version: 0.12.0
@@ -826,6 +829,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanoid@6.0.1:
+    resolution: {integrity: sha512-3wVS3i51pE2pi1k5FFL/95BGfVS0kSsvDVuGXHOtxox/TywUmtgq+3qiTOTbs9J7KfHaXPiN171k/A6dBnaXFw==}
+    engines: {node: ^22 || ^24 || >=26}
+    hasBin: true
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
@@ -1484,6 +1492,8 @@ snapshots:
   minimist@1.2.8: {}
 
   nanoid@3.3.18: {}
+
+  nanoid@6.0.1: {}
 
   picocolors@1.1.1: {}
 

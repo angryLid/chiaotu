@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -15,7 +16,8 @@ import {
 	type SubscriptionSummary,
 } from "~/api/subscriptions";
 import { errorMessage, formatDateTime } from "~/i18n";
-import { useAppStore } from "~/store/app-store";
+import { useAppStore, type ParsedSubscription } from "~/store/app-store";
+import type { NodeProxy } from "~/utils/nodes";
 
 // ---- form ----
 
@@ -39,10 +41,17 @@ function validate(values: FormValues): ValidationKey | null {
 	return null;
 }
 
-function buildInput(values: FormValues): SubscriptionInput {
+function buildInput(
+	values: FormValues,
+	generateNameIfMissing: boolean,
+): SubscriptionInput {
 	const input: SubscriptionInput = {};
 	const name = values.name.trim();
-	if (name !== "") input.name = name;
+	if (name !== "") {
+		input.name = name;
+	} else if (generateNameIfMissing) {
+		input.name = nanoid();
+	}
 	const url = values.url.trim();
 	if (url !== "") input.url = url;
 	const content = values.content.trim();
@@ -127,12 +136,15 @@ function SubscriptionFormModal({
 	initial,
 	mutation,
 	onClose,
+	generateNameIfMissing = false,
 }: {
 	title: string;
 	submitLabel: string;
 	initial: FormValues;
 	mutation: UseMutationResult<Subscription, Error, SubscriptionInput>;
 	onClose: () => void;
+	/** On create: an empty name is replaced with a random nanoid instead of being omitted. */
+	generateNameIfMissing?: boolean;
 }) {
 	const { t } = useTranslation();
 	const [values, setValues] = useState<FormValues>(initial);
@@ -147,7 +159,7 @@ function SubscriptionFormModal({
 		}
 		setValidationError(null);
 		try {
-			await mutation.mutateAsync(buildInput(values));
+			await mutation.mutateAsync(buildInput(values, generateNameIfMissing));
 			onClose();
 		} catch {
 			// Failure message is rendered from mutation.error
@@ -257,14 +269,7 @@ function DetailModal({
 							{query.data.url === "" ? (
 								<span className="text-slate-400">{t("subs.detail.noUrl")}</span>
 							) : (
-								<a
-									href={query.data.url}
-									target="_blank"
-									rel="noreferrer"
-									className="text-slate-600 underline decoration-slate-300 underline-offset-2 hover:text-slate-900"
-								>
-									{query.data.url}
-								</a>
+								<span className="break-all text-slate-600">{query.data.url}</span>
 							)}
 						</dd>
 						<dt className="text-slate-400">{t("subs.detail.createdAt")}</dt>
@@ -343,6 +348,214 @@ function EditSubscriptionModal({
 			mutation={mutation}
 			onClose={onClose}
 		/>
+	);
+}
+
+// ---- node table (expanded subscription) ----
+
+/** String value of a node field (the node is a passthrough proxy object; field types are unknown). */
+function stringOf(node: NodeProxy, key: string): string {
+	const value = node[key];
+	if (value === undefined || value === null) return "";
+	return typeof value === "string" ? value : String(value);
+}
+
+/** Node table for one subscription; also renders parse errors / empty states. */
+function NodeTable({ item }: { item: ParsedSubscription }) {
+	const { t } = useTranslation();
+
+	if (item.nodes === null) {
+		return (
+			<div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+				{errorMessage(item.error)}
+			</div>
+		);
+	}
+	if (item.nodes.length === 0) {
+		return (
+			<p className="px-4 py-4 text-center text-sm text-slate-400">
+				{t("subs.noNodes")}
+			</p>
+		);
+	}
+	return (
+		<div className="overflow-x-auto">
+			<table className="w-full table-fixed text-left text-sm">
+				<thead>
+					<tr className="border-b border-slate-100 text-xs text-slate-400">
+						<th className="w-[45%] px-4 py-2 font-medium">{t("subs.col.name")}</th>
+						<th className="w-[15%] px-4 py-2 font-medium">{t("subs.col.type")}</th>
+						<th className="w-[25%] px-4 py-2 font-medium">{t("subs.col.server")}</th>
+						<th className="w-[15%] px-4 py-2 font-medium">{t("subs.col.port")}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{item.nodes.map((node) => (
+						<tr
+							key={node.name}
+							className="border-b border-slate-50 last:border-0"
+						>
+							<td
+								title={node.name}
+								className="truncate px-4 py-2 font-medium text-slate-800"
+							>
+								{node.name}
+							</td>
+							<td title={stringOf(node, "type")} className="truncate px-4 py-2 text-slate-600">
+								{stringOf(node, "type")}
+							</td>
+							<td
+								title={stringOf(node, "server")}
+								className="truncate px-4 py-2 font-mono text-xs text-slate-600"
+							>
+								{stringOf(node, "server")}
+							</td>
+							<td
+								title={stringOf(node, "port")}
+								className="truncate px-4 py-2 font-mono text-xs text-slate-600"
+							>
+								{stringOf(node, "port")}
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}
+
+// ---- collapsible subscription item ----
+// Collapsed: basic info only (name, #id, url, updated-at, node count). Expanded:
+// the full node table for this subscription, parsed in the browser from the dump.
+
+function SubscriptionItem({
+	sub,
+	deleting,
+	onView,
+	onEdit,
+	onDelete,
+}: {
+	sub: SubscriptionSummary;
+	deleting: boolean;
+	onView: () => void;
+	onEdit: () => void;
+	onDelete: () => void;
+}) {
+	const { t } = useTranslation();
+	const [expanded, setExpanded] = useState(false);
+	const item = useAppStore((s) => s.parsed[String(sub.id)]);
+
+	return (
+		<li className="border-b border-slate-100 last:border-b-0">
+			<div
+				role="button"
+				tabIndex={0}
+				aria-expanded={expanded}
+				aria-controls={`subscription-${sub.id}-nodes`}
+				aria-label={t(expanded ? "subs.collapse" : "subs.expand", { name: sub.name })}
+				onClick={() => setExpanded((open) => !open)}
+				onKeyDown={(event) => {
+					if (event.key === "Enter" || event.key === " ") {
+						event.preventDefault();
+						setExpanded((open) => !open);
+					}
+				}}
+				className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+			>
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					aria-hidden="true"
+					className={`mt-0.5 shrink-0 text-slate-400 transition-transform ${
+						expanded ? "rotate-90" : ""
+					}`}
+				>
+					<polyline points="9 18 15 12 9 6" />
+				</svg>
+
+				<div className="min-w-0 flex-1">
+					<div className="flex items-center gap-2">
+						<span className="truncate text-sm font-medium">{sub.name}</span>
+						<span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+							#{sub.id}
+						</span>
+					</div>
+					{sub.url === "" ? (
+						<span className="block truncate text-xs text-slate-400">
+							{t("subs.detail.noUrlList")}
+						</span>
+					) : (
+						<span className="block truncate text-xs text-slate-400">{sub.url}</span>
+					)}
+					<span className="mt-0.5 block text-xs text-slate-400">
+						{t("subs.updatedSuffix", {
+							date: formatDateTime(sub.updated_at),
+						})}
+					</span>
+				</div>
+
+				{item !== undefined && item.nodes !== null ? (
+					<span className="mt-0.5 shrink-0 text-xs text-slate-400">
+						{t("subs.nodeCount", { total: item.nodes.length })}
+					</span>
+				) : null}
+
+				<div className="flex w-full shrink-0 gap-1 pl-7 md:w-auto md:pl-0">
+					<button
+						type="button"
+						onClick={(event) => {
+							event.stopPropagation();
+							onView();
+						}}
+						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+					>
+						{t("subs.view")}
+					</button>
+					<button
+						type="button"
+						onClick={(event) => {
+							event.stopPropagation();
+							onEdit();
+						}}
+						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+					>
+						{t("subs.edit")}
+					</button>
+					<button
+						type="button"
+						onClick={(event) => {
+							event.stopPropagation();
+							onDelete();
+						}}
+						disabled={deleting}
+						className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{deleting ? t("subs.deleting") : t("subs.delete")}
+					</button>
+				</div>
+			</div>
+
+			{expanded ? (
+				<div
+					id={`subscription-${sub.id}-nodes`}
+					className="border-t border-slate-100 bg-slate-50/60 px-4 py-3"
+				>
+					{item === undefined ? (
+						<p className="py-4 text-center text-sm text-slate-400">
+							{t("common.loading")}
+						</p>
+					) : (
+						<NodeTable item={item} />
+					)}
+				</div>
+			) : null}
+		</li>
 	);
 }
 
@@ -432,64 +645,14 @@ export default function SubscriptionsPage() {
 			) : (
 				<ul className="overflow-hidden rounded-lg border border-slate-200 bg-white">
 					{items.map((sub) => (
-						<li
+						<SubscriptionItem
 							key={sub.id}
-							className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0"
-						>
-							<div className="min-w-0 flex-1">
-								<div className="flex items-center gap-2">
-									<span className="truncate text-sm font-medium">
-										{sub.name}
-									</span>
-									<span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-										#{sub.id}
-									</span>
-								</div>
-								{sub.url === "" ? (
-									<span className="block truncate text-xs text-slate-400">
-										{t("subs.detail.noUrlList")}
-									</span>
-								) : (
-									<a
-										href={sub.url}
-										target="_blank"
-										rel="noreferrer"
-										className="block truncate text-xs text-slate-400 transition-colors hover:text-slate-600 hover:underline"
-									>
-										{sub.url}
-									</a>
-								)}
-								<span className="mt-0.5 block text-xs text-slate-400">
-									{t("subs.updatedSuffix", {
-										date: formatDateTime(sub.updated_at),
-									})}
-								</span>
-							</div>
-							<div className="flex shrink-0 gap-1">
-								<button
-									type="button"
-									onClick={() => setViewing(sub)}
-									className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
-								>
-									{t("subs.view")}
-								</button>
-								<button
-									type="button"
-									onClick={() => setEditingId(sub.id)}
-									className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
-								>
-									{t("subs.edit")}
-								</button>
-								<button
-									type="button"
-									onClick={() => void handleDelete(sub)}
-									disabled={deletingId === sub.id}
-									className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									{deletingId === sub.id ? t("subs.deleting") : t("subs.delete")}
-								</button>
-							</div>
-						</li>
+							sub={sub}
+							deleting={deletingId === sub.id}
+							onView={() => setViewing(sub)}
+							onEdit={() => setEditingId(sub.id)}
+							onDelete={() => void handleDelete(sub)}
+						/>
 					))}
 				</ul>
 			)}
@@ -501,6 +664,7 @@ export default function SubscriptionsPage() {
 					initial={{ name: "", url: "", content: "" }}
 					mutation={createMutation}
 					onClose={() => setCreateOpen(false)}
+					generateNameIfMissing
 				/>
 			) : null}
 

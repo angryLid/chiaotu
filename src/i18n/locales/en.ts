@@ -13,7 +13,6 @@ export const en: DeepString<typeof zhCN> = {
 	app: {
 		nav: {
 			subscriptions: "Subscriptions",
-			nodes: "All Nodes",
 			rules: "Rules",
 			label: "Main navigation",
 			open: "Open navigation menu",
@@ -57,7 +56,7 @@ export const en: DeepString<typeof zhCN> = {
 			placeholderName: "e.g. My airport",
 			placeholderUrl: "https://example.com/sub.yaml",
 			placeholderContent: "Paste the subscription content when there is no URL",
-			hintName: "Defaults to the last segment of the URL path when omitted",
+			hintName: "A random name is generated when left empty",
 			hintUrlContent:
 				"At least one of url or content is required; when both are set, the fetched url content wins (content is overwritten).",
 		},
@@ -76,17 +75,12 @@ export const en: DeepString<typeof zhCN> = {
 			emptyContent: "(empty)",
 		},
 		updatedSuffix: "Updated {{date}}",
-	},
-	nodes: {
-		title: "All Nodes",
-		refresh: "Refresh",
-		refreshing: "Refreshing…",
-		all: "All subscriptions",
-		meta: "{{total}} nodes · synced {{date}}",
-		noSubscriptions: "No subscriptions yet. Add one in “Subscriptions” first.",
 		unnamed: "(unnamed)",
-		nodeCount: "#{{subId}} · {{total}} nodes",
+		noSubscriptions: "No subscriptions yet. Add one in “Subscriptions” first.",
+		nodeCount: "{{total}} nodes",
 		noNodes: "No nodes were parsed from this subscription",
+		expand: "Expand nodes of “{{name}}”",
+		collapse: "Collapse nodes of “{{name}}”",
 		col: {
 			name: "Name",
 			type: "Type",

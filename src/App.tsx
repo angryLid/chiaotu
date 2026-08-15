@@ -8,12 +8,11 @@ import {
 import { useTranslation } from "react-i18next";
 import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
-import NodesPage from "~/pages/nodes";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
 import SubscriptionsPage from "~/pages/subscriptions";
 import { useAppStore } from "~/store/app-store";
 
-type NavKey = "subscriptions" | "nodes" | "rules";
+type NavKey = "subscriptions" | "rules";
 
 /**
  * App route, derived from the URL hash (no router dependency). The rules section
@@ -21,12 +20,11 @@ type NavKey = "subscriptions" | "nodes" | "rules";
  */
 type Route =
 	| { page: "subscriptions" }
-	| { page: "nodes" }
 	| { page: "rules"; view: "list" }
 	| { page: "rules"; view: "new" }
 	| { page: "rules"; view: "edit"; id: number };
 
-/** Parse #/subscriptions | #/nodes | #/rules | #/rules/new | #/rules/{id}/edit. */
+/** Parse #/subscriptions | #/rules | #/rules/new | #/rules/{id}/edit. */
 function parseHash(hash: string): Route {
 	const parts = hash
 		.replace(/^#\/?/, "")
@@ -35,7 +33,6 @@ function parseHash(hash: string): Route {
 	const [page, sub, tail] = parts;
 	switch (page) {
 		case "subscriptions":
-		case "nodes":
 			return { page };
 		case "rules":
 			if (sub === "new") return { page: "rules", view: "new" };
@@ -50,7 +47,6 @@ function parseHash(hash: string): Route {
 
 const NAV_ITEMS = [
 	{ key: "subscriptions", labelKey: "app.nav.subscriptions", icon: "📥" },
-	{ key: "nodes", labelKey: "app.nav.nodes", icon: "🛰️" },
 	{ key: "rules", labelKey: "app.nav.rules", icon: "📜" },
 ] as const;
 
@@ -209,12 +205,7 @@ export default function App() {
 		}
 	};
 
-	const active: NavKey =
-		route.page === "subscriptions"
-			? "subscriptions"
-			: route.page === "nodes"
-				? "nodes"
-				: "rules";
+	const active: NavKey = route.page === "rules" ? "rules" : "subscriptions";
 
 	return (
 		<div className="min-h-screen bg-slate-50 text-slate-900">
@@ -271,8 +262,6 @@ export default function App() {
 			<main className="px-4 pb-4 pt-4 md:ml-56 md:px-6 md:py-6">
 				{route.page === "subscriptions" ? (
 					<SubscriptionsPage />
-				) : route.page === "nodes" ? (
-					<NodesPage />
 				) : route.view === "list" ? (
 					<RulesPage />
 				) : (

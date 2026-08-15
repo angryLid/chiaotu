@@ -2,8 +2,8 @@
  * Global application store (zustand): holds the domain state hydrated from
  * GET /api/initial-dump — full subscriptions, rules, and the per-subscription
  * node parse results. It is the single client-side source of truth for data
- * that spans pages (the subscriptions list, the rule engine's input, the "all
- * nodes" read-only view).
+ * that spans pages (the subscriptions page's node tables, the rule engine's
+ * input).
  *
  * Data flow:
  * - App fetches the initial dump via react-query (useInitialDump) and calls

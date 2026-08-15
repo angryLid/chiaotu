@@ -160,7 +160,7 @@ function RuleForm({
 	const subNameOf = useMemo(() => {
 		const map = new Map<string, string>();
 		for (const sub of subscriptions) {
-			map.set(String(sub.id), sub.name === "" ? t("nodes.unnamed") : sub.name);
+			map.set(String(sub.id), sub.name === "" ? t("subs.unnamed") : sub.name);
 		}
 		return (subId: string) => map.get(subId) ?? `#${subId}`;
 	}, [subscriptions, t]);
@@ -256,7 +256,7 @@ function RuleForm({
 						{query.isLoading ? (
 							<p className="mt-2 text-sm text-slate-400">{t("common.loading")}</p>
 						) : subscriptions.length === 0 ? (
-							<p className="mt-2 text-sm text-slate-400">{t("nodes.noSubscriptions")}</p>
+							<p className="mt-2 text-sm text-slate-400">{t("subs.noSubscriptions")}</p>
 						) : (
 							<div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
 								{subscriptions.map((sub) => {
@@ -275,7 +275,7 @@ function RuleForm({
 											/>
 											<span className="min-w-0">
 												<span className="block truncate font-medium text-slate-700">
-													{sub.name === "" ? t("nodes.unnamed") : sub.name}
+													{sub.name === "" ? t("subs.unnamed") : sub.name}
 												</span>
 												<span className="block text-xs text-slate-400">#{sub.id}</span>
 											</span>

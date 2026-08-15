@@ -9,7 +9,6 @@ export const zhCN = {
 	app: {
 		nav: {
 			subscriptions: "订阅管理",
-			nodes: "所有节点",
 			rules: "规则管理",
 			label: "主导航",
 			open: "打开导航菜单",
@@ -53,7 +52,7 @@ export const zhCN = {
 			placeholderName: "例如：我的机场",
 			placeholderUrl: "https://example.com/sub.yaml",
 			placeholderContent: "无 URL 时直接粘贴订阅内容",
-			hintName: "缺省时后端从 URL 路径末段推导",
+			hintName: "留空时自动生成随机名称",
 			hintUrlContent:
 				"url 与 content 至少填一项；同时填写时以 url 抓取的内容为准（content 将被覆盖）。",
 		},
@@ -72,17 +71,12 @@ export const zhCN = {
 			emptyContent: "（空内容）",
 		},
 		updatedSuffix: "更新于 {{date}}",
-	},
-	nodes: {
-		title: "所有节点",
-		refresh: "刷新",
-		refreshing: "刷新中…",
-		all: "全部订阅",
-		meta: "共 {{total}} 个节点 · 同步于 {{date}}",
-		noSubscriptions: "暂无订阅，请先在「订阅管理」中添加。",
 		unnamed: "（未命名）",
-		nodeCount: "#{{subId}} · {{total}} 个节点",
+		noSubscriptions: "暂无订阅，请先在「订阅管理」中添加。",
+		nodeCount: "{{total}} 个节点",
 		noNodes: "该订阅未解析出节点",
+		expand: "展开「{{name}}」的节点",
+		collapse: "收起「{{name}}」的节点",
 		col: {
 			name: "名称",
 			type: "类型",
