@@ -183,6 +183,9 @@ export const en: DeepString<typeof zhCN> = {
 			name: "Name",
 			generatedAt: "Generated at",
 			download: "Download",
+			link: "Download link",
+			copy: "Copy link",
+			copied: "Copied",
 		},
 	},
 	errors: {

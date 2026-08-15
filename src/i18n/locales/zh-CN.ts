@@ -175,6 +175,9 @@ export const zhCN = {
 			name: "名称",
 			generatedAt: "生成时间",
 			download: "下载",
+			link: "下载链接",
+			copy: "复制链接",
+			copied: "已复制",
 		},
 	},
 	errors: {

@@ -70,6 +70,32 @@ function downloadResult(name: string, content: string) {
 	URL.revokeObjectURL(url);
 }
 
+/**
+ * Copy text to the clipboard; falls back to a hidden textarea + execCommand on
+ * non-secure contexts (where navigator.clipboard is unavailable).
+ */
+async function copyText(text: string): Promise<boolean> {
+	try {
+		await navigator.clipboard.writeText(text);
+		return true;
+	} catch {
+		const textarea = document.createElement("textarea");
+		textarea.value = text;
+		textarea.style.position = "fixed";
+		textarea.style.opacity = "0";
+		document.body.appendChild(textarea);
+		textarea.select();
+		let ok = false;
+		try {
+			ok = document.execCommand("copy");
+		} catch {
+			ok = false;
+		}
+		document.body.removeChild(textarea);
+		return ok;
+	}
+}
+
 export default function StatusPage() {
 	const { t } = useTranslation();
 	const query = useInitialDump();
@@ -83,6 +109,26 @@ export default function StatusPage() {
 
 	const [selectedRuleIds, setSelectedRuleIds] = useState<number[]>([]);
 	const [generationError, setGenerationError] = useState<string | null>(null);
+	const [linkCopied, setLinkCopied] = useState(false);
+
+	/**
+	 * Shareable download link for the latest generated result. GET
+	 * /api/generated/{name} is intentionally unauthenticated — the name is the
+	 * capability itself — so this link can be opened in a plain browser or
+	 * pasted into a clash client as a subscription URL with no token in the URL.
+	 */
+	const downloadUrl = useMemo(() => {
+		const name = latestQuery.data?.name;
+		if (!name) return "";
+		return `${window.location.origin}/api/generated/${encodeURIComponent(name)}`;
+	}, [latestQuery.data?.name]);
+
+	async function handleCopyLink() {
+		if (await copyText(downloadUrl)) {
+			setLinkCopied(true);
+			window.setTimeout(() => setLinkCopied(false), 2000);
+		}
+	}
 
 	const selectedRules: Rule[] = useMemo(
 		() => rules.filter((rule) => selectedRuleIds.includes(rule.id)),
@@ -130,7 +176,8 @@ export default function StatusPage() {
 	}
 
 	/** All rules selected (drives the select-all checkbox). */
-	const allSelected = rules.length > 0 && selectedRuleIds.length === rules.length;
+	const allSelected =
+		rules.length > 0 && selectedRuleIds.length === rules.length;
 	/** Some but not all rules selected (drives the indeterminate state). */
 	const someSelected = selectedRuleIds.length > 0 && !allSelected;
 
@@ -392,6 +439,27 @@ export default function StatusPage() {
 								className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
 							>
 								{t("status.latest.download")}
+							</button>
+						</div>
+						{/* Shareable download link: /api/generated/{name}, unauthenticated (name is the capability) */}
+						<div className="mt-2 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center sm:gap-3">
+							<span className="shrink-0 text-xs font-medium text-slate-500">
+								{t("status.latest.link")}
+							</span>
+							<span
+								className="min-w-0 flex-1 break-all font-mono text-xs text-slate-600 sm:truncate"
+								title={downloadUrl}
+							>
+								{downloadUrl}
+							</span>
+							<button
+								type="button"
+								onClick={() => void handleCopyLink()}
+								className="shrink-0 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100"
+							>
+								{linkCopied
+									? t("status.latest.copied")
+									: t("status.latest.copy")}
 							</button>
 						</div>
 						<pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-all rounded-md border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-700">
