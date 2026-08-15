@@ -41,6 +41,9 @@ function validate(values: FormValues): ValidationKey | null {
 	return null;
 }
 
+/** Length of the auto-generated name (nanoid) when creating a subscription without one. */
+const GENERATED_NAME_LENGTH = 10;
+
 function buildInput(
 	values: FormValues,
 	generateNameIfMissing: boolean,
@@ -50,7 +53,7 @@ function buildInput(
 	if (name !== "") {
 		input.name = name;
 	} else if (generateNameIfMissing) {
-		input.name = nanoid();
+		input.name = nanoid(GENERATED_NAME_LENGTH);
 	}
 	const url = values.url.trim();
 	if (url !== "") input.url = url;
