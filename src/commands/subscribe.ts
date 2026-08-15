@@ -2,11 +2,6 @@ import { USER_AGENT } from "~/constants";
 import { store } from "~/persistence/store";
 import { getFilenameFromContentDisposition } from "~/utils/string";
 
-/**
- * addSubscription download and save the raw profile from the airport.
- * @param link The subscription link
- * @returns
- */
 export async function addSubscription(link: string) {
 	const response = await fetch(link, {
 		headers: {

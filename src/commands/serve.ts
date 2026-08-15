@@ -4,7 +4,6 @@ import qrcode from "qrcode-terminal";
 import { produce } from "~/utils/produce";
 
 export async function serve() {
-	// Configuration
 	const PORT = 8083;
 	const HOST = "0.0.0.0"; // Listen on all network interfaces for LAN access
 
@@ -12,10 +11,6 @@ export async function serve() {
 	const buffer = Buffer.from(dump, "utf8");
 
 	const server = http.createServer((req, res) => {
-		// Check if the request is for the root path
-		// Check if file exists
-
-		// Set headers for file download
 		res.writeHead(200, {
 			"Content-Type": "text/plain; charset=utf-8",
 			"Content-Length": buffer.length,

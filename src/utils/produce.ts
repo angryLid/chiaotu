@@ -51,8 +51,6 @@ export async function produce() {
 		),
 	];
 
-	// await overwriteProfileMutation(baseProfile);
-
 	const dump = yaml.dump(baseProfile, {
 		flowLevel: 2,
 		indent: 2,
@@ -62,21 +60,10 @@ export async function produce() {
 	return dump;
 }
 
-/**
- * Creates proxy groups organized by country/region based on proxy names.
- * This function categorizes proxies into regional groups and creates special
- * purpose groups for different services.
- *
- * @param proxies - Array of proxy objects to organize
- * @returns Array of proxy groups categorized by country/region and service
- */
 function createGroupsByCountry(
 	proxies: Array<IProxy>,
 	proxyGroupName: Array<string>,
 ): ProxyGroup[] {
-	/**
-	 * Helper function to create a standard url-test group
-	 */
 	function createUrlTestGroup(name: string): ProxyGroup {
 		return {
 			name,
@@ -88,9 +75,6 @@ function createGroupsByCountry(
 		};
 	}
 
-	/**
-	 * Helper function to create a select group with specified proxies
-	 */
 	function createSelectGroup(name: string, proxies: string[]): ProxyGroup {
 		return {
 			name,

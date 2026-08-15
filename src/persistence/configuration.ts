@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ConfigurationError } from "../errors/configuration-error";
 
 export const ConfigurationSchema = z.object({
-	// An array of URL, can be empty
+	// Array of upstream URLs; may be empty
 	upstreams: z.array(z.url("Each upstream must be a valid URL")).default([]),
 	subscriptions: z.array(
 		z.object({

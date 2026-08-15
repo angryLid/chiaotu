@@ -9,15 +9,13 @@ async function initBaseDir(): Promise<string> {
 	// Create the directory if it doesn't exist
 	try {
 		await fs.access(baseDir);
-	} catch (_error) {
-		// Directory doesn't exist, create it
+	} catch {
 		await fs.mkdir(baseDir, { recursive: true });
 	}
 
 	return baseDir;
 }
 
-// Initialize the base directory with top-level await
 const baseDir = await initBaseDir();
 
 export const address = {

@@ -72,7 +72,6 @@ async function download() {
 		}
 	});
 
-	// Write successful downloads to cache
 	for (const download of successfulDownloads) {
 		await writeFile(
 			path.join(address.cache, `${download.filename}.yaml`),
