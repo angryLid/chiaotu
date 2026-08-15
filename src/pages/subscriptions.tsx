@@ -8,7 +8,12 @@ import {
 	useSubscriptions,
 	useUpdateSubscription,
 } from "~/api/hooks";
-import type { Subscription, SubscriptionInput, SubscriptionSummary } from "~/api/subscriptions";
+import {
+	MAX_SUBSCRIPTIONS,
+	type Subscription,
+	type SubscriptionInput,
+	type SubscriptionSummary,
+} from "~/api/subscriptions";
 import { errorMessage, formatDateTime } from "~/i18n";
 
 // ---- form ----
@@ -353,6 +358,7 @@ export default function SubscriptionsPage() {
 	const [editingId, setEditingId] = useState<number | null>(null);
 
 	const items = list.data ?? null;
+	const atLimit = items !== null && items.length >= MAX_SUBSCRIPTIONS;
 	const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
 
 	async function handleDelete(sub: SubscriptionSummary) {
@@ -382,12 +388,24 @@ export default function SubscriptionsPage() {
 					<button
 						type="button"
 						onClick={() => setCreateOpen(true)}
-						className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+						disabled={atLimit}
+						title={
+							atLimit
+								? t("subs.limitReached", { max: MAX_SUBSCRIPTIONS })
+								: undefined
+						}
+						className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{t("subs.new")}
 					</button>
 				</div>
 			</div>
+
+			{atLimit ? (
+				<div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+					{t("subs.limitReached", { max: MAX_SUBSCRIPTIONS })}
+				</div>
+			) : null}
 
 			{list.isError ? (
 				<div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

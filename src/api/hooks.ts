@@ -8,6 +8,20 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "./errors";
+import {
+	createNodeBuild,
+	getLatestNodeSnapshot,
+	type NodeBuildResult,
+} from "./nodes";
+import {
+	createRule,
+	deleteRule,
+	getRule,
+	listRules,
+	updateRule,
+	type RuleInput,
+} from "./rules";
 import {
 	createSubscription,
 	deleteSubscription,
@@ -17,12 +31,6 @@ import {
 	updateSubscription,
 	type SubscriptionInput,
 } from "./subscriptions";
-import { ApiError } from "./errors";
-import {
-	createNodeBuild,
-	getLatestNodeSnapshot,
-	type NodeBuildResult,
-} from "./nodes";
 import { parseNodes } from "~/utils/nodes";
 
 // ---- query keys (single source of truth; invalidation references the same keys) ----
@@ -33,6 +41,11 @@ const subscriptionKeys = {
 };
 
 const nodeSnapshotKey = ["nodeSnapshot"] as const;
+
+const ruleKeys = {
+	all: ["rules"] as const,
+	detail: (id: number) => ["rule", id] as const,
+};
 
 // ---- queries ----
 
@@ -57,6 +70,22 @@ export function useNodeSnapshot() {
 	return useQuery({
 		queryKey: nodeSnapshotKey,
 		queryFn: getLatestNodeSnapshot,
+	});
+}
+
+/** All rules, newest first. */
+export function useRules() {
+	return useQuery({
+		queryKey: ruleKeys.all,
+		queryFn: listRules,
+	});
+}
+
+/** Single rule. */
+export function useRule(id: number) {
+	return useQuery({
+		queryKey: ruleKeys.detail(id),
+		queryFn: () => getRule(id),
 	});
 }
 
@@ -120,6 +149,41 @@ export function useCreateNodeBuild() {
 		},
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: nodeSnapshotKey });
+		},
+	});
+}
+
+/** Create: invalidate the rule list on success. */
+export function useCreateRule() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: createRule,
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: ruleKeys.all });
+		},
+	});
+}
+
+/** Update: invalidate the list and detail on success. */
+export function useUpdateRule(id: number) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: RuleInput) => updateRule(id, input),
+		onSuccess: (rule) => {
+			void queryClient.invalidateQueries({ queryKey: ruleKeys.all });
+			void queryClient.invalidateQueries({ queryKey: ruleKeys.detail(rule.id) });
+		},
+	});
+}
+
+/** Delete: invalidate the list and drop the detail from cache on success. */
+export function useDeleteRule() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: deleteRule,
+		onSuccess: (_data, id) => {
+			void queryClient.invalidateQueries({ queryKey: ruleKeys.all });
+			queryClient.removeQueries({ queryKey: ruleKeys.detail(id) });
 		},
 	});
 }

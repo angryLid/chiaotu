@@ -46,13 +46,13 @@ function NodeGroupCard({
 				</p>
 			) : (
 				<div className="overflow-x-auto">
-					<table className="w-full text-left text-sm">
+					<table className="w-full table-fixed text-left text-sm">
 						<thead>
 							<tr className="border-b border-slate-100 text-xs text-slate-400">
-								<th className="px-4 py-2 font-medium">{t("nodes.col.name")}</th>
-								<th className="px-4 py-2 font-medium">{t("nodes.col.type")}</th>
-								<th className="px-4 py-2 font-medium">{t("nodes.col.server")}</th>
-								<th className="px-4 py-2 font-medium">{t("nodes.col.port")}</th>
+								<th className="w-[45%] px-4 py-2 font-medium">{t("nodes.col.name")}</th>
+								<th className="w-[15%] px-4 py-2 font-medium">{t("nodes.col.type")}</th>
+								<th className="w-[25%] px-4 py-2 font-medium">{t("nodes.col.server")}</th>
+								<th className="w-[15%] px-4 py-2 font-medium">{t("nodes.col.port")}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -63,17 +63,23 @@ function NodeGroupCard({
 								>
 									<td
 										title={node.name}
-										className="max-w-60 truncate px-4 py-2 font-medium text-slate-800"
+										className="truncate px-4 py-2 font-medium text-slate-800"
 									>
 										{node.name}
 									</td>
-									<td className="px-4 py-2 text-slate-600">
+									<td title={stringOf(node, "type")} className="truncate px-4 py-2 text-slate-600">
 										{stringOf(node, "type")}
 									</td>
-									<td className="px-4 py-2 font-mono text-xs text-slate-600">
+									<td
+										title={stringOf(node, "server")}
+										className="truncate px-4 py-2 font-mono text-xs text-slate-600"
+									>
 										{stringOf(node, "server")}
 									</td>
-									<td className="px-4 py-2 font-mono text-xs text-slate-600">
+									<td
+										title={stringOf(node, "port")}
+										className="truncate px-4 py-2 font-mono text-xs text-slate-600"
+									>
 										{stringOf(node, "port")}
 									</td>
 								</tr>

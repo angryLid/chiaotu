@@ -22,6 +22,13 @@ export type Envelope<T> =
 
 // ---- types ----
 
+/**
+ * Cap on the total number of subscriptions, mirrored from the backend
+ * (friend-cats model.MaxSubscriptions). The backend enforces the limit; this
+ * constant powers the client-side UX (disabling “new” at the cap).
+ */
+export const MAX_SUBSCRIPTIONS = 10;
+
 /** Subscription summary (for lists; no content). */
 export interface SubscriptionSummary {
 	id: number;
@@ -71,7 +78,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 		const code = envelope.status.startsWith("Err:")
 			? envelope.status.slice("Err:".length)
 			: envelope.status;
-		throw new ApiError(envelope.result, code);
+		throw new ApiError(
+			envelope.result,
+			code,
+			code === "LIMIT_EXCEEDED" ? { max: MAX_SUBSCRIPTIONS } : undefined,
+		);
 	}
 	return envelope.result;
 }

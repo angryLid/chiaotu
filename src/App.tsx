@@ -1,11 +1,45 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSubscriptions } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
 import NodesPage from "~/pages/nodes";
+import RulesPage, { RuleFormPage } from "~/pages/rules";
 import SubscriptionsPage from "~/pages/subscriptions";
 
 type NavKey = "subscriptions" | "nodes" | "rules";
+
+/**
+ * App route, derived from the URL hash (no router dependency). The rules section
+ * has sub-routes for create / edit; the other tabs are plain pages.
+ */
+type Route =
+	| { page: "subscriptions" }
+	| { page: "nodes" }
+	| { page: "rules"; view: "list" }
+	| { page: "rules"; view: "new" }
+	| { page: "rules"; view: "edit"; id: number };
+
+/** Parse #/subscriptions | #/nodes | #/rules | #/rules/new | #/rules/{id}/edit. */
+function parseHash(hash: string): Route {
+	const parts = hash
+		.replace(/^#\/?/, "")
+		.split("/")
+		.filter((part) => part !== "");
+	const [page, sub, tail] = parts;
+	switch (page) {
+		case "subscriptions":
+		case "nodes":
+			return { page };
+		case "rules":
+			if (sub === "new") return { page: "rules", view: "new" };
+			if (sub !== undefined && tail === "edit" && /^\d+$/.test(sub)) {
+				return { page: "rules", view: "edit", id: Number(sub) };
+			}
+			return { page: "rules", view: "list" };
+		default:
+			return { page: "subscriptions" };
+	}
+}
 
 const NAV_ITEMS = [
 	{ key: "subscriptions", labelKey: "app.nav.subscriptions", icon: "📥" },
@@ -45,9 +79,20 @@ function LanguageSwitcher() {
 
 export default function App() {
 	const { t } = useTranslation();
-	const [active, setActive] = useState<NavKey>("subscriptions");
+	const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
 
-	const current = NAV_ITEMS.find((item) => item.key === active)!;
+	useEffect(() => {
+		const onHashChange = () => setRoute(parseHash(window.location.hash));
+		window.addEventListener("hashchange", onHashChange);
+		return () => window.removeEventListener("hashchange", onHashChange);
+	}, []);
+
+	const active: NavKey =
+		route.page === "subscriptions"
+			? "subscriptions"
+			: route.page === "nodes"
+				? "nodes"
+				: "rules";
 
 	return (
 		<div className="min-h-screen bg-slate-50 text-slate-900">
@@ -74,7 +119,9 @@ export default function App() {
 						<button
 							key={item.key}
 							type="button"
-							onClick={() => setActive(item.key)}
+							onClick={() => {
+								window.location.hash = `#/${item.key}`;
+							}}
 							className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
 								active === item.key
 									? "bg-slate-900 text-white"
@@ -94,17 +141,17 @@ export default function App() {
 
 			{/* Main content: full width on mobile (leaving room for the bottom nav), offset by the sidebar at md and up */}
 			<main className="px-4 pb-20 pt-4 md:ml-56 md:px-6 md:py-6">
-				{active === "subscriptions" ? (
+				{route.page === "subscriptions" ? (
 					<SubscriptionsPage />
-				) : active === "nodes" ? (
+				) : route.page === "nodes" ? (
 					<NodesPage />
+				) : route.view === "list" ? (
+					<RulesPage />
 				) : (
-					<>
-						<h1 className="mb-4 text-xl font-semibold">{t(current.labelKey)}</h1>
-						<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
-							{t("app.rules.underConstruction")}
-						</div>
-					</>
+					<RuleFormPage
+						mode={route.view}
+						id={route.view === "edit" ? route.id : undefined}
+					/>
 				)}
 			</main>
 
@@ -114,7 +161,9 @@ export default function App() {
 					<button
 						key={item.key}
 						type="button"
-						onClick={() => setActive(item.key)}
+						onClick={() => {
+							window.location.hash = `#/${item.key}`;
+						}}
 						className={`flex flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
 							active === item.key
 								? "text-slate-900"
