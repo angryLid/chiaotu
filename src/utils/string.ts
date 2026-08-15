@@ -72,6 +72,8 @@ export function getFlagByNodeName(nodeName: string) {
 		ID: "🇮🇩",
 		// Malaysia
 		MY: "🇲🇾",
+		// Vietnam
+		VN: "🇻🇳",
 	};
 
 	for (const [name, flag] of Object.entries(flagMap)) {
