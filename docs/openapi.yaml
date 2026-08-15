@@ -1,0 +1,843 @@
+openapi: 3.0.3
+info:
+  title: friend-cats API
+  description: |
+    The REST API of friend-cats. It currently provides three kinds of resources:
+
+    - subscription: a subscription is a text config file of a few tens of KB; the raw
+      content is stored directly in SQLite and is not parsed in any way for now. Node
+      parsing happens in the browser (chiaotu SPA); the backend never parses YAML.
+    - rule: a node-filtering rule. The backend only stores and validates rules (CRUD) —
+      it never evaluates them; evaluation happens in the frontend against the
+      subscription content parsed in the browser. The filter spec is stored as a JSON
+      object as-is (its shape is guaranteed by the frontend zod); the backend guards
+      against junk: name is required and unique, subIds / nameKeywords / typeMatch
+      must be arrays of non-empty strings, and referenced subscription ids must exist.
+    - generated: a generated result file (a full clash YAML config). The frontend
+      computes it in the browser — apply a rule to the parsed nodes, run the produce
+      pipeline, dump YAML — and uploads it; the backend only stores and serves the
+      most recent result. `GET /api/generated` returns the latest one (by generation
+      time), `POST /api/generated` stores a new one. Rows carry a soft-delete
+      tombstone (deleted_at), though no delete endpoint exists yet.
+
+    In addition, `GET /api/initial-dump` returns the complete application state (all
+    active subscriptions with content + all rules) in one call, so the frontend can
+    hydrate its store on entry with a single request.
+
+    ## Unified response envelope
+
+    As long as the server is running normally, every request returns HTTP 200;
+    business state is expressed through the response body envelope:
+
+    ```json
+    { "status": "Ok", "result": <business data> }
+    { "status": "Err:<CODE>", "result": "<error description>" }
+    ```
+
+    - The client receives no HTTP response at all = gateway/server failure (transport-level error)
+    - Receiving HTTP 200 = the server is up; judge business success via `status`
+
+    `status` values (the CODE in `Err:<CODE>` is in the table below):
+
+    | status                 | meaning                                       |
+    | ---------------------- | --------------------------------------------- |
+    | `Ok`                   | business success; `result` is the business data |
+    | `Err:INVALID_ARGUMENT` | parameter validation failed                   |
+    | `Err:NOT_FOUND`        | resource not found (or endpoint not found)    |
+    | `Err:FETCH_FAILED`     | url fetch failed (network error / upstream non-200 / over limit, etc.) |
+    | `Err:LIMIT_EXCEEDED`   | a resource limit was exceeded (e.g. more than 10 subscriptions) |
+    | `Err:METHOD_NOT_ALLOWED` | method not allowed                          |
+    | `Err:UNAUTHORIZED`     | missing or invalid bearer token (authentication failed)         |
+    | `Err:INTERNAL`         | internal server error                         |
+
+    ## Authentication
+
+    Every endpoint (including `GET /healthz`) requires HTTP Bearer
+    authentication: `Authorization: Bearer <token>`. The token is configured on
+    the server via the `API_TOKEN` environment variable (required; the server
+    fails closed and refuses to start without it). A missing or wrong token is
+    reported as the unified envelope `Err:UNAUTHORIZED` (HTTP stays 200).
+
+    **Single exception**: `GET /api/generated/{name}` is unauthenticated — the
+    name in the path is the access capability itself (the name is the secret;
+    see that endpoint).
+
+    ## Cross-origin access (CORS)
+
+    The friend-cats server emits no CORS headers by default. To allow the chiaotu
+    SPA to talk to it from a different origin, set `CORS_ALLOW_ORIGIN` to the
+    exact origin (scheme + host + port, e.g. `http://localhost:5173`). When set:
+    `Access-Control-Allow-Origin` is that value, methods are `*`, and headers are
+    `Authorization, Content-Type`. Preflight `OPTIONS` requests are answered by
+    the CORS layer without authentication.
+  version: 0.1.0
+
+security:
+  - bearerAuth: []
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: subscription
+    description: Subscription resource management
+  - name: rules
+    description: Node-filtering rule management (CRUD only; the backend stores and validates, the frontend evaluates)
+  - name: generated
+    description: Generated result files (the frontend produces them in the browser and uploads them; the backend stores and serves the latest one)
+
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      operationId: healthz
+      responses:
+        "200":
+          description: Server is healthy (envelope-wrapped, result is "ok")
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { type: string, enum: ["ok"] }
+              example:
+                status: "Ok"
+                result: "ok"
+
+  /api/initial-dump:
+    get:
+      summary: Get the complete application state (subscriptions with content + rules)
+      description: |
+        The single entry-point call of the chiaotu SPA: returns all active
+        subscriptions (full content) and all rules (newest first) in one response,
+        so the frontend can hydrate its global store with one round trip. Node
+        parsing stays in the browser — the backend never parses YAML.
+      operationId: initialDump
+      tags: [subscription]
+      responses:
+        "200":
+          description: Envelope-wrapped; result is the initial dump
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/InitialDump" }
+              example:
+                status: "Ok"
+                result:
+                  subscriptions:
+                    - id: 1
+                      name: basic.yaml
+                      url: https://example.com/basic.yaml
+                      content: "proxies:\n  - name: node-a\n    type: ss\n"
+                      created_at: "2026-01-01T00:00:00Z"
+                      updated_at: "2026-01-01T00:00:00Z"
+                  rules:
+                    - id: 1
+                      name: my-rule
+                      filter:
+                        nameKeywords: ["香港", "US"]
+                      created_at: "2026-01-01T00:00:00Z"
+                      updated_at: "2026-01-01T00:00:00Z"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/subscriptions:
+    get:
+      summary: List all subscriptions
+      description: |
+        Returns the subscription list (summaries, without content, to keep response
+        bodies small). To fetch full subscriptions (with content), use
+        GET /api/initial-dump — the single entry-point call the frontend uses to
+        hydrate its store.
+      operationId: listSubscriptions
+      tags: [subscription]
+      responses:
+        "200":
+          description: Success; result is an array of subscription summaries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SubscriptionSummary"
+              example:
+                status: "Ok"
+                result: []
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      summary: Create a subscription
+      description: |
+        The request body must satisfy: at least one of url and content is provided
+        (non-empty).
+        - url provided: the backend makes a network request, fetches the URL content and
+          stores it (url wins over content)
+        - only content provided: the content is stored directly
+
+        The total number of subscriptions is capped at 10 (`Err:LIMIT_EXCEEDED` when the
+        limit is already reached; the check runs before any url fetch).
+      operationId: createSubscription
+      tags: [subscription]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionInput"
+      responses:
+        "200":
+          description: Success; result is the full subscription (with content)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Subscription" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "409":
+          $ref: "#/components/responses/LimitExceeded"
+        "502":
+          $ref: "#/components/responses/FetchFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/subscriptions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Subscription ID
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+
+    get:
+      summary: Get a single subscription
+      description: Returns the full subscription, including the raw content.
+      operationId: getSubscription
+      tags: [subscription]
+      responses:
+        "200":
+          description: Success; result is the full subscription (with content)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Subscription" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      summary: Update a subscription (full replacement)
+      description: |
+        The request body rules are the same as for creation (at least one of url and
+        content, url wins).
+        name / url / content are replaced entirely with the new values of this request.
+      operationId: updateSubscription
+      tags: [subscription]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionInput"
+      responses:
+        "200":
+          description: Success; result is the updated full subscription
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Subscription" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/FetchFailed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      summary: Delete a subscription
+      description: |
+        Soft delete: the subscription is marked as deleted and is excluded from
+        every subsequent read (list / get / full / count / initial-dump), but the
+        underlying row is retained (no restore endpoint). Deleting an already-deleted
+        or unknown id returns `Err:NOT_FOUND`.
+      operationId: deleteSubscription
+      tags: [subscription]
+      responses:
+        "200":
+          description: Success; result is null
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { type: "null" }
+              example:
+                status: "Ok"
+                result: null
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rules:
+    get:
+      summary: List all rules
+      description: |
+        Returns all node-filtering rules, newest first. Unlike subscriptions,
+        there is no summary shape: each entry is a full rule (with its filter).
+      operationId: listRules
+      tags: [rules]
+      responses:
+        "200":
+          description: Success; result is an array of rules (newest first)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result:
+                        type: array
+                        items: { $ref: "#/components/schemas/Rule" }
+              example:
+                status: "Ok"
+                result: []
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      summary: Create a rule
+      description: |
+        name is required (non-empty, unique). filter is optional and defaults to
+        {} (a rule with no dimensions matches every node). The backend validates
+        the filter's shape and that referenced subscription ids exist; it never
+        evaluates the rule.
+      operationId: createRule
+      tags: [rules]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuleInput"
+      responses:
+        "200":
+          description: Success; result is the created rule
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Rule" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rules/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Rule ID
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+
+    get:
+      summary: Get a single rule
+      operationId: getRule
+      tags: [rules]
+      responses:
+        "200":
+          description: Success; result is the rule
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Rule" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      summary: Update a rule (full replacement)
+      description: |
+        name / filter are replaced entirely with the new values of this request
+        (same validation as creation).
+      operationId: updateRule
+      tags: [rules]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuleInput"
+      responses:
+        "200":
+          description: Success; result is the updated rule
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Rule" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      summary: Delete a rule
+      operationId: deleteRule
+      tags: [rules]
+      responses:
+        "200":
+          description: Success; result is null
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { type: "null" }
+              example:
+                status: "Ok"
+                result: null
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/generated:
+    get:
+      summary: Get the most recently generated result
+      description: |
+        Returns the generated result with the most recent creation time (soft-deleted
+        rows excluded). There is no list endpoint — the run-status panel only needs
+        "the latest one". When nothing has been generated yet, returns
+        `Err:NOT_FOUND`.
+      operationId: latestGenerated
+      tags: [generated]
+      responses:
+        "200":
+          description: Success; result is the latest generated result (with content)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Generated" }
+              example:
+                status: "Ok"
+                result:
+                  id: 3
+                  name: aB3xYz9QpK
+                  content: "mixed-port: 7890\nproxies:\n  - name: hk-01\n    type: vmess\n"
+                  created_at: "2026-08-15T00:00:00Z"
+                  updated_at: "2026-08-15T00:00:00Z"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      summary: Store a new generated result
+      description: |
+        The frontend computes the result content in the browser (apply a rule to the
+        parsed nodes, run the produce pipeline, dump clash YAML) and uploads it. The
+        backend only validates that name and content are non-empty and persists the
+        row. `name` is the nanoid chosen by the frontend; `content` is the produced
+        config, stored as-is.
+      operationId: createGenerated
+      tags: [generated]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratedInput"
+      responses:
+        "200":
+          description: Success; result is the created generated result (with content)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Generated" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/generated/{name}:
+    get:
+      summary: Fetch a generated result by name (unauthenticated download link)
+      description: |
+        Returns the generated result whose `name` matches the path segment, as
+        raw YAML (`Content-Type: text/yaml`). When the request User-Agent
+        contains "clash" (case-insensitive — i.e. a clash-family client), the
+        response also carries `Content-Disposition: attachment; filename="<name>.yaml"`
+        so the client can save the config with its proper filename; other
+        clients get the YAML inline without a filename.
+
+        **This is the only unauthenticated endpoint** — the name (a
+        frontend-chosen nanoid) is the capability itself, so the link can be
+        pasted into a browser or a clash client as a subscription URL without
+        any token machinery. Keep names unguessable.
+
+        **Envelope exception**: on success the response body is the file content
+        itself (not the JSON envelope); not-found / errors keep the envelope
+        (`Err:NOT_FOUND`).
+      operationId: getGeneratedByName
+      tags: [generated]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The generated result name (nanoid), which acts as the access capability
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Success; the response body is the raw clash YAML config (file download)
+          content:
+            text/yaml:
+              schema:
+                type: string
+              example: |
+                mixed-port: 7890
+                proxies:
+                  - name: hk-01
+                    type: vmess
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API token from the server's API_TOKEN environment variable.
+  schemas:
+    Envelope:
+      description: Unified response envelope
+      type: object
+      required: [status, result]
+      properties:
+        status:
+          type: string
+          description: '"Ok" or "Err:<CODE>"; the CODE values are in the table in info.description'
+          enum:
+            - "Ok"
+            - "Err:INVALID_ARGUMENT"
+            - "Err:NOT_FOUND"
+            - "Err:FETCH_FAILED"
+            - "Err:LIMIT_EXCEEDED"
+            - "Err:METHOD_NOT_ALLOWED"
+            - "Err:UNAUTHORIZED"
+            - "Err:INTERNAL"
+        result:
+          nullable: true
+          description: Business payload. Business data on success, an error description string on failure.
+
+    Subscription:
+      description: Full subscription (with raw content)
+      type: object
+      required: [id, name, url, content, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Subscription file name
+        url:
+          type: string
+          description: Subscription update URL (may be an empty string)
+        content:
+          type: string
+          description: Raw subscription content, not processed in any way for now
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SubscriptionSummary:
+      description: Subscription summary (for listings, without content)
+      type: object
+      required: [id, name, url, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SubscriptionInput:
+      description: |
+        Request body for creating / updating a subscription.
+        Validation rules: at least one of url and content must be provided (non-empty).
+      type: object
+      properties:
+        name:
+          type: string
+          description: Subscription file name (optional; when omitted and a url is provided, derived from the last path segment of the url)
+        url:
+          type: string
+          format: uri
+          description: Subscription update URL (optional)
+        content:
+          type: string
+          description: Raw subscription content (optional; stored directly only when no url is provided)
+      anyOf:
+        - required: [url]
+        - required: [content]
+
+    NodeProxy was removed together with the "all nodes" build feature; node
+    shapes are now a purely client-side concern (see chiaotu SPA).
+
+    RuleFilter:
+      description: |
+        The filter spec of a node-filtering rule. All dimensions are optional and
+        independent: a present dimension filters (AND across dimensions), an
+        empty dimension does not filter, and within a dimension the values are
+        OR-ed. The shape is guaranteed by the frontend zod; the backend only
+        guards against junk.
+      type: object
+      properties:
+        subIds:
+          type: array
+          description: Subscription ids (as strings) to include; empty/absent = all subscriptions
+          items:
+            type: string
+        nameKeywords:
+          type: array
+          description: Node names must contain at least one keyword (case-insensitive substring, OR)
+          items:
+            type: string
+        typeMatch:
+          type: array
+          description: Node types must equal one of the values (OR)
+          items:
+            type: string
+      example:
+        subIds: ["1", "3"]
+        nameKeywords: ["香港", "美国", "US", "HK"]
+        typeMatch: ["vless", "hysteria2"]
+
+    Rule:
+      description: A persisted node-filtering rule (filter is the parsed filter object)
+      type: object
+      required: [id, name, filter, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Rule name (unique)
+        filter:
+          $ref: "#/components/schemas/RuleFilter"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RuleInput:
+      description: |
+        Request body for creating / updating a rule. name is required (non-empty,
+        unique); filter is optional and defaults to {} (matches every node).
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Rule name (required, non-empty, unique)
+        filter:
+          $ref: "#/components/schemas/RuleFilter"
+
+    InitialDump:
+      description: |
+        Complete application state returned by GET /api/initial-dump: all active
+        subscriptions (full content) and all rules (newest first). The frontend
+        calls this once on entry and hydrates its store from the single response;
+        the backend never parses YAML, node parsing stays in the browser.
+      type: object
+      required: [subscriptions, rules]
+      properties:
+        subscriptions:
+          type: array
+          items: { $ref: "#/components/schemas/Subscription" }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/Rule" }
+
+    Generated:
+      description: |
+        A generated result file: the full clash YAML config produced by the
+        frontend in the browser (apply a rule to the parsed nodes, run the produce
+        pipeline, dump YAML) and uploaded to the backend. name is the nanoid chosen
+        by the frontend.
+      type: object
+      required: [id, name, content, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Nanoid chosen by the frontend
+        content:
+          type: string
+          description: The produced clash YAML config, stored as-is
+        created_at:
+          type: string
+          format: date-time
+          description: Generation time (the GET endpoint returns the newest by this)
+        updated_at:
+          type: string
+          format: date-time
+
+    GeneratedInput:
+      description: |
+        Request body for storing a new generated result. name and content must both
+        be non-empty; the content is produced by the frontend and stored as-is.
+      type: object
+      required: [name, content]
+      properties:
+        name:
+          type: string
+          description: Nanoid chosen by the frontend (non-empty)
+        content:
+          type: string
+          description: The produced clash YAML config (non-empty)
+
+
+  responses:
+    InvalidArgument:
+      description: Parameter validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+          example:
+            status: "Err:INVALID_ARGUMENT"
+            result: "url and content: at least one must be non-empty"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+          example:
+            status: "Err:NOT_FOUND"
+            result: "subscription not found"
+    FetchFailed:
+      description: url fetch failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+          example:
+            status: "Err:FETCH_FAILED"
+            result: "upstream returned status code 404"
+    LimitExceeded:
+      description: A resource limit was exceeded (subscriptions are capped at 10)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+          example:
+            status: "Err:LIMIT_EXCEEDED"
+            result: "subscription limit reached: at most 10 subscriptions"
+    MethodNotAllowed:
+      description: Method not allowed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+          example:
+            status: "Err:METHOD_NOT_ALLOWED"
+            result: "method not allowed"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Envelope" }
+          example:
+            status: "Err:INTERNAL"
+            result: "internal server error"
