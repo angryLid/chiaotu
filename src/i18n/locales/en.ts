@@ -14,6 +14,7 @@ export const en: DeepString<typeof zhCN> = {
 		nav: {
 			subscriptions: "Subscriptions",
 			rules: "Rules",
+			status: "Run Status",
 			label: "Main navigation",
 			open: "Open navigation menu",
 		},
@@ -147,6 +148,35 @@ export const en: DeepString<typeof zhCN> = {
 				server: "Server",
 				sub: "Source",
 			},
+		},
+	},
+	status: {
+		title: "Run Status",
+		refresh: "Refresh",
+		refreshing: "Refreshing…",
+		stats: {
+			subscriptions: "Subscriptions",
+			rules: "Rules",
+			nodes: "Nodes",
+			syncedAt: "Data synced",
+		},
+		generate: {
+			title: "Generate config from a rule",
+			rule: "Rule",
+			rulePlaceholder: "Select a rule",
+			matchCount: "{{count}} nodes will match the selected rule",
+			submit: "Generate & upload",
+			submitting: "Generating…",
+			noRule: "Select a rule first",
+			noMatch: "The selected rule matches no nodes — nothing to generate",
+			hint: "The browser filters the synced subscription nodes by the selected rule, runs the produce pipeline to build a clash YAML, and uploads it to the backend.",
+		},
+		latest: {
+			title: "Latest generated result",
+			empty: "Nothing generated yet. Pick a rule and click “Generate & upload”.",
+			name: "Name",
+			generatedAt: "Generated at",
+			download: "Download",
 		},
 	},
 	errors: {

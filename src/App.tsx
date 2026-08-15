@@ -9,10 +9,11 @@ import { useTranslation } from "react-i18next";
 import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
+import StatusPage from "~/pages/status";
 import SubscriptionsPage from "~/pages/subscriptions";
 import { useAppStore } from "~/store/app-store";
 
-type NavKey = "subscriptions" | "rules";
+type NavKey = "subscriptions" | "rules" | "status";
 
 /**
  * App route, derived from the URL hash (no router dependency). The rules section
@@ -22,9 +23,10 @@ type Route =
 	| { page: "subscriptions" }
 	| { page: "rules"; view: "list" }
 	| { page: "rules"; view: "new" }
-	| { page: "rules"; view: "edit"; id: number };
+	| { page: "rules"; view: "edit"; id: number }
+	| { page: "status" };
 
-/** Parse #/subscriptions | #/rules | #/rules/new | #/rules/{id}/edit. */
+/** Parse #/subscriptions | #/rules | #/rules/new | #/rules/{id}/edit | #/status. */
 function parseHash(hash: string): Route {
 	const parts = hash
 		.replace(/^#\/?/, "")
@@ -40,12 +42,15 @@ function parseHash(hash: string): Route {
 				return { page: "rules", view: "edit", id: Number(sub) };
 			}
 			return { page: "rules", view: "list" };
+		case "status":
+			return { page: "status" };
 		default:
 			return { page: "subscriptions" };
 	}
 }
 
 const NAV_ITEMS = [
+	{ key: "status", labelKey: "app.nav.status", icon: "🚀" },
 	{ key: "subscriptions", labelKey: "app.nav.subscriptions", icon: "📥" },
 	{ key: "rules", labelKey: "app.nav.rules", icon: "📜" },
 ] as const;
@@ -205,7 +210,12 @@ export default function App() {
 		}
 	};
 
-	const active: NavKey = route.page === "rules" ? "rules" : "subscriptions";
+	const active: NavKey =
+		route.page === "rules"
+			? "rules"
+			: route.page === "status"
+				? "status"
+				: "subscriptions";
 
 	return (
 		<div className="min-h-screen bg-slate-50 text-slate-900">
@@ -262,6 +272,8 @@ export default function App() {
 			<main className="px-4 pb-4 pt-4 md:ml-56 md:px-6 md:py-6">
 				{route.page === "subscriptions" ? (
 					<SubscriptionsPage />
+				) : route.page === "status" ? (
+					<StatusPage />
 				) : route.view === "list" ? (
 					<RulesPage />
 				) : (

@@ -10,6 +10,7 @@ export const zhCN = {
 		nav: {
 			subscriptions: "订阅管理",
 			rules: "规则管理",
+			status: "运行状态",
 			label: "主导航",
 			open: "打开导航菜单",
 		},
@@ -142,6 +143,35 @@ export const zhCN = {
 				server: "服务器",
 				sub: "来源订阅",
 			},
+		},
+	},
+	status: {
+		title: "运行状态",
+		refresh: "刷新",
+		refreshing: "刷新中…",
+		stats: {
+			subscriptions: "订阅",
+			rules: "规则",
+			nodes: "节点",
+			syncedAt: "数据同步于",
+		},
+		generate: {
+			title: "按规则生成配置",
+			rule: "选择规则",
+			rulePlaceholder: "请选择规则",
+			matchCount: "当前规则将命中 {{count}} 个节点",
+			submit: "生成并上传",
+			submitting: "生成中…",
+			noRule: "请先选择一条规则",
+			noMatch: "当前规则没有命中任何节点，无法生成",
+			hint: "浏览器侧根据所选规则从已同步的订阅节点中过滤，套用 produce 管线生成 clash YAML，然后上传到后端。",
+		},
+		latest: {
+			title: "最新生成结果",
+			empty: "还没有生成结果。选择一条规则并点击「生成并上传」。",
+			name: "名称",
+			generatedAt: "生成时间",
+			download: "下载",
 		},
 	},
 	errors: {

@@ -22,6 +22,7 @@ import {
 	updateSubscription,
 	type SubscriptionInput,
 } from "./subscriptions";
+import { createGenerated, getLatestGenerated } from "./generated";
 import {
 	createRule,
 	deleteRule,
@@ -37,6 +38,8 @@ const initialDumpKey = ["initialDump"] as const;
 const subscriptionDetailKey = (id: number) => ["subscription", id] as const;
 
 const ruleDetailKey = (id: number) => ["rule", id] as const;
+
+const latestGeneratedKey = ["latestGenerated"] as const;
 
 // ---- queries ----
 
@@ -61,6 +64,14 @@ export function useRule(id: number) {
 	return useQuery({
 		queryKey: ruleDetailKey(id),
 		queryFn: () => getRule(id),
+	});
+}
+
+/** The generated result with the most recent generation time (run-status panel). */
+export function useLatestGenerated() {
+	return useQuery({
+		queryKey: latestGeneratedKey,
+		queryFn: getLatestGenerated,
 	});
 }
 
@@ -134,6 +145,17 @@ export function useDeleteRule() {
 		onSuccess: (_data, id) => {
 			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
 			queryClient.removeQueries({ queryKey: ruleDetailKey(id) });
+		},
+	});
+}
+
+/** Store a new generated result; invalidate the latest query on success so the panel shows it. */
+export function useCreateGenerated() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: createGenerated,
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: latestGeneratedKey });
 		},
 	});
 }
