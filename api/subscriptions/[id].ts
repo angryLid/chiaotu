@@ -6,101 +6,91 @@
  * Mirrors internal/controller/subscriptions.go (subscriptionItem).
  */
 
-import { withAuth } from "../_lib/auth";
 import { MAX_CONTENT_SIZE } from "../_lib/constants";
 import { err, methodNotAllowed, ok } from "../_lib/envelope";
 import { InvalidArgument, NotFound } from "../_lib/errors";
 import { fetchUrl } from "../_lib/fetch-url";
 import { idFromPath, readJson } from "../_lib/http";
-import { eq, isNull, remove, select, update } from "../_lib/supabase";
 import { resolveSubscription } from "../_lib/validate";
+import { type ApiCtx, withApi } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 
-export default withAuth(async (request) => {
+export default withApi(async (request, ctx) => {
 	const id = idFromPath(new URL(request.url).pathname, "/api/subscriptions/");
 	if (id === null) return err(InvalidArgument("invalid id"));
 
 	switch (request.method) {
 		case "GET":
-			return getSubscription(id);
+			return getSubscription(ctx, id);
 		case "PUT":
-			return updateSubscription(request, id);
+			return updateSubscription(request, ctx, id);
 		case "DELETE":
-			return deleteSubscription(id);
+			return deleteSubscription(ctx, id);
 		default:
 			return methodNotAllowed();
 	}
 });
 
 /** GET: the full subscription (with content). */
-async function getSubscription(id: number): Promise<Response> {
-	try {
-		const { data, error } = await select("subscriptions", {
-			select: "*",
-			...eq("id", id),
-			...isNull("deleted_at"),
-		});
-		if (error) return err(new Error(error.message));
-		const sub = (data ?? [])[0];
-		if (!sub) return err(NotFound("subscription not found"));
-		return ok(sub);
-	} catch (e) {
-		return err(e);
-	}
+async function getSubscription(ctx: ApiCtx, id: number): Promise<Response> {
+	const { data, error } = await ctx.supabaseAdmin
+		.from("subscriptions")
+		.select("*")
+		.eq("id", id)
+		.is("deleted_at", null);
+	if (error) return err(new Error(error.message));
+	const sub = (data ?? [])[0];
+	if (!sub) return err(NotFound("subscription not found"));
+	return ok(sub);
 }
 
 /** PUT: fully replace the subscription (url wins when present). */
 async function updateSubscription(
 	request: Request,
+	ctx: ApiCtx,
 	id: number,
 ): Promise<Response> {
-	try {
-		const input = await readJson(request, MAX_CONTENT_SIZE);
-		const resolved = await resolveSubscription(
-			{
-				name: asStr(input.name),
-				url: asStr(input.url),
-				content: asStr(input.content),
-			},
-			async (url) => (await fetchUrl(url)).content,
-		);
-		const { data, error } = await update(
-			"subscriptions",
-			{ ...eq("id", id), ...isNull("deleted_at") },
-			{ name: resolved.name, url: resolved.url, content: resolved.content },
-		);
-		if (error) return err(new Error(error.message));
-		const sub = (data ?? [])[0];
-		if (!sub) return err(NotFound("subscription not found"));
-		return ok(sub);
-	} catch (e) {
-		return err(e);
-	}
+	const input = await readJson(request, MAX_CONTENT_SIZE);
+	const resolved = await resolveSubscription(
+		{
+			name: asStr(input.name),
+			url: asStr(input.url),
+			content: asStr(input.content),
+		},
+		async (url) => (await fetchUrl(url)).content,
+	);
+	const { data, error } = await ctx.supabaseAdmin
+		.from("subscriptions")
+		.update({
+			name: resolved.name,
+			url: resolved.url,
+			content: resolved.content,
+		})
+		.eq("id", id)
+		.is("deleted_at", null)
+		.select();
+	if (error) return err(new Error(error.message));
+	const sub = (data ?? [])[0];
+	if (!sub) return err(NotFound("subscription not found"));
+	return ok(sub);
 }
 
-/** DELETE: soft-delete (set deleted_at). */
-async function deleteSubscription(id: number): Promise<Response> {
-	try {
-		const resp = await remove("subscriptions", {
-			...eq("id", id),
-			...isNull("deleted_at"),
-		});
-		// PostgREST delete returns 204 (no rows) or 200 with the deleted rows.
-		if (!resp.ok) {
-			const body = (await resp.json().catch(() => null)) as {
-				message?: string;
-			} | null;
-			return err(new Error(body?.message ?? `HTTP ${resp.status}`));
-		}
-		// 204 -> nothing matched -> not found.
-		if (resp.status === 204) return err(NotFound("subscription not found"));
-		return ok(null);
-	} catch (e) {
-		return err(e);
-	}
+/** DELETE: soft-delete (mark deleted_at; mirrors Go repo.Delete's tombstone update). */
+async function deleteSubscription(ctx: ApiCtx, id: number): Promise<Response> {
+	const { data, error } = await ctx.supabaseAdmin
+		.from("subscriptions")
+		.update({ deleted_at: new Date().toISOString() })
+		.eq("id", id)
+		.is("deleted_at", null)
+		.select();
+	if (error) return err(new Error(error.message));
+	// An empty result means no active row matched — already deleted or absent.
+	if ((data ?? []).length === 0) return err(NotFound("subscription not found"));
+	return ok(null);
 }
 
+/** Coerce a JSON value to string ("" when absent). */
 function asStr(v: unknown): string {
 	return typeof v === "string" ? v : "";
 }

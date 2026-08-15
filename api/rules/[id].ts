@@ -6,106 +6,99 @@
  * Mirrors internal/controller/rules.go (ruleItem).
  */
 
-import { withAuth } from "../_lib/auth";
 import { err, methodNotAllowed, ok } from "../_lib/envelope";
 import { InvalidArgument, NotFound } from "../_lib/errors";
 import { idFromPath, readJson } from "../_lib/http";
-import { eq, isNull, remove, select, update } from "../_lib/supabase";
 import { MAX_RULE_SIZE, resolveRule } from "../_lib/validate";
+import { type ApiCtx, withApi } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 
-export default withAuth(async (request) => {
+export default withApi(async (request, ctx) => {
 	const id = idFromPath(new URL(request.url).pathname, "/api/rules/");
 	if (id === null) return err(InvalidArgument("invalid id"));
 
 	switch (request.method) {
 		case "GET":
-			return getRule(id);
+			return getRule(ctx, id);
 		case "PUT":
-			return updateRule(request, id);
+			return updateRule(request, ctx, id);
 		case "DELETE":
-			return deleteRule(id);
+			return deleteRule(ctx, id);
 		default:
 			return methodNotAllowed();
 	}
 });
 
 /** GET: a single rule. */
-async function getRule(id: number): Promise<Response> {
-	try {
-		const { data, error } = await select("rules", {
-			select: "*",
-			...eq("id", id),
-		});
-		if (error) return err(new Error(error.message));
-		const rule = (data ?? [])[0];
-		if (!rule) return err(NotFound("rule not found"));
-		return ok(rule);
-	} catch (e) {
-		return err(e);
-	}
+async function getRule(ctx: ApiCtx, id: number): Promise<Response> {
+	const { data, error } = await ctx.supabaseAdmin
+		.from("rules")
+		.select("*")
+		.eq("id", id);
+	if (error) return err(new Error(error.message));
+	const rule = (data ?? [])[0];
+	if (!rule) return err(NotFound("rule not found"));
+	return ok(rule);
 }
 
 /** PUT: fully replace the rule. */
-async function updateRule(request: Request, id: number): Promise<Response> {
-	try {
-		const input = await readJson(request, MAX_RULE_SIZE);
-		const { name, filter } = resolveRule({
-			name: typeof input.name === "string" ? input.name : "",
-			filter: input.filter,
-		});
-		// Re-validate subIds against existing subscriptions (mirrors Go, which
-		// validates on write).
-		const existingIds = await activeSubscriptionIds();
-		if (existingIds === null)
-			return err(new Error("failed to load subscriptions"));
-		resolveRule({ name, filter, existingIds });
+async function updateRule(
+	request: Request,
+	ctx: ApiCtx,
+	id: number,
+): Promise<Response> {
+	const input = await readJson(request, MAX_RULE_SIZE);
+	const { name, filter } = resolveRule({
+		name: typeof input.name === "string" ? input.name : "",
+		filter: input.filter,
+	});
+	// Re-validate subIds against existing subscriptions (mirrors Go, which
+	// validates on write).
+	const existingIds = await activeSubscriptionIds(ctx);
+	if (existingIds === null)
+		return err(new Error("failed to load subscriptions"));
+	resolveRule({ name, filter, existingIds });
 
-		const { data, error } = await update(
-			"rules",
-			{ ...eq("id", id) },
-			{ name, filter: parseFilter(filter) },
-		);
-		if (error) {
-			if (error.code === "23505")
-				return err(InvalidArgument("rule name already exists"));
-			return err(new Error(error.message));
-		}
-		const rule = (data ?? [])[0];
-		if (!rule) return err(NotFound("rule not found"));
-		return ok(rule);
-	} catch (e) {
-		return err(e);
+	const { data, error } = await ctx.supabaseAdmin
+		.from("rules")
+		.update({ name, filter: parseFilter(filter) })
+		.eq("id", id)
+		.select();
+	if (error) {
+		if (error.code === "23505")
+			return err(InvalidArgument("rule name already exists"));
+		return err(new Error(error.message));
 	}
+	const rule = (data ?? [])[0];
+	if (!rule) return err(NotFound("rule not found"));
+	return ok(rule);
 }
 
 /** DELETE: hard-delete the rule. */
-async function deleteRule(id: number): Promise<Response> {
-	try {
-		const resp = await remove("rules", { ...eq("id", id) });
-		if (!resp.ok) {
-			const body = (await resp.json().catch(() => null)) as {
-				message?: string;
-			} | null;
-			return err(new Error(body?.message ?? `HTTP ${resp.status}`));
-		}
-		if (resp.status === 204) return err(NotFound("rule not found"));
-		return ok(null);
-	} catch (e) {
-		return err(e);
-	}
+async function deleteRule(ctx: ApiCtx, id: number): Promise<Response> {
+	const { data, error } = await ctx.supabaseAdmin
+		.from("rules")
+		.delete()
+		.eq("id", id)
+		.select();
+	if (error) return err(new Error(error.message));
+	// An empty result means nothing matched — nothing was deleted.
+	if ((data ?? []).length === 0) return err(NotFound("rule not found"));
+	return ok(null);
 }
 
-async function activeSubscriptionIds(): Promise<Set<string> | null> {
-	const { data, error } = await select("subscriptions", {
-		select: "id",
-		...isNull("deleted_at"),
-	});
+/** Load the set of active subscription ids (as strings) for subIds validation. */
+async function activeSubscriptionIds(ctx: ApiCtx): Promise<Set<string> | null> {
+	const { data, error } = await ctx.supabaseAdmin
+		.from("subscriptions")
+		.select("id")
+		.is("deleted_at", null);
 	if (error) return null;
-	return new Set((data ?? []).map((r) => String((r as { id: unknown }).id)));
+	return new Set((data ?? []).map((r) => String(r.id)));
 }
 
+/** Convert a raw filter JSON string into a jsonb value for PostgREST. */
 function parseFilter(raw: string): unknown {
 	try {
 		return JSON.parse(raw);

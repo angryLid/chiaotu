@@ -5,27 +5,25 @@
  * this once on entry and hydrates its store.
  */
 
-import { withAuth } from "./_lib/auth";
 import { err, methodNotAllowed, ok } from "./_lib/envelope";
-import { isNull, order, select } from "./_lib/supabase";
+import { withApi } from "./_lib/with-api";
 
 export const config = { runtime: "edge" };
 
-export default withAuth(async (request) => {
+export default withApi(async (request, ctx) => {
 	if (request.method !== "GET") return methodNotAllowed();
-	try {
-		const [subs, rules] = await Promise.all([
-			select("subscriptions", {
-				select: "*",
-				...isNull("deleted_at"),
-				...order("id", "asc"),
-			}),
-			select("rules", { select: "*", ...order("id", "desc") }),
-		]);
-		if (subs.error) return err(new Error(subs.error.message));
-		if (rules.error) return err(new Error(rules.error.message));
-		return ok({ subscriptions: subs.data ?? [], rules: rules.data ?? [] });
-	} catch (e) {
-		return err(e);
-	}
+	const [subs, rules] = await Promise.all([
+		ctx.supabaseAdmin
+			.from("subscriptions")
+			.select("*")
+			.is("deleted_at", null)
+			.order("id", { ascending: true }),
+		ctx.supabaseAdmin
+			.from("rules")
+			.select("*")
+			.order("id", { ascending: false }),
+	]);
+	if (subs.error) return err(new Error(subs.error.message));
+	if (rules.error) return err(new Error(rules.error.message));
+	return ok({ subscriptions: subs.data ?? [], rules: rules.data ?? [] });
 });

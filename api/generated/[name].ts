@@ -7,7 +7,7 @@
  * Auth: intentionally UNAUTHENTICATED. The name (a frontend-chosen nanoid) is
  * the capability itself — the link is the secret, so it can be pasted into a
  * browser or a clash client as a subscription URL with no token machinery.
- * Do not wrap this handler in withAuth.
+ * Do not wrap this handler in withApi (use withPublicCtx).
  *
  * Response: on success the body is the raw YAML content (envelope exception —
  * this is a file download, not a JSON envelope); not-found and errors keep the
@@ -16,17 +16,11 @@
 
 import { err, methodNotAllowed } from "../_lib/envelope";
 import { InvalidArgument, NotFound } from "../_lib/errors";
-import { eq, isNull, limit, order, select } from "../_lib/supabase";
-
-/** The generated-row fields the download needs (name for the filename, content for the body). */
-interface GeneratedRow {
-	name: string;
-	content: string;
-}
+import { withPublicCtx } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 
-export default async (request: Request): Promise<Response> => {
+export default withPublicCtx(async (request, ctx) => {
 	if (request.method !== "GET") return methodNotAllowed();
 
 	// name is everything after /api/generated/ (no trailing slash, no sub-paths).
@@ -45,25 +39,21 @@ export default async (request: Request): Promise<Response> => {
 		.toLowerCase()
 		.includes("clash");
 
-	try {
-		const { data, error } = await select<GeneratedRow>("generated", {
-			select: "*",
-			...eq("name", name),
-			...isNull("deleted_at"),
-			...order("created_at", "desc"),
-			...limit(1),
-		});
-		if (error) return err(new Error(error.message));
-		const g = (data ?? [])[0];
-		if (!g) return err(NotFound("generated result not found"));
-		const headers: Record<string, string> = {
-			"Content-Type": "text/yaml; charset=utf-8",
-		};
-		if (isClashClient) {
-			headers["Content-Disposition"] = `attachment; filename="${g.name}.yaml"`;
-		}
-		return new Response(g.content, { status: 200, headers });
-	} catch (e) {
-		return err(e);
+	const { data, error } = await ctx.supabaseAdmin
+		.from("generated")
+		.select("*")
+		.eq("name", name)
+		.is("deleted_at", null)
+		.order("created_at", { ascending: false })
+		.limit(1);
+	if (error) return err(new Error(error.message));
+	const g = (data ?? [])[0];
+	if (!g) return err(NotFound("generated result not found"));
+	const headers: Record<string, string> = {
+		"Content-Type": "text/yaml; charset=utf-8",
+	};
+	if (isClashClient) {
+		headers["Content-Disposition"] = `attachment; filename="${g.name}.yaml"`;
 	}
-};
+	return new Response(g.content, { status: 200, headers });
+});
