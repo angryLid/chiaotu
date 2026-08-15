@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSubscriptions } from "~/api/hooks";
+import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
 import NodesPage from "~/pages/nodes";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
 import SubscriptionsPage from "~/pages/subscriptions";
+import { useAppStore } from "~/store/app-store";
 
 type NavKey = "subscriptions" | "nodes" | "rules";
 
@@ -47,10 +48,22 @@ const NAV_ITEMS = [
 	{ key: "rules", labelKey: "app.nav.rules", icon: "📜" },
 ] as const;
 
-/** Backend connectivity badge: reuses the subscriptions query (same query key), so it fires no extra request. */
+/** Hydrates the zustand store whenever the initial dump query resolves (idempotent).
+ * useLayoutEffect (before paint) so the first data render never shows stale store state. */
+function useHydrateStore() {
+	const { data } = useInitialDump();
+	const hydrate = useAppStore((s) => s.hydrate);
+	useLayoutEffect(() => {
+		if (data !== undefined) {
+			hydrate(data);
+		}
+	}, [data, hydrate]);
+}
+
+/** Backend connectivity badge: reuses the initial dump query (same query key), so it fires no extra request. */
 function BackendStatus() {
 	const { t } = useTranslation();
-	const query = useSubscriptions();
+	const query = useInitialDump();
 
 	if (query.isLoading) {
 		return <span className="text-amber-600">{t("app.backend.checking")}</span>;
@@ -80,6 +93,9 @@ function LanguageSwitcher() {
 export default function App() {
 	const { t } = useTranslation();
 	const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
+
+	// Single entry-point hydration: the store is rebuilt from each initial dump response.
+	useHydrateStore();
 
 	useEffect(() => {
 		const onHashChange = () => setRoute(parseHash(window.location.hash));

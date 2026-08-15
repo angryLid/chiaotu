@@ -13,6 +13,7 @@
 
 import { ApiError } from "./errors";
 export { ApiError, type ApiErrorCode } from "./errors";
+import type { Rule } from "~/persistence/rules";
 
 // ---- response envelope ----
 
@@ -89,22 +90,24 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ---- subscription API ----
 
+/** Complete application state: all active subscriptions (full content) + all rules (newest first). */
+export interface InitialDump {
+	subscriptions: Subscription[];
+	rules: Rule[];
+}
+
 /** List all subscriptions (summaries, without content). */
 export function listSubscriptions(): Promise<SubscriptionSummary[]> {
 	return request<SubscriptionSummary[]>("/subscriptions");
 }
 
 /**
- * Fetch full subscriptions (with content) so the frontend can parse nodes.
- * @param ids Only fetch the given ids (defaults to all); missing ids are ignored by the backend.
+ * The single entry-point call of the SPA: fetch the complete application state
+ * (all active subscriptions with content + all rules) so the store can be
+ * hydrated with one round trip. Node parsing stays in the browser.
  */
-export function listSubscriptionsFull(ids?: number[]): Promise<Subscription[]> {
-	const params = new URLSearchParams();
-	params.set("include_content", "1");
-	if (ids && ids.length > 0) {
-		params.set("ids", ids.join(","));
-	}
-	return request<Subscription[]>(`/subscriptions?${params.toString()}`);
+export function getInitialDump(): Promise<InitialDump> {
+	return request<InitialDump>("/initial-dump");
 }
 
 /** Create a subscription: with a url the backend fetches and stores the content (url wins over content). */

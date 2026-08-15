@@ -1,7 +1,7 @@
 /**
  * The rule engine: a pure function that applies a node-filtering rule to the
- * "all nodes" snapshot. No React, no network, no backend — runs anywhere and is
- * directly unit-testable.
+ * nodes parsed in the browser from the initial dump. No React, no network, no
+ * backend — runs anywhere and is directly unit-testable.
  *
  * Matching semantics (see friend-cats openapi.yaml RuleFilter):
  * - subIds: when non-empty, only nodes of those subscriptions match (OR across the set);
@@ -11,7 +11,7 @@
  * - an empty dimension does not filter; a rule with no dimensions matches every node.
  */
 
-import type { NodeBuildItem, NodeProxy } from "~/api/nodes";
+import type { NodeProxy } from "~/utils/nodes";
 import type { RuleFilter } from "~/persistence/rules";
 
 /** A matched node: the node plus the subscription it came from. */
@@ -19,8 +19,14 @@ export interface MatchedNode extends NodeProxy {
 	subId: string;
 }
 
-/** Apply a rule filter to the node dump; returns the matched nodes (with their subId). */
-export function applyRule(filter: RuleFilter, items: NodeBuildItem[]): MatchedNode[] {
+/** One upstream's parsed nodes, keyed by subId. */
+export interface NodeSource {
+	subId: string;
+	content: NodeProxy[];
+}
+
+/** Apply a rule filter to the parsed nodes; returns the matched nodes (with their subId). */
+export function applyRule(filter: RuleFilter, items: NodeSource[]): MatchedNode[] {
 	const subIds = new Set(filter.subIds ?? []);
 	const keywords = (filter.nameKeywords ?? []).map((keyword) => keyword.toLowerCase());
 	const types = new Set((filter.typeMatch ?? []).map((value) => value.toLowerCase()));

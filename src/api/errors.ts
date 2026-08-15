@@ -24,7 +24,6 @@ export type ApiErrorCode =
 	| "INTERNAL"
 	| "TRANSPORT_FAILED"
 	| "INVALID_RESPONSE"
-	| "SUBSCRIPTIONS_MISSING"
 	| "INVALID_YAML"
 	| "PARSE_FAILED"
 	| (string & {});

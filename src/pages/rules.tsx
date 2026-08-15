@@ -4,17 +4,16 @@ import { useTranslation } from "react-i18next";
 import {
 	useCreateRule,
 	useDeleteRule,
-	useNodeSnapshot,
+	useInitialDump,
 	useRule,
-	useRules,
-	useSubscriptions,
 	useUpdateRule,
 } from "~/api/hooks";
-import type { NodeProxy } from "~/api/nodes";
 import type { RuleInput } from "~/api/rules";
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule, RuleFilter } from "~/persistence/rules";
-import { applyRule } from "~/utils/ruleEngine";
+import { useAppStore } from "~/store/app-store";
+import { applyRule, type NodeSource } from "~/utils/ruleEngine";
+import type { NodeProxy } from "~/utils/nodes";
 import { RULE_PRESETS, type RulePreset } from "~/utils/rulePresets";
 
 // ---- shared UI ----
@@ -134,8 +133,9 @@ function buildInput(values: FormValues): RuleInput {
 const PREVIEW_LIMIT = 200;
 
 // ---- rule form (create / edit page) ----
-// The live preview evaluates the *current form* against the latest node snapshot
-// (see ruleEngine.applyRule); it reflects unsaved edits, not the stored rule.
+// The live preview evaluates the *current form* against the nodes parsed in the
+// browser from the initial dump (see ruleEngine.applyRule); it reflects unsaved
+// edits, not the stored rule.
 
 function RuleForm({
 	title,
@@ -152,23 +152,29 @@ function RuleForm({
 	const [values, setValues] = useState<FormValues>(initial);
 	const [validationError, setValidationError] = useState<string | null>(null);
 
-	const subsQuery = useSubscriptions();
-	const snapshotQuery = useNodeSnapshot();
-	const subs = subsQuery.data ?? null;
-	const snapshot = snapshotQuery.data ?? null;
+	const query = useInitialDump();
+	const subscriptions = useAppStore((s) => s.subscriptions);
+	const parsed = useAppStore((s) => s.parsed);
+	const hydratedAt = useAppStore((s) => s.hydratedAt);
 
 	const subNameOf = useMemo(() => {
 		const map = new Map<string, string>();
-		for (const sub of subs ?? []) {
+		for (const sub of subscriptions) {
 			map.set(String(sub.id), sub.name === "" ? t("nodes.unnamed") : sub.name);
 		}
 		return (subId: string) => map.get(subId) ?? `#${subId}`;
-	}, [subs, t]);
+	}, [subscriptions, t]);
 
-	const preview = useMemo(
-		() => (snapshot === null ? [] : applyRule(buildFilter(values), snapshot.data)),
-		[values, snapshot],
-	);
+	const preview = useMemo(() => {
+		const items: NodeSource[] = [];
+		for (const sub of subscriptions) {
+			const result = parsed[String(sub.id)];
+			if (result?.nodes) {
+				items.push({ subId: String(sub.id), content: result.nodes });
+			}
+		}
+		return applyRule(buildFilter(values), items);
+	}, [values, subscriptions, parsed]);
 	const previewTruncated = preview.length - PREVIEW_LIMIT;
 
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -247,13 +253,13 @@ function RuleForm({
 
 					<div>
 						<FieldLabel optional>{t("rules.field.subscriptions")}</FieldLabel>
-						{subs === null ? (
+						{query.isLoading ? (
 							<p className="mt-2 text-sm text-slate-400">{t("common.loading")}</p>
-						) : subs.length === 0 ? (
+						) : subscriptions.length === 0 ? (
 							<p className="mt-2 text-sm text-slate-400">{t("nodes.noSubscriptions")}</p>
 						) : (
 							<div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
-								{subs.map((sub) => {
+								{subscriptions.map((sub) => {
 									const id = String(sub.id);
 									const checked = values.subIds.includes(id);
 									return (
@@ -334,27 +340,29 @@ function RuleForm({
 					</div>
 				</form>
 
-				{/* Live preview: unsaved edits are evaluated against the latest snapshot */}
+				{/* Live preview: unsaved edits are evaluated against the nodes parsed in the browser from the initial dump */}
 				<div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:sticky lg:top-4">
 					<div className="flex flex-wrap items-baseline justify-between gap-2">
 						<h2 className="text-sm font-semibold text-slate-700">{t("rules.preview.title")}</h2>
-						{snapshot !== null ? (
+						{hydratedAt !== null ? (
 							<span className="text-xs text-slate-400">
 								{t("rules.preview.count", { count: preview.length })}
 							</span>
 						) : null}
 					</div>
 
-					{snapshotQuery.isLoading ? (
+					{query.isLoading ? (
 						<p className="mt-2 text-sm text-slate-400">{t("common.loading")}</p>
-					) : snapshot === null ? (
-						<p className="mt-2 text-sm text-slate-400">{t("rules.preview.noSnapshot")}</p>
+					) : subscriptions.length === 0 ? (
+						<p className="mt-2 text-sm text-slate-400">{t("rules.preview.noData")}</p>
 					) : (
 						<>
 							<p className="mt-1 text-xs text-slate-400">
-								{t("rules.preview.snapshotAt", {
-									version: snapshot.id,
-									date: formatDateTime(snapshot.created_at),
+								{t("rules.preview.syncedAt", {
+									date:
+										hydratedAt === null
+											? ""
+											: formatDateTime(new Date(hydratedAt).toISOString()),
 								})}
 							</p>
 							{preview.length === 0 ? (
@@ -474,10 +482,11 @@ export function RuleFormPage({ mode, id }: { mode: "new" | "edit"; id?: number }
 
 export default function RulesPage() {
 	const { t } = useTranslation();
-	const list = useRules();
+	const query = useInitialDump();
+	const rules = useAppStore((s) => s.rules);
 	const deleteMutation = useDeleteRule();
 
-	const items = list.data ?? null;
+	const items = rules;
 	const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
 
 	async function handleDelete(rule: Rule) {
@@ -498,11 +507,11 @@ export default function RulesPage() {
 				<div className="flex gap-2">
 					<button
 						type="button"
-						onClick={() => void list.refetch()}
-						disabled={list.isRefetching}
+						onClick={() => void query.refetch()}
+						disabled={query.isRefetching}
 						className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{list.isRefetching ? t("rules.refreshing") : t("rules.refresh")}
+						{query.isRefetching ? t("rules.refreshing") : t("rules.refresh")}
 					</button>
 					<button
 						type="button"
@@ -516,9 +525,9 @@ export default function RulesPage() {
 				</div>
 			</div>
 
-			{list.isError ? (
+			{query.isError ? (
 				<div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-					{errorMessage(list.error)}
+					{errorMessage(query.error)}
 				</div>
 			) : null}
 
@@ -528,15 +537,15 @@ export default function RulesPage() {
 				</div>
 			) : null}
 
-			{list.isLoading ? (
+			{query.isLoading ? (
 				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
 					{t("common.loading")}
 				</div>
-			) : items !== null && items.length === 0 ? (
+			) : items.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
 					{t("rules.empty")}
 				</div>
-			) : items !== null ? (
+			) : (
 				<ul className="overflow-hidden rounded-lg border border-slate-200 bg-white">
 					{items.map((rule) => (
 						<li
@@ -577,7 +586,7 @@ export default function RulesPage() {
 						</li>
 					))}
 				</ul>
-			) : null}
+			)}
 		</div>
 	);
 }

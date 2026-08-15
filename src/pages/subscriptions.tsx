@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import {
 	useCreateSubscription,
 	useDeleteSubscription,
+	useInitialDump,
 	useSubscription,
-	useSubscriptions,
 	useUpdateSubscription,
 } from "~/api/hooks";
 import {
@@ -15,6 +15,7 @@ import {
 	type SubscriptionSummary,
 } from "~/api/subscriptions";
 import { errorMessage, formatDateTime } from "~/i18n";
+import { useAppStore } from "~/store/app-store";
 
 // ---- form ----
 
@@ -349,7 +350,8 @@ function EditSubscriptionModal({
 
 export default function SubscriptionsPage() {
 	const { t } = useTranslation();
-	const list = useSubscriptions();
+	const query = useInitialDump();
+	const subscriptions = useAppStore((s) => s.subscriptions);
 	const deleteMutation = useDeleteSubscription();
 	const createMutation = useCreateSubscription();
 
@@ -357,8 +359,8 @@ export default function SubscriptionsPage() {
 	const [viewing, setViewing] = useState<SubscriptionSummary | null>(null);
 	const [editingId, setEditingId] = useState<number | null>(null);
 
-	const items = list.data ?? null;
-	const atLimit = items !== null && items.length >= MAX_SUBSCRIPTIONS;
+	const items = subscriptions;
+	const atLimit = items.length >= MAX_SUBSCRIPTIONS;
 	const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
 
 	async function handleDelete(sub: SubscriptionSummary) {
@@ -379,11 +381,11 @@ export default function SubscriptionsPage() {
 				<div className="flex gap-2">
 					<button
 						type="button"
-						onClick={() => void list.refetch()}
-						disabled={list.isRefetching}
+						onClick={() => void query.refetch()}
+						disabled={query.isRefetching}
 						className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{list.isRefetching ? t("subs.refreshing") : t("subs.refresh")}
+						{query.isRefetching ? t("subs.refreshing") : t("subs.refresh")}
 					</button>
 					<button
 						type="button"
@@ -407,9 +409,9 @@ export default function SubscriptionsPage() {
 				</div>
 			) : null}
 
-			{list.isError ? (
+			{query.isError ? (
 				<div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-					{errorMessage(list.error)}
+					{errorMessage(query.error)}
 				</div>
 			) : null}
 
@@ -419,15 +421,15 @@ export default function SubscriptionsPage() {
 				</div>
 			) : null}
 
-			{list.isLoading ? (
+			{query.isLoading ? (
 				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
 					{t("common.loading")}
 				</div>
-			) : items !== null && items.length === 0 ? (
+			) : items.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
 					{t("subs.empty")}
 				</div>
-			) : items !== null ? (
+			) : (
 				<ul className="overflow-hidden rounded-lg border border-slate-200 bg-white">
 					{items.map((sub) => (
 						<li
@@ -490,7 +492,7 @@ export default function SubscriptionsPage() {
 						</li>
 					))}
 				</ul>
-			) : null}
+			)}
 
 			{createOpen ? (
 				<SubscriptionFormModal

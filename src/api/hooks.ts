@@ -3,187 +3,137 @@
  *
  * Responsibilities:
  * - Query keys and cache invalidation rules are centralized here; pages never touch queryClient;
- * - Mutations invalidate their own keys in onSuccess so data changes propagate automatically;
- * - Transport (request<T> / envelope parsing) stays in subscriptions.ts / nodes.ts, not reimplemented here.
+ * - GET /api/initial-dump is the single entry-point query: it carries the complete
+ *   application state (subscriptions with content + rules). Pages read the data from
+ *   the zustand store (hydrated from this query); this hook only powers loading /
+ *   error / refetch;
+ * - Every mutation invalidates the initial dump on success, so the store re-hydrates
+ *   with fresh data automatically. Detail queries (single subscription / rule) stay
+ *   for the edit forms;
+ * - Transport (request<T> / envelope parsing) stays in subscriptions.ts / rules.ts.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "./errors";
 import {
-	createNodeBuild,
-	getLatestNodeSnapshot,
-	type NodeBuildResult,
-} from "./nodes";
+	createSubscription,
+	deleteSubscription,
+	getInitialDump,
+	getSubscription,
+	updateSubscription,
+	type SubscriptionInput,
+} from "./subscriptions";
 import {
 	createRule,
 	deleteRule,
 	getRule,
-	listRules,
 	updateRule,
 	type RuleInput,
 } from "./rules";
-import {
-	createSubscription,
-	deleteSubscription,
-	getSubscription,
-	listSubscriptions,
-	listSubscriptionsFull,
-	updateSubscription,
-	type SubscriptionInput,
-} from "./subscriptions";
-import { parseNodes } from "~/utils/nodes";
 
 // ---- query keys (single source of truth; invalidation references the same keys) ----
 
-const subscriptionKeys = {
-	all: ["subscriptions"] as const,
-	detail: (id: number) => ["subscription", id] as const,
-};
+const initialDumpKey = ["initialDump"] as const;
 
-const nodeSnapshotKey = ["nodeSnapshot"] as const;
+const subscriptionDetailKey = (id: number) => ["subscription", id] as const;
 
-const ruleKeys = {
-	all: ["rules"] as const,
-	detail: (id: number) => ["rule", id] as const,
-};
+const ruleDetailKey = (id: number) => ["rule", id] as const;
 
 // ---- queries ----
 
-/** Subscription summaries. */
-export function useSubscriptions() {
+/** The single entry-point query: complete app state (subscriptions with content + rules). */
+export function useInitialDump() {
 	return useQuery({
-		queryKey: subscriptionKeys.all,
-		queryFn: listSubscriptions,
+		queryKey: initialDumpKey,
+		queryFn: getInitialDump,
 	});
 }
 
 /** Single subscription (with raw content); detail and edit share the same cache entry. */
 export function useSubscription(id: number) {
 	return useQuery({
-		queryKey: subscriptionKeys.detail(id),
+		queryKey: subscriptionDetailKey(id),
 		queryFn: () => getSubscription(id),
 	});
 }
 
-/** Latest "all nodes" build snapshot; data is null when nothing has been built yet. */
-export function useNodeSnapshot() {
-	return useQuery({
-		queryKey: nodeSnapshotKey,
-		queryFn: getLatestNodeSnapshot,
-	});
-}
-
-/** All rules, newest first. */
-export function useRules() {
-	return useQuery({
-		queryKey: ruleKeys.all,
-		queryFn: listRules,
-	});
-}
-
-/** Single rule. */
+/** Single rule; detail and edit share the same cache entry. */
 export function useRule(id: number) {
 	return useQuery({
-		queryKey: ruleKeys.detail(id),
+		queryKey: ruleDetailKey(id),
 		queryFn: () => getRule(id),
 	});
 }
 
-// ---- mutations (invalidate the affected queries on success) ----
+// ---- mutations (invalidate the initial dump on success so the store re-hydrates) ----
 
-/** Create: invalidate the list on success. */
+/** Create: invalidate the initial dump on success. */
 export function useCreateSubscription() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createSubscription,
 		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
 		},
 	});
 }
 
-/** Update: invalidate the list and detail on success. */
+/** Update: invalidate the initial dump and the detail on success. */
 export function useUpdateSubscription(id: number) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (input: SubscriptionInput) => updateSubscription(id, input),
 		onSuccess: (sub) => {
-			void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
+			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
 			void queryClient.invalidateQueries({
-				queryKey: subscriptionKeys.detail(sub.id),
+				queryKey: subscriptionDetailKey(sub.id),
 			});
 		},
 	});
 }
 
-/** Delete: invalidate the list and drop the detail from cache on success. */
+/** Delete: invalidate the initial dump and drop the detail from cache on success. */
 export function useDeleteSubscription() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: deleteSubscription,
 		onSuccess: (_data, id) => {
-			void queryClient.invalidateQueries({ queryKey: subscriptionKeys.all });
-			queryClient.removeQueries({ queryKey: subscriptionKeys.detail(id) });
+			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+			queryClient.removeQueries({ queryKey: subscriptionDetailKey(id) });
 		},
 	});
 }
 
-/** Build the "all nodes" snapshot; invalidate the snapshot query on success. */
-export function useCreateNodeBuild() {
-	const queryClient = useQueryClient();
-	return useMutation({
-		mutationFn: async (ids: number[]): Promise<NodeBuildResult> => {
-			const full = await listSubscriptionsFull(ids);
-			const found = new Set(full.map((sub) => sub.id));
-			const missing = ids.filter((id) => !found.has(id));
-			if (missing.length > 0) {
-				throw new ApiError("", "SUBSCRIPTIONS_MISSING", {
-					ids: missing.join("、"),
-				});
-			}
-			const dump = full.map((sub) => ({
-				subId: String(sub.id),
-				content: parseNodes(sub.content, sub.name),
-			}));
-			return createNodeBuild(dump);
-		},
-		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: nodeSnapshotKey });
-		},
-	});
-}
-
-/** Create: invalidate the rule list on success. */
+/** Create: invalidate the initial dump on success. */
 export function useCreateRule() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createRule,
 		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: ruleKeys.all });
+			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
 		},
 	});
 }
 
-/** Update: invalidate the list and detail on success. */
+/** Update: invalidate the initial dump and the detail on success. */
 export function useUpdateRule(id: number) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (input: RuleInput) => updateRule(id, input),
 		onSuccess: (rule) => {
-			void queryClient.invalidateQueries({ queryKey: ruleKeys.all });
-			void queryClient.invalidateQueries({ queryKey: ruleKeys.detail(rule.id) });
+			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+			void queryClient.invalidateQueries({ queryKey: ruleDetailKey(rule.id) });
 		},
 	});
 }
 
-/** Delete: invalidate the list and drop the detail from cache on success. */
+/** Delete: invalidate the initial dump and drop the detail from cache on success. */
 export function useDeleteRule() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: deleteRule,
 		onSuccess: (_data, id) => {
-			void queryClient.invalidateQueries({ queryKey: ruleKeys.all });
-			queryClient.removeQueries({ queryKey: ruleKeys.detail(id) });
+			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+			queryClient.removeQueries({ queryKey: ruleDetailKey(id) });
 		},
 	});
 }
