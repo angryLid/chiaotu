@@ -196,15 +196,35 @@ function RuleForm({
 		validationError ??
 		(mutation.isError && !mutation.isPending ? errorMessage(mutation.error) : null);
 
+	/** Empty subIds means "all subscriptions" (see RuleFilter semantics); reflect that in the UI. */
 	function toggleSubId(id: string) {
 		setValues((prev) => {
+			// Currently "all selected": unchecking one subscription materializes the
+			// effective selection as the list of all the others.
+			if (prev.subIds.length === 0) {
+				const rest = subscriptions
+					.map((sub) => String(sub.id))
+					.filter((subId) => subId !== id);
+				return { ...prev, subIds: rest };
+			}
 			const next = new Set(prev.subIds);
 			if (next.has(id)) {
 				next.delete(id);
 			} else {
 				next.add(id);
 			}
-			return { ...prev, subIds: [...next] };
+			const list = [...next];
+			// Unchecking the last one means "all" again — keep the canonical empty form.
+			if (list.length === 0) {
+				return { ...prev, subIds: [] };
+			}
+			// Re-selecting every subscription is identical to selecting none (all);
+			// store it canonically so the UI shows the true "all selected" state.
+			const all = subscriptions.map((sub) => String(sub.id));
+			if (all.length > 0 && all.every((subId) => list.includes(subId))) {
+				return { ...prev, subIds: [] };
+			}
+			return { ...prev, subIds: list };
 		});
 	}
 
@@ -258,30 +278,44 @@ function RuleForm({
 						) : subscriptions.length === 0 ? (
 							<p className="mt-2 text-sm text-slate-400">{t("subs.noSubscriptions")}</p>
 						) : (
-							<div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
-								{subscriptions.map((sub) => {
-									const id = String(sub.id);
-									const checked = values.subIds.includes(id);
-									return (
-										<label
-											key={sub.id}
-											className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-slate-50"
-										>
-											<input
-												type="checkbox"
-												checked={checked}
-												onChange={() => toggleSubId(id)}
-												className="accent-slate-900"
-											/>
-											<span className="min-w-0">
-												<span className="block truncate font-medium text-slate-700">
-													{sub.name === "" ? t("subs.unnamed") : sub.name}
+							<div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-slate-200 p-2">
+								<div className="flex items-center justify-between px-2 pb-1 text-xs text-slate-500">
+									<span>
+										{values.subIds.length === 0
+											? t("rules.field.subscriptionsAll")
+											: t("rules.field.subscriptionsCount", {
+													count: values.subIds.length,
+													total: subscriptions.length,
+												})}
+									</span>
+								</div>
+								<div className="space-y-1">
+									{subscriptions.map((sub) => {
+										const id = String(sub.id);
+										// Empty subIds = all subscriptions (see RuleFilter semantics).
+										const checked =
+											values.subIds.length === 0 || values.subIds.includes(id);
+										return (
+											<label
+												key={sub.id}
+												className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-slate-50"
+											>
+												<input
+													type="checkbox"
+													checked={checked}
+													onChange={() => toggleSubId(id)}
+													className="accent-slate-900"
+												/>
+												<span className="min-w-0">
+													<span className="block truncate font-medium text-slate-700">
+														{sub.name === "" ? t("subs.unnamed") : sub.name}
+													</span>
+													<span className="block text-xs text-slate-400">#{sub.id}</span>
 												</span>
-												<span className="block text-xs text-slate-400">#{sub.id}</span>
-											</span>
-										</label>
-									);
-								})}
+											</label>
+										);
+									})}
+								</div>
 							</div>
 						)}
 						<span className="mt-1 block text-xs text-slate-400">

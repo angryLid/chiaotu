@@ -116,7 +116,10 @@ export const en: DeepString<typeof zhCN> = {
 			placeholderName: "e.g. Asia-Pacific",
 			hintName: "Required; must be unique",
 			subscriptions: "Subscriptions (multi-select)",
-			subscriptionsHint: "Empty = all subscriptions",
+			subscriptionsAll: "All selected (matches all subscriptions)",
+			subscriptionsCount: "{{count}}/{{total}} selected",
+			subscriptionsHint:
+				"All selected by default; leaving every box unchecked matches all subscriptions, ticking restricts to the chosen ones",
 			nameKeywords: "Node name keywords (OR)",
 			placeholderKeywords: "Hong Kong, US, HK",
 			hintNameKeywords: "Comma-separated; a node matches if its name contains any keyword (case-insensitive)",
