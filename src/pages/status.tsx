@@ -451,12 +451,13 @@ export default function StatusPage() {
 						</div>
 						{/* QR code for the shareable link — scan with a phone to subscribe */}
 						{downloadUrl !== "" ? (
-							<div className="mt-2 flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-2">
-								<div className="shrink-0 rounded bg-white p-2">
+							<div className="mt-2 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center">
+								<div className="flex justify-center rounded bg-white p-2 sm:shrink-0">
 									<QRCodeSVG
 										value={downloadUrl}
-										size={96}
+										size={160}
 										marginSize={1}
+										className="h-40 w-40"
 									/>
 								</div>
 								<div className="min-w-0 text-xs text-slate-500">
