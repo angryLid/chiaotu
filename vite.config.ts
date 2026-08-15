@@ -10,18 +10,4 @@ export default defineConfig({
 			"~": fileURLToPath(new URL("./src", import.meta.url)),
 		},
 	},
-	server: {
-		proxy: {
-			"/api": {
-				target: "http://localhost:8080",
-				changeOrigin: true,
-			},
-			// The auth page validates its token against the (now authenticated)
-			// healthz endpoint, which lives outside the /api prefix.
-			"/healthz": {
-				target: "http://localhost:8080",
-				changeOrigin: true,
-			},
-		},
-	},
 });

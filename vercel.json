@@ -1,0 +1,9 @@
+{
+	"devCommand": "vite --port $PORT --strictPort",
+	"rewrites": [
+		{
+			"source": "/healthz",
+			"destination": "/api/healthz"
+		}
+	]
+}
