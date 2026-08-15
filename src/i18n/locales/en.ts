@@ -175,7 +175,7 @@ export const en: DeepString<typeof zhCN> = {
 			noRules: "No rules yet — create one in the Rules page first.",
 			noRule: "Select at least one rule first",
 			noMatch: "The selected rules match no nodes — nothing to generate",
-			hint: "The browser filters the synced subscription nodes by the selected rules (multiple allowed — union of matches), runs the produce pipeline to build a clash YAML, and uploads it to the backend.",
+			hint: "The browser filters the synced subscription nodes by the selected rules (multiple allowed) — each rule becomes a proxy group named after the rule — runs the produce pipeline to build a clash YAML, and uploads it to the backend.",
 		},
 		latest: {
 			title: "Latest generated result",

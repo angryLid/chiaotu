@@ -1,12 +1,12 @@
 /**
- * Browser-safe produce pipeline: matched subscription nodes → clash YAML config.
+ * Browser-safe produce pipeline: rule-matched nodes → clash YAML config.
  *
  * Ported from the CLI's `utils/produce.ts` (the core asset kept when the CLI was
- * rebuilt as an SPA): load the base template, merge the nodes of each upstream,
- * group them into vendor groups (✈️<name>) plus service / country groups, and
- * dump the result as YAML. Unlike the CLI version it has no Node dependencies —
- * the base template is imported at build time (Vite `?raw`) and the nodes come
- * from the browser-side rule engine, not from disk.
+ * rebuilt as an SPA): load the base template, merge the nodes matched by each
+ * rule into one select group named after the rule, add the service / country
+ * groups on top, and dump the result as YAML. Unlike the CLI version it has no
+ * Node dependencies — the base template is imported at build time (Vite `?raw`)
+ * and the nodes come from the browser-side rule engine, not from disk.
  */
 
 import yaml from "js-yaml";
@@ -18,11 +18,11 @@ import {
 import type { NodeProxy } from "~/utils/nodes";
 import { getFlagByNodeName } from "./string";
 
-/** One vendor source: the nodes matched by a rule, grouped by their subscription. */
-export interface VendorSource {
-	/** Subscription display name (becomes the ✈️<name> vendor group). */
+/** One rule source: the nodes matched by a rule, named after the rule. */
+export interface RuleSource {
+	/** Rule name — becomes the proxy-group name. */
 	name: string;
-	/** The matched nodes of this subscription. */
+	/** The nodes matched by this rule. */
 	nodes: NodeProxy[];
 }
 
@@ -31,23 +31,25 @@ export interface VendorSource {
  *
  * Pipeline (mirrors `produce()` in the CLI):
  * 1. parse the base template (validates its shape; all extra keys are kept);
- * 2. per vendor: drop expired nodes (name contains 剩余 / 到期), prefix a flag
+ * 2. per rule: drop expired nodes (name contains 剩余 / 到期), prefix a flag
  *    emoji when the node name has none;
- * 3. merge the remaining nodes into `proxies`, create one ✈️<vendor> select
- *    group per subscription;
+ * 3. merge the surviving nodes into `proxies` (deduped by name — a node matched
+ *    by several rules appears once), create one select group per rule named
+ *    after the rule (rules left with no nodes are skipped);
  * 4. append the service / country groups (🌐 手动选择, 🤖 AI, 🟦 Microsoft,
- *    🍎 Apple, 🇪🇺 Europe);
+ *    🍎 Apple, 🇪🇺 Europe) referencing the rule groups;
  * 5. dump the assembled profile as YAML.
  */
 export function buildProfile(
 	baseTemplate: string,
-	sources: VendorSource[],
+	sources: RuleSource[],
 ): string {
 	const rawYaml: unknown = yaml.load(baseTemplate);
 	const baseProfile = ClashProfileSchema.parse(rawYaml);
 
 	const proxies: NodeProxy[] = [];
-	const groupsByVendors: ProxyGroup[] = [];
+	const ruleGroups: ProxyGroup[] = [];
+	const seenNames = new Set<string>();
 	for (const source of sources) {
 		// Copy the nodes before mutating names (the store's parse results are shared).
 		const nodes = source.nodes
@@ -60,12 +62,23 @@ export function buildProfile(
 			}
 		}
 
-		proxies.push(...nodes);
-		groupsByVendors.push({
-			name: `✈️${source.name}`,
-			type: "select",
-			proxies: nodes.map(({ name }) => name),
-		});
+		// A node matched by several rules must appear only once in the top-level
+		// proxies list (clash requires unique proxy names); each rule group keeps
+		// its own full membership.
+		for (const proxy of nodes) {
+			if (!seenNames.has(proxy.name)) {
+				seenNames.add(proxy.name);
+				proxies.push(proxy);
+			}
+		}
+
+		if (nodes.length > 0) {
+			ruleGroups.push({
+				name: source.name,
+				type: "select",
+				proxies: nodes.map(({ name }) => name),
+			});
+		}
 	}
 
 	// Reassigning the existing keys keeps their position in the dumped YAML
@@ -73,10 +86,10 @@ export function buildProfile(
 	const assembled: Record<string, unknown> = { ...baseProfile };
 	assembled.proxies = proxies;
 	assembled["proxy-groups"] = [
-		...groupsByVendors,
+		...ruleGroups,
 		...createGroupsByCountry(
 			proxies,
-			groupsByVendors.map(({ name }) => name),
+			ruleGroups.map(({ name }) => name),
 		),
 	];
 
@@ -89,7 +102,7 @@ export function buildProfile(
 
 function createGroupsByCountry(
 	proxies: NodeProxy[],
-	proxyGroupName: string[],
+	ruleGroupName: string[],
 ): ProxyGroup[] {
 	function createUrlTestGroup(name: string): ProxyGroup {
 		return {
@@ -121,7 +134,7 @@ function createGroupsByCountry(
 		}
 	}
 
-	const baseProxies = ["🇪🇺 Europe", ...proxyGroupName];
+	const baseProxies = ["🇪🇺 Europe", ...ruleGroupName];
 
 	// Special service groups
 	const select = createSelectGroup("🌐 手动选择", baseProxies);

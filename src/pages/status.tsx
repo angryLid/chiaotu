@@ -3,12 +3,11 @@
  *
  * What it does:
  * - shows a live summary of the app data (subscriptions / rules / nodes / sync time);
- * - lets the user pick one or more rules (multi-select; the union of the matched
- *   nodes, deduped by subId+name, feeds the produce pipeline) and generate a
- *   clash YAML config in the browser: apply each selected rule to the nodes
- *   parsed from the initial dump, run the produce pipeline (buildProfile) over
- *   the matched nodes, then upload the result (name = nanoid) to the backend
- *   via POST /api/generated;
+ * - lets the user pick one or more rules (multi-select) and generate a
+ *   clash YAML config in the browser: each selected rule is applied to the
+ *   nodes parsed from the initial dump and becomes its own proxy group named
+ *   after the rule (run through the produce pipeline, buildProfile), then the
+ *   result is uploaded (name = nanoid) to the backend via POST /api/generated;
  * - shows the most recently generated result (GET /api/generated) with a
  *   content preview and a download button.
  */
@@ -25,8 +24,7 @@ import {
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule } from "~/persistence/rules";
 import { useAppStore } from "~/store/app-store";
-import type { NodeProxy } from "~/utils/nodes";
-import { buildProfile, type VendorSource } from "~/utils/produceProfile";
+import { buildProfile, type RuleSource } from "~/utils/produceProfile";
 import {
 	applyRule,
 	type MatchedNode,
@@ -149,7 +147,9 @@ export default function StatusPage() {
 
 	/**
 	 * Union of the nodes matched by the selected rules, deduped by subId+name —
-	 * a node matched by several rules appears once (buildProfile does not dedupe).
+	 * drives the match-count summary. The per-rule groups are built separately
+	 * in handleGenerate (a node matched by several rules belongs to each of
+	 * them; buildProfile dedupes the top-level proxies list by name).
 	 */
 	const matchedNodes = useMemo(() => {
 		const seen = new Set<string>();
@@ -202,26 +202,12 @@ export default function StatusPage() {
 			return;
 		}
 
-		// Group the matched nodes by subscription; the vendor group name is the
-		// subscription display name (the produce pipeline prefixes ✈️).
-		const subName = new Map(
-			subscriptions.map((sub) => [
-				String(sub.id),
-				sub.name === "" ? t("subs.unnamed") : sub.name,
-			]),
-		);
-		const bySub = new Map<string, NodeProxy[]>();
-		for (const node of matchedNodes) {
-			const list = bySub.get(node.subId) ?? [];
-			list.push(node);
-			bySub.set(node.subId, list);
-		}
-		const sources: VendorSource[] = [...bySub.entries()].map(
-			([subId, nodes]) => ({
-				name: subName.get(subId) ?? `#${subId}`,
-				nodes,
-			}),
-		);
+		// Each selected rule becomes its own proxy group, named after the rule
+		// (the produce pipeline groups the nodes by rule source).
+		const sources: RuleSource[] = selectedRules.map((rule) => ({
+			name: rule.name,
+			nodes: applyRule(rule.filter, nodeSources),
+		}));
 
 		const content = buildProfile(baseTemplate, sources);
 
