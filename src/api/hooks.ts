@@ -14,22 +14,22 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-	createSubscription,
-	deleteSubscription,
-	getInitialDump,
-	getSubscription,
-	updateSubscription,
-	type SubscriptionInput,
-} from "./subscriptions";
 import { createGenerated, getLatestGenerated } from "./generated";
 import {
 	createRule,
 	deleteRule,
 	getRule,
-	updateRule,
 	type RuleInput,
+	updateRule,
 } from "./rules";
+import {
+	createSubscription,
+	deleteSubscription,
+	getInitialDump,
+	getSubscription,
+	type SubscriptionInput,
+	updateSubscription,
+} from "./subscriptions";
 
 // ---- query keys (single source of truth; invalidation references the same keys) ----
 

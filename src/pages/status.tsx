@@ -12,7 +12,13 @@
  */
 
 import { nanoid } from "nanoid";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+	type FormEvent,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError } from "~/api/errors";
 import {
@@ -23,9 +29,9 @@ import {
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule } from "~/persistence/rules";
 import { useAppStore } from "~/store/app-store";
-import { applyRule, type NodeSource } from "~/utils/ruleEngine";
 import type { NodeProxy } from "~/utils/nodes";
 import { buildProfile, type VendorSource } from "~/utils/produceProfile";
+import { applyRule, type NodeSource } from "~/utils/ruleEngine";
 // The base clash template is imported at build time (Vite ?raw); this is the
 // browser-side replacement for the CLI's `address.template` file read.
 import baseTemplate from "../../resources/templates/base.yaml?raw";
@@ -49,7 +55,9 @@ function StatCard({ label, value }: { label: string; value: string }) {
 	return (
 		<div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
 			<p className="text-xs text-slate-400">{label}</p>
-			<p className="mt-0.5 truncate text-lg font-semibold text-slate-800">{value}</p>
+			<p className="mt-0.5 truncate text-lg font-semibold text-slate-800">
+				{value}
+			</p>
 		</div>
 	);
 }
@@ -106,7 +114,10 @@ export default function StatusPage() {
 
 	/** How many nodes the selected rule would match (live; mirrors the rules page preview). */
 	const matchedCount = useMemo(
-		() => (selectedRule === null ? 0 : applyRule(selectedRule.filter, nodeSources).length),
+		() =>
+			selectedRule === null
+				? 0
+				: applyRule(selectedRule.filter, nodeSources).length,
 		[selectedRule, nodeSources],
 	);
 
@@ -141,10 +152,12 @@ export default function StatusPage() {
 			list.push(node);
 			bySub.set(node.subId, list);
 		}
-		const sources: VendorSource[] = [...bySub.entries()].map(([subId, nodes]) => ({
-			name: subName.get(subId) ?? `#${subId}`,
-			nodes,
-		}));
+		const sources: VendorSource[] = [...bySub.entries()].map(
+			([subId, nodes]) => ({
+				name: subName.get(subId) ?? `#${subId}`,
+				nodes,
+			}),
+		);
 
 		const content = buildProfile(baseTemplate, sources);
 
@@ -201,8 +214,14 @@ export default function StatusPage() {
 
 			{/* App data summary */}
 			<div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<StatCard label={t("status.stats.subscriptions")} value={String(subscriptions.length)} />
-				<StatCard label={t("status.stats.rules")} value={String(rules.length)} />
+				<StatCard
+					label={t("status.stats.subscriptions")}
+					value={String(subscriptions.length)}
+				/>
+				<StatCard
+					label={t("status.stats.rules")}
+					value={String(rules.length)}
+				/>
 				<StatCard label={t("status.stats.nodes")} value={String(totalNodes)} />
 				<StatCard
 					label={t("status.stats.syncedAt")}
@@ -225,7 +244,11 @@ export default function StatusPage() {
 					</h2>
 					<button
 						type="submit"
-						disabled={query.isLoading || selectedRule === null || createMutation.isPending}
+						disabled={
+							query.isLoading ||
+							selectedRule === null ||
+							createMutation.isPending
+						}
 						className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{createMutation.isPending
@@ -259,7 +282,9 @@ export default function StatusPage() {
 					</span>
 				</label>
 
-				<p className="mt-2 text-xs text-slate-400">{t("status.generate.hint")}</p>
+				<p className="mt-2 text-xs text-slate-400">
+					{t("status.generate.hint")}
+				</p>
 
 				{generationErrorBox !== null ? (
 					<div className="mt-3">
@@ -277,7 +302,9 @@ export default function StatusPage() {
 				{latestQuery.isLoading ? (
 					<p className="mt-3 text-sm text-slate-400">{t("common.loading")}</p>
 				) : latestMissing ? (
-					<p className="mt-3 text-sm text-slate-400">{t("status.latest.empty")}</p>
+					<p className="mt-3 text-sm text-slate-400">
+						{t("status.latest.empty")}
+					</p>
 				) : latestQuery.isError ? (
 					<div className="mt-3">
 						<ErrorBox>{errorMessage(latestQuery.error)}</ErrorBox>
@@ -286,8 +313,12 @@ export default function StatusPage() {
 					<div className="mt-3">
 						<div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
 							<span className="truncate">
-								<span className="text-slate-400">{t("status.latest.name")}：</span>
-								<span className="font-mono text-slate-800">{latestQuery.data.name}</span>
+								<span className="text-slate-400">
+									{t("status.latest.name")}：
+								</span>
+								<span className="font-mono text-slate-800">
+									{latestQuery.data.name}
+								</span>
 							</span>
 							<span className="truncate text-slate-400">
 								{t("status.latest.generatedAt")}：
@@ -295,7 +326,12 @@ export default function StatusPage() {
 							</span>
 							<button
 								type="button"
-								onClick={() => downloadResult(latestQuery.data.name, latestQuery.data.content)}
+								onClick={() =>
+									downloadResult(
+										latestQuery.data.name,
+										latestQuery.data.content,
+									)
+								}
 								className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
 							>
 								{t("status.latest.download")}

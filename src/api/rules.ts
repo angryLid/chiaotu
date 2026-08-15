@@ -9,9 +9,9 @@
  * - name is required and unique; update is a full replacement (PUT).
  */
 
+import { type Rule, type RuleFilter, RuleSchema } from "~/persistence/rules";
 import { ApiError } from "./errors";
 import { request } from "./subscriptions";
-import { RuleSchema, type Rule, type RuleFilter } from "~/persistence/rules";
 
 /** Body for creating / updating a rule. */
 export interface RuleInput {

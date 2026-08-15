@@ -87,11 +87,16 @@ export function formatDateTime(iso: string): string {
  * keys, while error codes are dynamic (`errors.<CODE>`). The cast is the single
  * escape hatch; everything else goes through the typed `t` from `useTranslation`.
  */
-const translateByKey = (key: string, params?: Record<string, unknown>): string =>
-	(i18n.t as unknown as (key: string, params?: Record<string, unknown>) => string)(
-		key,
-		params,
-	);
+const translateByKey = (
+	key: string,
+	params?: Record<string, unknown>,
+): string =>
+	(
+		i18n.t as unknown as (
+			key: string,
+			params?: Record<string, unknown>,
+		) => string
+	)(key, params);
 
 /**
  * Resolve any thrown value to a user-visible message in the current UI language.

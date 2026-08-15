@@ -1,6 +1,6 @@
-import { nanoid } from "nanoid";
-import { useState, type FormEvent, type ReactNode } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
+import { nanoid } from "nanoid";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	useCreateSubscription,
@@ -16,7 +16,7 @@ import {
 	type SubscriptionSummary,
 } from "~/api/subscriptions";
 import { errorMessage, formatDateTime } from "~/i18n";
-import { useAppStore, type ParsedSubscription } from "~/store/app-store";
+import { type ParsedSubscription, useAppStore } from "~/store/app-store";
 import type { NodeProxy } from "~/utils/nodes";
 
 // ---- form ----
@@ -28,7 +28,9 @@ interface FormValues {
 }
 
 /** Client-side validation message keys (translated at the call site). */
-type ValidationKey = "subs.validation.urlOrContent" | "subs.validation.urlScheme";
+type ValidationKey =
+	| "subs.validation.urlOrContent"
+	| "subs.validation.urlScheme";
 
 function validate(values: FormValues): ValidationKey | null {
 	if (values.url.trim() === "" && values.content.trim() === "") {
@@ -68,13 +70,18 @@ const inputClass =
 function FieldLabel({
 	children,
 	optional,
-}: { children: ReactNode; optional?: boolean }) {
+}: {
+	children: ReactNode;
+	optional?: boolean;
+}) {
 	const { t } = useTranslation();
 	return (
 		<span className="text-sm font-medium text-slate-700">
 			{children}
 			{optional ? (
-				<span className="ml-1 font-normal text-slate-400">{t("subs.field.optional")}</span>
+				<span className="ml-1 font-normal text-slate-400">
+					{t("subs.field.optional")}
+				</span>
 			) : null}
 		</span>
 	);
@@ -103,15 +110,18 @@ function Modal({
 }) {
 	const { t } = useTranslation();
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: backdrop is a mouse-only click-to-close convenience
+		// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users close via the dialog's ✕ button
 		<div
 			className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
-			onClick={onClose}
+			onClick={(event) => {
+				if (event.target === event.currentTarget) onClose();
+			}}
 		>
 			<div
 				className={`flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl ${
 					wide ? "max-w-2xl" : "max-w-lg"
 				}`}
-				onClick={(event) => event.stopPropagation()}
 			>
 				<div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
 					<h2 className="text-base font-semibold">{title}</h2>
@@ -171,7 +181,9 @@ function SubscriptionFormModal({
 
 	const error =
 		validationError ??
-		(mutation.isError && !mutation.isPending ? errorMessage(mutation.error) : null);
+		(mutation.isError && !mutation.isPending
+			? errorMessage(mutation.error)
+			: null);
 
 	return (
 		<Modal title={title} onClose={onClose}>
@@ -216,7 +228,9 @@ function SubscriptionFormModal({
 					/>
 				</label>
 
-				<p className="text-xs text-slate-400">{t("subs.field.hintUrlContent")}</p>
+				<p className="text-xs text-slate-400">
+					{t("subs.field.hintUrlContent")}
+				</p>
 
 				{error !== null ? <ErrorBox>{error}</ErrorBox> : null}
 
@@ -257,11 +271,17 @@ function DetailModal({
 	const query = useSubscription(summary.id);
 
 	return (
-		<Modal title={t("subs.detailTitle", { id: summary.id })} onClose={onClose} wide>
+		<Modal
+			title={t("subs.detailTitle", { id: summary.id })}
+			onClose={onClose}
+			wide
+		>
 			{query.isError ? (
 				<ErrorBox>{errorMessage(query.error)}</ErrorBox>
 			) : !query.data ? (
-				<p className="py-8 text-center text-sm text-slate-400">{t("common.loading")}</p>
+				<p className="py-8 text-center text-sm text-slate-400">
+					{t("common.loading")}
+				</p>
 			) : (
 				<div className="space-y-3">
 					<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
@@ -272,7 +292,9 @@ function DetailModal({
 							{query.data.url === "" ? (
 								<span className="text-slate-400">{t("subs.detail.noUrl")}</span>
 							) : (
-								<span className="break-all text-slate-600">{query.data.url}</span>
+								<span className="break-all text-slate-600">
+									{query.data.url}
+								</span>
 							)}
 						</dd>
 						<dt className="text-slate-400">{t("subs.detail.createdAt")}</dt>
@@ -335,7 +357,9 @@ function EditSubscriptionModal({
 	if (!detail.data) {
 		return (
 			<Modal title={t("subs.editTitle", { id })} onClose={onClose}>
-				<p className="py-8 text-center text-sm text-slate-400">{t("common.loading")}</p>
+				<p className="py-8 text-center text-sm text-slate-400">
+					{t("common.loading")}
+				</p>
 			</Modal>
 		);
 	}
@@ -386,10 +410,18 @@ function NodeTable({ item }: { item: ParsedSubscription }) {
 			<table className="w-full table-fixed text-left text-sm">
 				<thead>
 					<tr className="border-b border-slate-100 text-xs text-slate-400">
-						<th className="w-[45%] px-4 py-2 font-medium">{t("subs.col.name")}</th>
-						<th className="w-[15%] px-4 py-2 font-medium">{t("subs.col.type")}</th>
-						<th className="w-[25%] px-4 py-2 font-medium">{t("subs.col.server")}</th>
-						<th className="w-[15%] px-4 py-2 font-medium">{t("subs.col.port")}</th>
+						<th className="w-[45%] px-4 py-2 font-medium">
+							{t("subs.col.name")}
+						</th>
+						<th className="w-[15%] px-4 py-2 font-medium">
+							{t("subs.col.type")}
+						</th>
+						<th className="w-[25%] px-4 py-2 font-medium">
+							{t("subs.col.server")}
+						</th>
+						<th className="w-[15%] px-4 py-2 font-medium">
+							{t("subs.col.port")}
+						</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -404,7 +436,10 @@ function NodeTable({ item }: { item: ParsedSubscription }) {
 							>
 								{node.name}
 							</td>
-							<td title={stringOf(node, "type")} className="truncate px-4 py-2 text-slate-600">
+							<td
+								title={stringOf(node, "type")}
+								className="truncate px-4 py-2 text-slate-600"
+							>
 								{stringOf(node, "type")}
 							</td>
 							<td
@@ -450,19 +485,14 @@ function SubscriptionItem({
 
 	return (
 		<li className="border-b border-slate-100 last:border-b-0">
-			<div
-				role="button"
-				tabIndex={0}
+			<button
+				type="button"
 				aria-expanded={expanded}
 				aria-controls={`subscription-${sub.id}-nodes`}
-				aria-label={t(expanded ? "subs.collapse" : "subs.expand", { name: sub.name })}
+				aria-label={t(expanded ? "subs.collapse" : "subs.expand", {
+					name: sub.name,
+				})}
 				onClick={() => setExpanded((open) => !open)}
-				onKeyDown={(event) => {
-					if (event.key === "Enter" || event.key === " ") {
-						event.preventDefault();
-						setExpanded((open) => !open);
-					}
-				}}
 				className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 text-left transition-colors hover:bg-slate-50"
 			>
 				<svg
@@ -494,7 +524,9 @@ function SubscriptionItem({
 							{t("subs.detail.noUrlList")}
 						</span>
 					) : (
-						<span className="block truncate text-xs text-slate-400">{sub.url}</span>
+						<span className="block truncate text-xs text-slate-400">
+							{sub.url}
+						</span>
 					)}
 					<span className="mt-0.5 block text-xs text-slate-400">
 						{t("subs.updatedSuffix", {
@@ -542,7 +574,7 @@ function SubscriptionItem({
 						{deleting ? t("subs.deleting") : t("subs.delete")}
 					</button>
 				</div>
-			</div>
+			</button>
 
 			{expanded ? (
 				<div

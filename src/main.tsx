@@ -13,7 +13,11 @@ import "./index.css";
  * - Everything else (transport failure, FETCH_FAILED, INTERNAL) retries up to 2 times;
  * - staleTime 30s: lists rely on mutation invalidation to refresh, no refetch within the window.
  */
-const NO_RETRY_CODES = new Set(["INVALID_ARGUMENT", "NOT_FOUND", "UNAUTHORIZED"]);
+const NO_RETRY_CODES = new Set([
+	"INVALID_ARGUMENT",
+	"NOT_FOUND",
+	"UNAUTHORIZED",
+]);
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -36,7 +40,11 @@ const queryClient = new QueryClient({
 	},
 });
 
-createRoot(document.getElementById("root")!).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+	throw new Error("Root element not found");
+}
+createRoot(rootElement).render(
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>
 			<App />

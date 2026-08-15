@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
+import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	useCreateRule,
@@ -13,8 +13,8 @@ import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule, RuleFilter } from "~/persistence/rules";
 import { navigate } from "~/router";
 import { useAppStore } from "~/store/app-store";
-import { applyRule, type NodeSource } from "~/utils/ruleEngine";
 import type { NodeProxy } from "~/utils/nodes";
+import { applyRule, type NodeSource } from "~/utils/ruleEngine";
 import { RULE_PRESETS, type RulePreset } from "~/utils/rulePresets";
 
 // ---- shared UI ----
@@ -32,13 +32,18 @@ function stringOf(node: NodeProxy, key: string): string {
 function FieldLabel({
 	children,
 	optional,
-}: { children: ReactNode; optional?: boolean }) {
+}: {
+	children: ReactNode;
+	optional?: boolean;
+}) {
 	const { t } = useTranslation();
 	return (
 		<span className="text-sm font-medium text-slate-700">
 			{children}
 			{optional ? (
-				<span className="ml-1 font-normal text-slate-400">{t("rules.field.optional")}</span>
+				<span className="ml-1 font-normal text-slate-400">
+					{t("rules.field.optional")}
+				</span>
 			) : null}
 		</span>
 	);
@@ -62,18 +67,30 @@ function FilterSummary({ filter }: { filter: RuleFilter }) {
 	const { t } = useTranslation();
 	const parts: string[] = [];
 	if (filter.subIds !== undefined && filter.subIds.length > 0) {
-		parts.push(`${t("rules.summary.subscriptions")}: ${filter.subIds.join(", ")}`);
+		parts.push(
+			`${t("rules.summary.subscriptions")}: ${filter.subIds.join(", ")}`,
+		);
 	}
 	if (filter.nameKeywords !== undefined && filter.nameKeywords.length > 0) {
-		parts.push(`${t("rules.summary.name")}: ${filter.nameKeywords.join(" / ")}`);
+		parts.push(
+			`${t("rules.summary.name")}: ${filter.nameKeywords.join(" / ")}`,
+		);
 	}
 	if (filter.typeMatch !== undefined && filter.typeMatch.length > 0) {
 		parts.push(`${t("rules.summary.type")}: ${filter.typeMatch.join(" / ")}`);
 	}
 	if (parts.length === 0) {
-		return <span className="text-xs text-slate-400">{t("rules.summary.matchAll")}</span>;
+		return (
+			<span className="text-xs text-slate-400">
+				{t("rules.summary.matchAll")}
+			</span>
+		);
 	}
-	return <span className="block truncate text-xs text-slate-400">{parts.join(" · ")}</span>;
+	return (
+		<span className="block truncate text-xs text-slate-400">
+			{parts.join(" · ")}
+		</span>
+	);
 }
 
 // ---- form values ----
@@ -195,7 +212,9 @@ function RuleForm({
 
 	const error =
 		validationError ??
-		(mutation.isError && !mutation.isPending ? errorMessage(mutation.error) : null);
+		(mutation.isError && !mutation.isPending
+			? errorMessage(mutation.error)
+			: null);
 
 	/** Empty subIds means "all subscriptions" (see RuleFilter semantics); reflect that in the UI. */
 	function toggleSubId(id: string) {
@@ -244,9 +263,14 @@ function RuleForm({
 
 			<div className="grid items-start gap-4 lg:grid-cols-2">
 				{/* Form column */}
-				<form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+				<form
+					onSubmit={handleSubmit}
+					className="space-y-4 rounded-lg border border-slate-200 bg-white p-4"
+				>
 					<div>
-						<p className="text-xs font-medium text-slate-500">{t("rules.preset.fill")}</p>
+						<p className="text-xs font-medium text-slate-500">
+							{t("rules.preset.fill")}
+						</p>
 						<div className="mt-1 flex flex-wrap gap-2">
 							{RULE_PRESETS.map((preset) => (
 								<button
@@ -265,19 +289,27 @@ function RuleForm({
 						<FieldLabel>{t("rules.field.name")}</FieldLabel>
 						<input
 							value={values.name}
-							onChange={(event) => setValues({ ...values, name: event.target.value })}
+							onChange={(event) =>
+								setValues({ ...values, name: event.target.value })
+							}
 							placeholder={t("rules.field.placeholderName")}
 							className={inputClass}
 						/>
-						<span className="mt-1 block text-xs text-slate-400">{t("rules.field.hintName")}</span>
+						<span className="mt-1 block text-xs text-slate-400">
+							{t("rules.field.hintName")}
+						</span>
 					</label>
 
 					<div>
 						<FieldLabel optional>{t("rules.field.subscriptions")}</FieldLabel>
 						{query.isLoading ? (
-							<p className="mt-2 text-sm text-slate-400">{t("common.loading")}</p>
+							<p className="mt-2 text-sm text-slate-400">
+								{t("common.loading")}
+							</p>
 						) : subscriptions.length === 0 ? (
-							<p className="mt-2 text-sm text-slate-400">{t("subs.noSubscriptions")}</p>
+							<p className="mt-2 text-sm text-slate-400">
+								{t("subs.noSubscriptions")}
+							</p>
 						) : (
 							<div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-slate-200 p-2">
 								<div className="flex items-center justify-between px-2 pb-1 text-xs text-slate-500">
@@ -311,7 +343,9 @@ function RuleForm({
 													<span className="block truncate font-medium text-slate-700">
 														{sub.name === "" ? t("subs.unnamed") : sub.name}
 													</span>
-													<span className="block text-xs text-slate-400">#{sub.id}</span>
+													<span className="block text-xs text-slate-400">
+														#{sub.id}
+													</span>
 												</span>
 											</label>
 										);
@@ -378,7 +412,9 @@ function RuleForm({
 				{/* Live preview: unsaved edits are evaluated against the nodes parsed in the browser from the initial dump */}
 				<div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-4 lg:sticky lg:top-4">
 					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<h2 className="text-sm font-semibold text-slate-700">{t("rules.preview.title")}</h2>
+						<h2 className="text-sm font-semibold text-slate-700">
+							{t("rules.preview.title")}
+						</h2>
 						{hydratedAt !== null ? (
 							<span className="text-xs text-slate-400">
 								{t("rules.preview.count", { count: preview.length })}
@@ -389,7 +425,9 @@ function RuleForm({
 					{query.isLoading ? (
 						<p className="mt-2 text-sm text-slate-400">{t("common.loading")}</p>
 					) : subscriptions.length === 0 ? (
-						<p className="mt-2 text-sm text-slate-400">{t("rules.preview.noData")}</p>
+						<p className="mt-2 text-sm text-slate-400">
+							{t("rules.preview.noData")}
+						</p>
 					) : (
 						<>
 							<p className="mt-1 text-xs text-slate-400">
@@ -401,17 +439,27 @@ function RuleForm({
 								})}
 							</p>
 							{preview.length === 0 ? (
-								<p className="mt-2 text-sm text-slate-400">{t("rules.preview.empty")}</p>
+								<p className="mt-2 text-sm text-slate-400">
+									{t("rules.preview.empty")}
+								</p>
 							) : (
 								<>
 									<div className="mt-2 max-h-96 overflow-auto rounded-md border border-slate-200 bg-white">
 										<table className="w-full table-fixed text-left text-sm">
 											<thead className="sticky top-0 z-10 bg-slate-50">
 												<tr className="border-b border-slate-100 text-xs text-slate-400">
-													<th className="w-[38%] px-3 py-1.5 font-medium">{t("rules.preview.col.name")}</th>
-													<th className="w-[14%] px-3 py-1.5 font-medium">{t("rules.preview.col.type")}</th>
-													<th className="w-[30%] px-3 py-1.5 font-medium">{t("rules.preview.col.server")}</th>
-													<th className="w-[18%] px-3 py-1.5 font-medium">{t("rules.preview.col.sub")}</th>
+													<th className="w-[38%] px-3 py-1.5 font-medium">
+														{t("rules.preview.col.name")}
+													</th>
+													<th className="w-[14%] px-3 py-1.5 font-medium">
+														{t("rules.preview.col.type")}
+													</th>
+													<th className="w-[30%] px-3 py-1.5 font-medium">
+														{t("rules.preview.col.server")}
+													</th>
+													<th className="w-[18%] px-3 py-1.5 font-medium">
+														{t("rules.preview.col.sub")}
+													</th>
 												</tr>
 											</thead>
 											<tbody>
@@ -426,7 +474,10 @@ function RuleForm({
 														>
 															{node.name}
 														</td>
-														<td title={stringOf(node, "type")} className="truncate px-3 py-1.5 text-slate-600">
+														<td
+															title={stringOf(node, "type")}
+															className="truncate px-3 py-1.5 text-slate-600"
+														>
 															{stringOf(node, "type")}
 														</td>
 														<td
@@ -506,7 +557,13 @@ function EditRuleForm({ id }: { id: number }) {
 }
 
 /** Route target of /rules/new and /rules/{id}/edit. */
-export function RuleFormPage({ mode, id }: { mode: "new" | "edit"; id?: number }) {
+export function RuleFormPage({
+	mode,
+	id,
+}: {
+	mode: "new" | "edit";
+	id?: number;
+}) {
 	if (mode === "new") {
 		return <NewRuleForm />;
 	}
@@ -589,14 +646,18 @@ export default function RulesPage() {
 						>
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-2">
-									<span className="truncate text-sm font-medium">{rule.name}</span>
+									<span className="truncate text-sm font-medium">
+										{rule.name}
+									</span>
 									<span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
 										#{rule.id}
 									</span>
 								</div>
 								<FilterSummary filter={rule.filter} />
 								<span className="mt-0.5 block text-xs text-slate-400">
-									{t("rules.updatedSuffix", { date: formatDateTime(rule.updated_at) })}
+									{t("rules.updatedSuffix", {
+										date: formatDateTime(rule.updated_at),
+									})}
 								</span>
 							</div>
 							<div className="flex shrink-0 gap-1">
@@ -615,7 +676,9 @@ export default function RulesPage() {
 									disabled={deletingId === rule.id}
 									className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
 								>
-									{deletingId === rule.id ? t("rules.deleting") : t("rules.delete")}
+									{deletingId === rule.id
+										? t("rules.deleting")
+										: t("rules.delete")}
 								</button>
 							</div>
 						</li>

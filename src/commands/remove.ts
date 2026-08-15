@@ -1,9 +1,11 @@
-import { store } from "~/persistence/store";
 import { UserOperationError } from "~/errors/user-operation-error";
+import { store } from "~/persistence/store";
 
 export function commandRemove(name: string) {
 	if (!name) {
-		throw new UserOperationError("Please provide a subscription name to remove");
+		throw new UserOperationError(
+			"Please provide a subscription name to remove",
+		);
 	}
 
 	let removed = false;

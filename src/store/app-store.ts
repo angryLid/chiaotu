@@ -21,7 +21,7 @@ import { create } from "zustand";
 import { ApiError } from "~/api/errors";
 import type { InitialDump, Subscription } from "~/api/subscriptions";
 import type { Rule } from "~/persistence/rules";
-import { parseNodes, type NodeProxy } from "~/utils/nodes";
+import { type NodeProxy, parseNodes } from "~/utils/nodes";
 
 /** Parse result of one subscription: nodes when the YAML parsed, error otherwise. */
 export interface ParsedSubscription {

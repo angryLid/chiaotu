@@ -30,9 +30,7 @@ export function parseNodes(content: string, subName: string): NodeProxy[] {
 	}
 	const parsed = ClashProfileSegmentSchema.safeParse(raw);
 	if (!parsed.success) {
-		const detail = parsed.error.issues
-			.map((issue) => issue.message)
-			.join("；");
+		const detail = parsed.error.issues.map((issue) => issue.message).join("；");
 		throw new ApiError("", "PARSE_FAILED", { name: subName, detail });
 	}
 	const proxies = parsed.data.proxies ?? [];

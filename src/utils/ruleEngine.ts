@@ -11,8 +11,8 @@
  * - an empty dimension does not filter; a rule with no dimensions matches every node.
  */
 
-import type { NodeProxy } from "~/utils/nodes";
 import type { RuleFilter } from "~/persistence/rules";
+import type { NodeProxy } from "~/utils/nodes";
 
 /** A matched node: the node plus the subscription it came from. */
 export interface MatchedNode extends NodeProxy {
@@ -26,10 +26,17 @@ export interface NodeSource {
 }
 
 /** Apply a rule filter to the parsed nodes; returns the matched nodes (with their subId). */
-export function applyRule(filter: RuleFilter, items: NodeSource[]): MatchedNode[] {
+export function applyRule(
+	filter: RuleFilter,
+	items: NodeSource[],
+): MatchedNode[] {
 	const subIds = new Set(filter.subIds ?? []);
-	const keywords = (filter.nameKeywords ?? []).map((keyword) => keyword.toLowerCase());
-	const types = new Set((filter.typeMatch ?? []).map((value) => value.toLowerCase()));
+	const keywords = (filter.nameKeywords ?? []).map((keyword) =>
+		keyword.toLowerCase(),
+	);
+	const types = new Set(
+		(filter.typeMatch ?? []).map((value) => value.toLowerCase()),
+	);
 
 	const matched: MatchedNode[] = [];
 	for (const item of items) {
@@ -38,11 +45,15 @@ export function applyRule(filter: RuleFilter, items: NodeSource[]): MatchedNode[
 		}
 		for (const node of item.content) {
 			const name = node.name.toLowerCase();
-			if (keywords.length > 0 && !keywords.some((keyword) => name.includes(keyword))) {
+			if (
+				keywords.length > 0 &&
+				!keywords.some((keyword) => name.includes(keyword))
+			) {
 				continue;
 			}
 			if (types.size > 0) {
-				const type = typeof node.type === "string" ? node.type.toLowerCase() : "";
+				const type =
+					typeof node.type === "string" ? node.type.toLowerCase() : "";
 				if (!types.has(type)) {
 					continue;
 				}

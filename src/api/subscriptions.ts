@@ -12,7 +12,9 @@
 // (parse pipeline, i18n) can share it without importing this REST client.
 
 import { ApiError } from "./errors";
+
 export { ApiError, type ApiErrorCode } from "./errors";
+
 import type { Rule } from "~/persistence/rules";
 import { useAuthStore } from "~/store/auth-store";
 
@@ -62,7 +64,9 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	let response: Response;
 	try {
 		const token = useAuthStore.getState().token;
-		const headers: Record<string, string> = { "Content-Type": "application/json" };
+		const headers: Record<string, string> = {
+			"Content-Type": "application/json",
+		};
 		if (token !== "") headers.Authorization = `Bearer ${token}`;
 		response = await fetch(`/api${path}`, { ...init, headers });
 	} catch {

@@ -1,4 +1,4 @@
-import { zhCN } from "./zh-CN";
+import type { zhCN } from "./zh-CN";
 
 /**
  * Maps a nested resource shape to the same key tree with plain string values,
@@ -38,7 +38,8 @@ export const en: DeepString<typeof zhCN> = {
 		new: "+ New subscription",
 		refresh: "Refresh",
 		refreshing: "Refreshing…",
-		empty: "No subscriptions yet. Click “New subscription” in the top-right to add the first one.",
+		empty:
+			"No subscriptions yet. Click “New subscription” in the top-right to add the first one.",
 		create: "Create",
 		save: "Save",
 		edit: "Edit",
@@ -97,7 +98,8 @@ export const en: DeepString<typeof zhCN> = {
 		backToList: "Back to rules",
 		refresh: "Refresh",
 		refreshing: "Refreshing…",
-		empty: "No rules yet. Click “New rule” to create the first one, or fill the new page from a preset.",
+		empty:
+			"No rules yet. Click “New rule” to create the first one, or fill the new page from a preset.",
 		create: "Create",
 		save: "Save",
 		edit: "Edit",
@@ -123,10 +125,12 @@ export const en: DeepString<typeof zhCN> = {
 				"All selected by default; leaving every box unchecked matches all subscriptions, ticking restricts to the chosen ones",
 			nameKeywords: "Node name keywords (OR)",
 			placeholderKeywords: "Hong Kong, US, HK",
-			hintNameKeywords: "Comma-separated; a node matches if its name contains any keyword (case-insensitive)",
+			hintNameKeywords:
+				"Comma-separated; a node matches if its name contains any keyword (case-insensitive)",
 			typeMatch: "Node types (OR)",
 			placeholderTypes: "vless, hysteria2",
-			hintTypeMatch: "Comma-separated; a node matches if its type equals any value",
+			hintTypeMatch:
+				"Comma-separated; a node matches if its type equals any value",
 			optional: "(optional)",
 		},
 		preset: {
@@ -138,7 +142,8 @@ export const en: DeepString<typeof zhCN> = {
 		preview: {
 			title: "Live preview",
 			count: "{{count}} nodes matched",
-			noData: "No subscription data yet — add subscriptions on the Subscriptions page first.",
+			noData:
+				"No subscription data yet — add subscriptions on the Subscriptions page first.",
 			empty: "No nodes match the current rule",
 			syncedAt: "Evaluated against subscription data synced {{date}}",
 			truncated: "Showing the first {{count}}; {{more}} more not shown",
@@ -173,7 +178,8 @@ export const en: DeepString<typeof zhCN> = {
 		},
 		latest: {
 			title: "Latest generated result",
-			empty: "Nothing generated yet. Pick a rule and click “Generate & upload”.",
+			empty:
+				"Nothing generated yet. Pick a rule and click “Generate & upload”.",
 			name: "Name",
 			generatedAt: "Generated at",
 			download: "Download",
@@ -181,7 +187,8 @@ export const en: DeepString<typeof zhCN> = {
 	},
 	errors: {
 		UNKNOWN: "Request failed",
-		TRANSPORT_FAILED: "Cannot reach the backend — please make sure friend-cats is running",
+		TRANSPORT_FAILED:
+			"Cannot reach the backend — please make sure friend-cats is running",
 		INVALID_RESPONSE: "The backend returned an unparseable response",
 		INVALID_YAML: "Subscription “{{name}}” is not valid YAML",
 		PARSE_FAILED: "Failed to parse subscription “{{name}}”: {{detail}}",
@@ -200,7 +207,8 @@ export const en: DeepString<typeof zhCN> = {
 		connecting: "Verifying…",
 		error: {
 			unauthorized: "Invalid token — please check and try again",
-			unreachable: "Cannot reach the backend — please make sure friend-cats is running",
+			unreachable:
+				"Cannot reach the backend — please make sure friend-cats is running",
 		},
 	},
 };

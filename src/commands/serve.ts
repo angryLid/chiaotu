@@ -1,5 +1,5 @@
-import http from "http";
-import os from "os";
+import http from "node:http";
+import os from "node:os";
 import qrcode from "qrcode-terminal";
 import { produce } from "~/utils/produce";
 
@@ -10,7 +10,7 @@ export async function serve() {
 	const dump = await produce();
 	const buffer = Buffer.from(dump, "utf8");
 
-	const server = http.createServer((req, res) => {
+	const server = http.createServer((_req, res) => {
 		res.writeHead(200, {
 			"Content-Type": "text/plain; charset=utf-8",
 			"Content-Length": buffer.length,

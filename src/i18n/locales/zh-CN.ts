@@ -93,7 +93,8 @@ export const zhCN = {
 		backToList: "返回规则列表",
 		refresh: "刷新",
 		refreshing: "刷新中…",
-		empty: "还没有规则。点击右上角「新建规则」创建第一个，或在新规则页面用预设快速填充。",
+		empty:
+			"还没有规则。点击右上角「新建规则」创建第一个，或在新规则页面用预设快速填充。",
 		create: "创建",
 		save: "保存",
 		edit: "编辑",
@@ -115,7 +116,8 @@ export const zhCN = {
 			subscriptions: "订阅来源（可多选）",
 			subscriptionsAll: "已全选（匹配所有订阅）",
 			subscriptionsCount: "已选 {{count}}/{{total}} 个",
-			subscriptionsHint: "默认全选；不勾选任何项 = 匹配所有订阅，勾选后仅匹配所选订阅",
+			subscriptionsHint:
+				"默认全选；不勾选任何项 = 匹配所有订阅，勾选后仅匹配所选订阅",
 			nameKeywords: "节点名称关键词（或规则）",
 			placeholderKeywords: "香港, 美国, US, HK",
 			hintNameKeywords: "逗号分隔；任一关键词命中即匹配（忽略大小写）",

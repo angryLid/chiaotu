@@ -39,7 +39,10 @@ export interface VendorSource {
  *    🍎 Apple, 🇪🇺 Europe);
  * 5. dump the assembled profile as YAML.
  */
-export function buildProfile(baseTemplate: string, sources: VendorSource[]): string {
+export function buildProfile(
+	baseTemplate: string,
+	sources: VendorSource[],
+): string {
 	const rawYaml: unknown = yaml.load(baseTemplate);
 	const baseProfile = ClashProfileSchema.parse(rawYaml);
 
@@ -132,7 +135,10 @@ function createGroupsByCountry(
 		"🌐 手动选择",
 		...baseProxies,
 	]);
-	const google = createSelectGroup("🤖 AI", ["🌐 手动选择", ...baseProxies.slice()]);
+	const google = createSelectGroup("🤖 AI", [
+		"🌐 手动选择",
+		...baseProxies.slice(),
+	]);
 	// Return groups in the preferred order
 	eu.proxies.sort();
 	return [select, google, ms, apple, eu];

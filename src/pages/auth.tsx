@@ -11,10 +11,10 @@
  * is rendered in isolation — no queries fire here.
  */
 
-import { useState, type FormEvent } from "react";
+import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAuthStore } from "~/store/auth-store";
 import { navigate } from "~/router";
+import { useAuthStore } from "~/store/auth-store";
 
 type AuthErrorKey = "unauthorized" | "unreachable";
 
@@ -40,7 +40,10 @@ async function validateToken(token: string): Promise<ValidateState> {
 
 	// The backend always returns HTTP 200 with an envelope; check the body.
 	try {
-		const envelope = (await response.json()) as { status: string; result: unknown };
+		const envelope = (await response.json()) as {
+			status: string;
+			result: unknown;
+		};
 		if (envelope.status === "Ok") return { kind: "idle" };
 		if (envelope.status === "Err:UNAUTHORIZED") {
 			return { kind: "error", message: "unauthorized" };
@@ -100,7 +103,9 @@ export default function AuthPage() {
 						/>
 					</div>
 					{state.kind === "error" && (
-						<p className="text-sm text-rose-600">{t(`auth.error.${state.message}`)}</p>
+						<p className="text-sm text-rose-600">
+							{t(`auth.error.${state.message}`)}
+						</p>
 					)}
 					<button
 						type="submit"

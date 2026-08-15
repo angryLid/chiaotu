@@ -1,18 +1,18 @@
 import {
+	type KeyboardEvent as ReactKeyboardEvent,
 	useEffect,
 	useLayoutEffect,
 	useRef,
 	useState,
-	type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
+import AuthPage from "~/pages/auth";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
-import { navigate } from "~/router";
 import StatusPage from "~/pages/status";
 import SubscriptionsPage from "~/pages/subscriptions";
-import AuthPage from "~/pages/auth";
+import { navigate } from "~/router";
 import { useAppStore } from "~/store/app-store";
 import { useAuthStore } from "~/store/auth-store";
 
@@ -113,7 +113,9 @@ function BackendStatus() {
 		return <span className="text-amber-600">{t("app.backend.checking")}</span>;
 	}
 	if (query.isError) {
-		return <span className="text-rose-600">{t("app.backend.unreachable")}</span>;
+		return (
+			<span className="text-rose-600">{t("app.backend.unreachable")}</span>
+		);
 	}
 	return <span className="text-emerald-600">{t("app.backend.connected")}</span>;
 }
@@ -145,7 +147,9 @@ export default function App() {
 
 function Dashboard() {
 	const { t } = useTranslation();
-	const [route, setRoute] = useState<Route>(() => parsePath(window.location.pathname));
+	const [route, setRoute] = useState<Route>(() =>
+		parsePath(window.location.pathname),
+	);
 	const [mobileNavOpen, setMobileNavOpen] = useState(false);
 	const hamburgerRef = useRef<HTMLButtonElement>(null);
 	const drawerRef = useRef<HTMLElement>(null);
@@ -309,7 +313,9 @@ function Dashboard() {
 				tabIndex={-1}
 				onKeyDown={handleDrawerKeyDown}
 				className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-white shadow-xl transition-[transform,translate,scale,rotate,visibility] duration-300 ease-in-out md:hidden ${
-					mobileNavOpen ? "translate-x-0 visible" : "-translate-x-full invisible"
+					mobileNavOpen
+						? "translate-x-0 visible"
+						: "-translate-x-full invisible"
 				}`}
 			>
 				<div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
