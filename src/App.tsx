@@ -220,7 +220,7 @@ export default function App() {
 
 	return (
 		<div className="min-h-screen bg-slate-50 text-slate-900">
-			{/* Mobile top bar: brand + backend status, hidden at md and up */}
+			{/* Mobile top bar: brand + hamburger, hidden at md and up */}
 			<header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
 				<div className="flex items-center gap-2">
 					<button
@@ -249,10 +249,6 @@ export default function App() {
 					</button>
 					<span aria-hidden>🛫</span>
 					<span className="text-lg font-bold">chiaotu</span>
-				</div>
-				<div className="flex items-center gap-2 text-xs">
-					<LanguageSwitcher />
-					<BackendStatus />
 				</div>
 			</header>
 
