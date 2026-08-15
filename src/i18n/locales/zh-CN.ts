@@ -11,6 +11,8 @@ export const zhCN = {
 			subscriptions: "订阅管理",
 			nodes: "所有节点",
 			rules: "规则管理",
+			label: "主导航",
+			open: "打开导航菜单",
 		},
 		backend: {
 			checking: "后端检查中…",

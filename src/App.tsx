@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import {
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
@@ -48,6 +54,40 @@ const NAV_ITEMS = [
 	{ key: "rules", labelKey: "app.nav.rules", icon: "📜" },
 ] as const;
 
+function navigateTo(key: NavKey) {
+	window.location.hash = `#/${key}`;
+}
+
+/** Shared nav button list, used by both the desktop sidebar and the mobile drawer. */
+function NavButtons({
+	active,
+	onNavigate,
+}: {
+	active: NavKey;
+	onNavigate: (key: NavKey) => void;
+}) {
+	const { t } = useTranslation();
+	return (
+		<nav className="flex-1 space-y-1 p-2" aria-label={t("app.nav.label")}>
+			{NAV_ITEMS.map((item) => (
+				<button
+					key={item.key}
+					type="button"
+					onClick={() => onNavigate(item.key)}
+					className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+						active === item.key
+							? "bg-slate-900 text-white"
+							: "text-slate-600 hover:bg-slate-100"
+					}`}
+				>
+					<span aria-hidden>{item.icon}</span>
+					<span>{t(item.labelKey)}</span>
+				</button>
+			))}
+		</nav>
+	);
+}
+
 /** Hydrates the zustand store whenever the initial dump query resolves (idempotent).
  * useLayoutEffect (before paint) so the first data render never shows stale store state. */
 function useHydrateStore() {
@@ -93,15 +133,81 @@ function LanguageSwitcher() {
 export default function App() {
 	const { t } = useTranslation();
 	const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
+	const [mobileNavOpen, setMobileNavOpen] = useState(false);
+	const hamburgerRef = useRef<HTMLButtonElement>(null);
+	const drawerRef = useRef<HTMLElement>(null);
+	const openedOnceRef = useRef(false);
 
 	// Single entry-point hydration: the store is rebuilt from each initial dump response.
 	useHydrateStore();
 
 	useEffect(() => {
-		const onHashChange = () => setRoute(parseHash(window.location.hash));
+		const onHashChange = () => {
+			setRoute(parseHash(window.location.hash));
+			setMobileNavOpen(false);
+		};
 		window.addEventListener("hashchange", onHashChange);
 		return () => window.removeEventListener("hashchange", onHashChange);
 	}, []);
+
+	// Escape closes the drawer; the body is scroll-locked while it is open.
+	useEffect(() => {
+		if (!mobileNavOpen) return;
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setMobileNavOpen(false);
+		};
+		window.addEventListener("keydown", onKeyDown);
+		const originalOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		return () => {
+			window.removeEventListener("keydown", onKeyDown);
+			document.body.style.overflow = originalOverflow;
+		};
+	}, [mobileNavOpen]);
+
+	// Rotating / resizing up to the desktop layout closes the drawer.
+	useEffect(() => {
+		const mq = window.matchMedia("(min-width: 768px)");
+		const onChange = (event: MediaQueryListEvent) => {
+			if (event.matches) setMobileNavOpen(false);
+		};
+		mq.addEventListener("change", onChange);
+		return () => mq.removeEventListener("change", onChange);
+	}, []);
+
+	// Move focus into the drawer on open and back to the hamburger on close.
+	// The hamburger restore is skipped on initial mount to avoid stealing focus.
+	useEffect(() => {
+		if (mobileNavOpen) {
+			openedOnceRef.current = true;
+			const first = drawerRef.current?.querySelector<HTMLElement>("button");
+			first?.focus();
+		} else if (openedOnceRef.current) {
+			hamburgerRef.current?.focus();
+		}
+	}, [mobileNavOpen]);
+
+	// Keep Tab navigation inside the drawer while it is open.
+	const handleDrawerKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+		if (event.key !== "Tab") return;
+		const drawer = drawerRef.current;
+		if (!drawer) return;
+		const focusables = Array.from(
+			drawer.querySelectorAll<HTMLElement>(
+				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+			),
+		);
+		if (focusables.length === 0) return;
+		const first = focusables[0];
+		const last = focusables[focusables.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
+		}
+	};
 
 	const active: NavKey =
 		route.page === "subscriptions"
@@ -115,6 +221,30 @@ export default function App() {
 			{/* Mobile top bar: brand + backend status, hidden at md and up */}
 			<header className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
 				<div className="flex items-center gap-2">
+					<button
+						ref={hamburgerRef}
+						type="button"
+						onClick={() => setMobileNavOpen(true)}
+						aria-label={t("app.nav.open")}
+						aria-expanded={mobileNavOpen}
+						aria-controls="mobile-nav-drawer"
+						className="rounded-md p-1 text-slate-600 hover:bg-slate-100"
+					>
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							aria-hidden="true"
+						>
+							<line x1="3" y1="6" x2="21" y2="6" />
+							<line x1="3" y1="12" x2="21" y2="12" />
+							<line x1="3" y1="18" x2="21" y2="18" />
+						</svg>
+					</button>
 					<span aria-hidden>🛫</span>
 					<span className="text-lg font-bold">chiaotu</span>
 				</div>
@@ -130,33 +260,15 @@ export default function App() {
 					<span aria-hidden>🛫</span>
 					<span className="text-lg font-bold">chiaotu</span>
 				</div>
-				<nav className="flex-1 space-y-1 p-2">
-					{NAV_ITEMS.map((item) => (
-						<button
-							key={item.key}
-							type="button"
-							onClick={() => {
-								window.location.hash = `#/${item.key}`;
-							}}
-							className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-								active === item.key
-									? "bg-slate-900 text-white"
-									: "text-slate-600 hover:bg-slate-100"
-							}`}
-						>
-							<span aria-hidden>{item.icon}</span>
-							<span>{t(item.labelKey)}</span>
-						</button>
-					))}
-				</nav>
+				<NavButtons active={active} onNavigate={navigateTo} />
 				<div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
 					<LanguageSwitcher />
 					<BackendStatus />
 				</div>
 			</aside>
 
-			{/* Main content: full width on mobile (leaving room for the bottom nav), offset by the sidebar at md and up */}
-			<main className="px-4 pb-20 pt-4 md:ml-56 md:px-6 md:py-6">
+			{/* Main content: full width on mobile, offset by the sidebar at md and up */}
+			<main className="px-4 pb-4 pt-4 md:ml-56 md:px-6 md:py-6">
 				{route.page === "subscriptions" ? (
 					<SubscriptionsPage />
 				) : route.page === "nodes" ? (
@@ -171,28 +283,64 @@ export default function App() {
 				)}
 			</main>
 
-			{/* Mobile bottom nav: hidden at md and up */}
-			<nav className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-3 border-t border-slate-200 bg-white md:hidden">
-				{NAV_ITEMS.map((item) => (
+			{/* Mobile left drawer: backdrop + slide-out panel, hidden at md and up */}
+			<div
+				className={`fixed inset-0 z-20 bg-slate-900/40 transition-opacity duration-300 md:hidden ${
+					mobileNavOpen ? "opacity-100" : "pointer-events-none opacity-0"
+				}`}
+				onClick={() => setMobileNavOpen(false)}
+				aria-hidden="true"
+			/>
+			<aside
+				id="mobile-nav-drawer"
+				ref={drawerRef}
+				role="dialog"
+				aria-modal="true"
+				aria-label={t("app.nav.label")}
+				tabIndex={-1}
+				onKeyDown={handleDrawerKeyDown}
+				className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-white shadow-xl transition-[transform,translate,scale,rotate,visibility] duration-300 ease-in-out md:hidden ${
+					mobileNavOpen ? "translate-x-0 visible" : "-translate-x-full invisible"
+				}`}
+			>
+				<div className="flex items-center justify-between border-b border-slate-200 px-4 py-4">
+					<div className="flex items-center gap-2">
+						<span aria-hidden>🛫</span>
+						<span className="text-lg font-bold">chiaotu</span>
+					</div>
 					<button
-						key={item.key}
 						type="button"
-						onClick={() => {
-							window.location.hash = `#/${item.key}`;
-						}}
-						className={`flex flex-col items-center gap-0.5 py-2 text-xs font-medium transition-colors ${
-							active === item.key
-								? "text-slate-900"
-								: "text-slate-400 hover:text-slate-600"
-						}`}
+						onClick={() => setMobileNavOpen(false)}
+						aria-label={t("common.close")}
+						className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
 					>
-						<span className="text-lg" aria-hidden>
-							{item.icon}
-						</span>
-						<span>{t(item.labelKey)}</span>
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth="2"
+							strokeLinecap="round"
+							aria-hidden="true"
+						>
+							<line x1="18" y1="6" x2="6" y2="18" />
+							<line x1="6" y1="6" x2="18" y2="18" />
+						</svg>
 					</button>
-				))}
-			</nav>
+				</div>
+				<NavButtons
+					active={active}
+					onNavigate={(key) => {
+						navigateTo(key);
+						setMobileNavOpen(false);
+					}}
+				/>
+				<div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
+					<LanguageSwitcher />
+					<BackendStatus />
+				</div>
+			</aside>
 		</div>
 	);
 }

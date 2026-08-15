@@ -15,6 +15,8 @@ export const en: DeepString<typeof zhCN> = {
 			subscriptions: "Subscriptions",
 			nodes: "All Nodes",
 			rules: "Rules",
+			label: "Main navigation",
+			open: "Open navigation menu",
 		},
 		backend: {
 			checking: "Checking backend…",
