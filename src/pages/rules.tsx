@@ -11,6 +11,7 @@ import {
 import type { RuleInput } from "~/api/rules";
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule, RuleFilter } from "~/persistence/rules";
+import { navigate } from "~/router";
 import { useAppStore } from "~/store/app-store";
 import { applyRule, type NodeSource } from "~/utils/ruleEngine";
 import type { NodeProxy } from "~/utils/nodes";
@@ -52,7 +53,7 @@ function ErrorBox({ children }: { children: ReactNode }) {
 }
 
 function goToList() {
-	window.location.hash = "#/rules";
+	navigate("/rules");
 }
 
 // ---- filter summary (list rows) ----
@@ -504,7 +505,7 @@ function EditRuleForm({ id }: { id: number }) {
 	);
 }
 
-/** Route target of #/rules/new and #/rules/{id}/edit. */
+/** Route target of /rules/new and /rules/{id}/edit. */
 export function RuleFormPage({ mode, id }: { mode: "new" | "edit"; id?: number }) {
 	if (mode === "new") {
 		return <NewRuleForm />;
@@ -550,7 +551,7 @@ export default function RulesPage() {
 					<button
 						type="button"
 						onClick={() => {
-							window.location.hash = "#/rules/new";
+							navigate("/rules/new");
 						}}
 						className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
 					>
@@ -602,7 +603,7 @@ export default function RulesPage() {
 								<button
 									type="button"
 									onClick={() => {
-										window.location.hash = `#/rules/${rule.id}/edit`;
+										navigate(`/rules/${rule.id}/edit`);
 									}}
 									className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
 								>

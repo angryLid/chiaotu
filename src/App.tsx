@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
+import { navigate } from "~/router";
 import StatusPage from "~/pages/status";
 import SubscriptionsPage from "~/pages/subscriptions";
 import { useAppStore } from "~/store/app-store";
@@ -16,8 +17,8 @@ import { useAppStore } from "~/store/app-store";
 type NavKey = "subscriptions" | "rules" | "status";
 
 /**
- * App route, derived from the URL hash (no router dependency). The rules section
- * has sub-routes for create / edit; the other tabs are plain pages.
+ * App route, derived from the URL path (history API, no router dependency).
+ * The rules section has sub-routes for create / edit; the other tabs are plain pages.
  */
 type Route =
 	| { page: "subscriptions" }
@@ -26,10 +27,10 @@ type Route =
 	| { page: "rules"; view: "edit"; id: number }
 	| { page: "status" };
 
-/** Parse #/subscriptions | #/rules | #/rules/new | #/rules/{id}/edit | #/status. */
-function parseHash(hash: string): Route {
-	const parts = hash
-		.replace(/^#\/?/, "")
+/** Parse /subscriptions | /rules | /rules/new | /rules/{id}/edit | /status. */
+function parsePath(path: string): Route {
+	const parts = path
+		.replace(/^\/?/, "")
 		.split("/")
 		.filter((part) => part !== "");
 	const [page, sub, tail] = parts;
@@ -56,7 +57,7 @@ const NAV_ITEMS = [
 ] as const;
 
 function navigateTo(key: NavKey) {
-	window.location.hash = `#/${key}`;
+	navigate(`/${key}`);
 }
 
 /** Shared nav button list, used by both the desktop sidebar and the mobile drawer. */
@@ -133,7 +134,7 @@ function LanguageSwitcher() {
 
 export default function App() {
 	const { t } = useTranslation();
-	const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
+	const [route, setRoute] = useState<Route>(() => parsePath(window.location.pathname));
 	const [mobileNavOpen, setMobileNavOpen] = useState(false);
 	const hamburgerRef = useRef<HTMLButtonElement>(null);
 	const drawerRef = useRef<HTMLElement>(null);
@@ -143,12 +144,12 @@ export default function App() {
 	useHydrateStore();
 
 	useEffect(() => {
-		const onHashChange = () => {
-			setRoute(parseHash(window.location.hash));
+		const onPopState = () => {
+			setRoute(parsePath(window.location.pathname));
 			setMobileNavOpen(false);
 		};
-		window.addEventListener("hashchange", onHashChange);
-		return () => window.removeEventListener("hashchange", onHashChange);
+		window.addEventListener("popstate", onPopState);
+		return () => window.removeEventListener("popstate", onPopState);
 	}, []);
 
 	// Escape closes the drawer; the body is scroll-locked while it is open.
