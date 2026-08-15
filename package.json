@@ -15,7 +15,7 @@
 		"build": "tsc --noEmit && vite build",
 		"preview": "vite preview",
 		"start": "tsx src/index.ts",
-		"postinstall": "./postinstall.sh",
+		"lint:type": "tsc --noEmit > type-fix.log",
 		"lint:fix": "biome check --write . ; biome check . > biome-fix.log 2>&1 || true"
 	},
 	"repository": {

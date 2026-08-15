@@ -7,6 +7,6 @@ node_modules
 /sessions
 .DS_Store
 !pnpm-lock.yaml
-/biome-fix.log
+*.log
 .vercel
 .env
