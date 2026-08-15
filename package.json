@@ -9,6 +9,9 @@
     "npm": ">=10"
   },
   "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
     "start": "tsx src/index.ts",
     "postinstall": "./postinstall.sh"
   },
@@ -25,18 +28,30 @@
   "homepage": "https://github.com/angryLid/chiaotu#readme",
   "devDependencies": {
     "@biomejs/biome": "2.3.8",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query-devtools": "^5.101.4",
     "@types/js-yaml": "^4.0.9",
     "@types/minimist": "^1.2.5",
     "@types/node": "^25.5.2",
     "@types/qrcode-terminal": "^0.12.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "tailwindcss": "^4.3.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1"
   },
   "dependencies": {
+    "i18next": "^26.3.6",
     "js-yaml": "^4.1.1",
     "minimist": "^1.2.8",
     "qrcode-terminal": "^0.12.0",
+    "@tanstack/react-query": "^5.101.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.11",
     "zod": "^4.1.13"
   }
 }

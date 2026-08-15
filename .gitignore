@@ -1,4 +1,8 @@
 /target
+/dist
 node_modules
 /*.yaml
 /*.txt
+/sessions
+.DS_Store
+!pnpm-lock.yaml
