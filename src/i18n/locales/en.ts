@@ -190,6 +190,17 @@ export const en: DeepString<typeof zhCN> = {
 		FETCH_FAILED: "Failed to fetch the upstream subscription",
 		LIMIT_EXCEEDED: "Subscription limit reached (max {{max}})",
 		METHOD_NOT_ALLOWED: "Request method not allowed",
+		UNAUTHORIZED: "Invalid or expired token — please sign in again",
 		INTERNAL: "Internal server error",
+	},
+	auth: {
+		tokenLabel: "Access token",
+		tokenPlaceholder: "Enter the backend API_TOKEN",
+		submit: "Connect",
+		connecting: "Verifying…",
+		error: {
+			unauthorized: "Invalid token — please check and try again",
+			unreachable: "Cannot reach the backend — please make sure friend-cats is running",
+		},
 	},
 };

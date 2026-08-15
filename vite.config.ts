@@ -16,6 +16,12 @@ export default defineConfig({
 				target: "http://localhost:8080",
 				changeOrigin: true,
 			},
+			// The auth page validates its token against the (now authenticated)
+			// healthz endpoint, which lives outside the /api prefix.
+			"/healthz": {
+				target: "http://localhost:8080",
+				changeOrigin: true,
+			},
 		},
 	},
 });

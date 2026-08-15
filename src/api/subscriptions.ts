@@ -14,6 +14,7 @@
 import { ApiError } from "./errors";
 export { ApiError, type ApiErrorCode } from "./errors";
 import type { Rule } from "~/persistence/rules";
+import { useAuthStore } from "~/store/auth-store";
 
 // ---- response envelope ----
 
@@ -60,10 +61,10 @@ export interface SubscriptionInput {
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	let response: Response;
 	try {
-		response = await fetch(`/api${path}`, {
-			headers: { "Content-Type": "application/json" },
-			...init,
-		});
+		const token = useAuthStore.getState().token;
+		const headers: Record<string, string> = { "Content-Type": "application/json" };
+		if (token !== "") headers.Authorization = `Bearer ${token}`;
+		response = await fetch(`/api${path}`, { ...init, headers });
 	} catch {
 		throw new ApiError("", "TRANSPORT_FAILED");
 	}
@@ -79,6 +80,14 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 		const code = envelope.status.startsWith("Err:")
 			? envelope.status.slice("Err:".length)
 			: envelope.status;
+
+		// Authentication failed: the token is no longer valid (or was never set).
+		// Drop it so the App unmounts the query tree and shows the auth page.
+		// This is idempotent and stops further requests, so there is no redirect loop.
+		if (code === "UNAUTHORIZED") {
+			useAuthStore.getState().clearToken();
+		}
+
 		throw new ApiError(
 			envelope.result,
 			code,

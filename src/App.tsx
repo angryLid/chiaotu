@@ -12,7 +12,9 @@ import RulesPage, { RuleFormPage } from "~/pages/rules";
 import { navigate } from "~/router";
 import StatusPage from "~/pages/status";
 import SubscriptionsPage from "~/pages/subscriptions";
+import AuthPage from "~/pages/auth";
 import { useAppStore } from "~/store/app-store";
+import { useAuthStore } from "~/store/auth-store";
 
 type NavKey = "subscriptions" | "rules" | "status";
 
@@ -133,6 +135,15 @@ function LanguageSwitcher() {
 }
 
 export default function App() {
+	// Auth gate: without a token nothing else may mount (no react-query tree, no
+	// sidebar, no backend queries). The auth page is its own isolated screen.
+	// The gate lives in a separate component so the Dashboard's hooks stay
+	// unconditional (the token can change at runtime via clearToken).
+	const token = useAuthStore((s) => s.token);
+	return token === "" ? <AuthPage /> : <Dashboard />;
+}
+
+function Dashboard() {
 	const { t } = useTranslation();
 	const [route, setRoute] = useState<Route>(() => parsePath(window.location.pathname));
 	const [mobileNavOpen, setMobileNavOpen] = useState(false);

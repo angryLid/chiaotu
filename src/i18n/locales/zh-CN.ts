@@ -185,6 +185,17 @@ export const zhCN = {
 		FETCH_FAILED: "上游订阅抓取失败",
 		LIMIT_EXCEEDED: "订阅数量已达上限（最多 {{max}} 个）",
 		METHOD_NOT_ALLOWED: "请求方式不被允许",
+		UNAUTHORIZED: "令牌无效或已过期，请重新输入",
 		INTERNAL: "服务器内部错误",
+	},
+	auth: {
+		tokenLabel: "访问令牌",
+		tokenPlaceholder: "请输入后端 API_TOKEN",
+		submit: "连接",
+		connecting: "验证中…",
+		error: {
+			unauthorized: "令牌无效，请检查后重试",
+			unreachable: "无法连接后端服务，请确认 friend-cats 已启动",
+		},
 	},
 } as const;
