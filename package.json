@@ -9,8 +9,7 @@
 		"npm": ">=10"
 	},
 	"scripts": {
-		"dev": "vite",
-		"dev:api": "vercel dev",
+		"dev": "vite dev",
 		"dev:all": "vercel dev",
 		"build": "tsc --noEmit && vite build",
 		"preview": "vite preview",
