@@ -106,10 +106,14 @@ function emptyForm(): FormValues {
 	return { name: "", subIds: [], nameKeywordsText: "", typeMatchText: "" };
 }
 
-function formFromRule(rule: Rule): FormValues {
+/** A stored rule with an empty subIds list means "match all subscriptions" (legacy
+ * RuleFilter semantics); materialize it to every subscription id so the editor
+ * reflects the new "select at least one" requirement and stays saveable. */
+function formFromRule(rule: Rule, allSubIds: string[]): FormValues {
+	const stored = rule.filter.subIds ?? [];
 	return {
 		name: rule.name,
-		subIds: rule.filter.subIds ?? [],
+		subIds: stored.length > 0 ? stored : allSubIds,
 		nameKeywordsText: (rule.filter.nameKeywords ?? []).join(", "),
 		typeMatchText: (rule.filter.typeMatch ?? []).join(", "),
 	};
@@ -184,6 +188,9 @@ function RuleForm({
 	}, [subscriptions, t]);
 
 	const preview = useMemo(() => {
+		// With the "select at least one subscription" requirement for creation, an
+		// empty selection is a deliberate "no scope" state — match nothing.
+		if (values.subIds.length === 0) return [];
 		const items: NodeSource[] = [];
 		for (const sub of subscriptions) {
 			const result = parsed[String(sub.id)];
@@ -201,6 +208,10 @@ function RuleForm({
 			setValidationError(t("rules.validation.nameRequired"));
 			return;
 		}
+		if (values.subIds.length === 0) {
+			setValidationError(t("rules.validation.subscriptionsRequired"));
+			return;
+		}
 		setValidationError(null);
 		try {
 			await mutation.mutateAsync(buildInput(values));
@@ -216,35 +227,16 @@ function RuleForm({
 			? errorMessage(mutation.error)
 			: null);
 
-	/** Empty subIds means "all subscriptions" (see RuleFilter semantics); reflect that in the UI. */
+	/** Toggle a subscription in/out of the explicit selection. */
 	function toggleSubId(id: string) {
 		setValues((prev) => {
-			// Currently "all selected": unchecking one subscription materializes the
-			// effective selection as the list of all the others.
-			if (prev.subIds.length === 0) {
-				const rest = subscriptions
-					.map((sub) => String(sub.id))
-					.filter((subId) => subId !== id);
-				return { ...prev, subIds: rest };
-			}
 			const next = new Set(prev.subIds);
 			if (next.has(id)) {
 				next.delete(id);
 			} else {
 				next.add(id);
 			}
-			const list = [...next];
-			// Unchecking the last one means "all" again — keep the canonical empty form.
-			if (list.length === 0) {
-				return { ...prev, subIds: [] };
-			}
-			// Re-selecting every subscription is identical to selecting none (all);
-			// store it canonically so the UI shows the true "all selected" state.
-			const all = subscriptions.map((sub) => String(sub.id));
-			if (all.length > 0 && all.every((subId) => list.includes(subId))) {
-				return { ...prev, subIds: [] };
-			}
-			return { ...prev, subIds: list };
+			return { ...prev, subIds: [...next] };
 		});
 	}
 
@@ -315,7 +307,7 @@ function RuleForm({
 								<div className="flex items-center justify-between px-2 pb-1 text-xs text-slate-500">
 									<span>
 										{values.subIds.length === 0
-											? t("rules.field.subscriptionsAll")
+											? t("rules.field.subscriptionsNone")
 											: t("rules.field.subscriptionsCount", {
 													count: values.subIds.length,
 													total: subscriptions.length,
@@ -325,9 +317,7 @@ function RuleForm({
 								<div className="space-y-1">
 									{subscriptions.map((sub) => {
 										const id = String(sub.id);
-										// Empty subIds = all subscriptions (see RuleFilter semantics).
-										const checked =
-											values.subIds.length === 0 || values.subIds.includes(id);
+										const checked = values.subIds.includes(id);
 										return (
 											<label
 												key={sub.id}
@@ -435,7 +425,11 @@ function RuleForm({
 											: formatDateTime(new Date(hydratedAt).toISOString()),
 								})}
 							</p>
-							{preview.length === 0 ? (
+							{values.subIds.length === 0 ? (
+								<p className="mt-2 text-sm text-slate-400">
+									{t("rules.validation.subscriptionsRequired")}
+								</p>
+							) : preview.length === 0 ? (
 								<p className="mt-2 text-sm text-slate-400">
 									{t("rules.preview.empty")}
 								</p>
@@ -531,6 +525,7 @@ function EditRuleForm({ id }: { id: number }) {
 	const { t } = useTranslation();
 	const query = useRule(id);
 	const mutation = useUpdateRule(id);
+	const subscriptions = useAppStore((s) => s.subscriptions);
 
 	if (query.isLoading) {
 		return <p className="text-sm text-slate-400">{t("common.loading")}</p>;
@@ -547,7 +542,10 @@ function EditRuleForm({ id }: { id: number }) {
 			key={rule.id}
 			title={t("rules.editTitle")}
 			submitLabel={t("rules.save")}
-			initial={formFromRule(rule)}
+			initial={formFromRule(
+				rule,
+				subscriptions.map((sub) => String(sub.id)),
+			)}
 			mutation={mutation}
 		/>
 	);
