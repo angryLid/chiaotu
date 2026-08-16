@@ -1,7 +1,24 @@
 # AGENTS.md
 
-Development rules for the chiaotu frontend SPA (Vite + React + TypeScript + TailwindCSS 4).
+Development rules for the chiaotu project.
 Rules are appended at the end with an incrementing number; existing rules are never renumbered or reordered.
+
+## Project Background
+
+**Chiaotu** originated as a **CLI tool** written in TypeScript (Node.js) for managing and generating proxy configurations for ClashMetaForAndroid and similar proxy clients. It processed multiple proxy sources, cached them, and generated unified proxy configurations with organized routing rules.
+
+The project is **currently being transformed into a Web project** (frontend SPA with Vite + React + TypeScript + TailwindCSS 4). The original CLI codebase and architecture (command pattern, repository pattern, Zod validation, persistence layer) are being migrated and adapted for a web interface.
+
+### Original CLI Architecture
+- **CLI entry point**: `src/index.ts` with commands like `tu add <url|file>` and `tu generate`
+- **Core modules**: commands (`add`, `generate`), persistence (configuration, store, file-utils), errors, utils
+- **Proxy pipeline**: Download → Cache → Merge → Deduplicate → Organize (by region) → Filter → Generate
+- **Persistence**: Configuration stored in `~/.config/chiaotu/` with presets, cache, templates, rules, results
+- **Key dependencies**: `js-yaml`, `minimist`, `zod`, `tsx`, `@biomejs/biome`
+
+## Important Notes
+
+- **No README file**: This project intentionally does not have a README. Do not create one.
 
 ## Development Rules
 
