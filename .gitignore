@@ -10,3 +10,4 @@ node_modules
 *.log
 .vercel
 .env
+supabase/.temp
