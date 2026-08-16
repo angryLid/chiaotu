@@ -41,9 +41,6 @@ importers:
       react-i18next:
         specifier: ^17.0.11
         version: 17.0.11(i18next@26.3.6(typescript@5.9.3))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.9.3)
-      supabase:
-        specifier: ^2.114.0
-        version: 2.114.0
       zod:
         specifier: ^4.1.13
         version: 4.4.3
@@ -2463,10 +2460,6 @@ packages:
     resolution: {integrity: sha512-BrpvfNAE3dcvq7ll3xVumzjKjZQ5tI1sEUIKr3Uoks0XUl45St3FlatVqef9prk4jRDzhW6WZg+3bk93y6pLjA==}
     engines: {node: '>=6'}
 
-  supabase@2.114.0:
-    resolution: {integrity: sha512-JtCR+eDgVs2YtmZl5THdkaTeXex80lax+3V2SXRSuj280SWJPTIKxMLc82iDKjZlqXnt9zrGnJkrWb7DwHGPhQ==}
-    hasBin: true
-
   tailwindcss@4.3.3:
     resolution: {integrity: sha512-gOhV3P7ufE62QDGg1zVaTgCR+EtPv92k2nIhVcVKcLmxT1sUBsQGhnZj175j+MqRt4zLF7ic+sCYjfhxMxj7YQ==}
 
@@ -4763,11 +4756,6 @@ snapshots:
       - react-native-b4a
 
   strip-final-newline@2.0.0: {}
-
-  supabase@2.114.0:
-    dependencies:
-      eciesjs: 0.5.0
-      jose: 6.2.8
 
   tailwindcss@4.3.3: {}
 
