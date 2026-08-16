@@ -108,9 +108,15 @@ function emptyForm(): FormValues {
 
 /** A stored rule with an empty subIds list means "match all subscriptions" (legacy
  * RuleFilter semantics); materialize it to every subscription id so the editor
- * reflects the new "select at least one" requirement and stays saveable. */
+ * reflects the new "select at least one" requirement and stays saveable.
+ *
+ * There is no DB-level constraint, so a stored rule can reference a subscription
+ * that has since been removed. Silently prune dangling ids here — they would
+ * otherwise break saving (the backend rejects unknown subscription references).
+ * The pruned set is what gets persisted on save. */
 function formFromRule(rule: Rule, allSubIds: string[]): FormValues {
-	const stored = rule.filter.subIds ?? [];
+	const existing = new Set(allSubIds);
+	const stored = (rule.filter.subIds ?? []).filter((id) => existing.has(id));
 	return {
 		name: rule.name,
 		subIds: stored.length > 0 ? stored : allSubIds,
