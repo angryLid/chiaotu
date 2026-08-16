@@ -6,7 +6,7 @@
 			"destination": "/api/healthz"
 		},
 		{
-			"source": "/((?!api/|src/|node_modules/|@|favicon.ico).*)",
+			"source": "/((?!api/|src/|node_modules/|@|public/|favicon.ico|favicon.svg).*)",
 			"destination": "/index.html"
 		}
 	]

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+	<defs>
+		<linearGradient id="earL" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#f9d9e8"/>
+			<stop offset="1" stop-color="#f2b6d2"/>
+		</linearGradient>
+		<linearGradient id="earR" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#f9d9e8"/>
+			<stop offset="1" stop-color="#f2b6d2"/>
+		</linearGradient>
+		<linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#fdf1f6"/>
+			<stop offset="1" stop-color="#f7d9e7"/>
+		</linearGradient>
+	</defs>
+
+	<!-- 左耳 -->
+	<ellipse cx="24" cy="16" rx="9" ry="20" fill="url(#earL)"/>
+	<ellipse cx="24" cy="16" rx="4.5" ry="12" fill="#fff0f6"/>
+
+	<!-- 右耳 -->
+	<ellipse cx="40" cy="16" rx="9" ry="20" fill="url(#earR)"/>
+	<ellipse cx="40" cy="16" rx="4.5" ry="12" fill="#fff0f6"/>
+
+	<!-- 脸 -->
+	<ellipse cx="32" cy="38" rx="20" ry="18" fill="url(#face)"/>
+
+	<!-- 腮红 -->
+	<ellipse cx="19" cy="42" rx="4.5" ry="3" fill="#ffccdd" opacity="0.8"/>
+	<ellipse cx="45" cy="42" rx="4.5" ry="3" fill="#ffccdd" opacity="0.8"/>
+
+	<!-- 眼睛 -->
+	<circle cx="25" cy="34" r="3.2" fill="#3b2a33"/>
+	<circle cx="39" cy="34" r="3.2" fill="#3b2a33"/>
+	<circle cx="26.2" cy="33" r="1.1" fill="#ffffff"/>
+	<circle cx="40.2" cy="33" r="1.1" fill="#ffffff"/>
+
+	<!-- 鼻子 -->
+	<path d="M29 40 Q32 37 35 40 Q32 42.5 29 40Z" fill="#ff9db0"/>
+
+	<!-- 嘴巴 -->
+	<path d="M32 42 Q28 46 24 43" fill="none" stroke="#3b2a33" stroke-width="1.6" stroke-linecap="round"/>
+	<path d="M32 42 Q36 46 40 43" fill="none" stroke="#3b2a33" stroke-width="1.6" stroke-linecap="round"/>
+
+	<!-- 胡须 -->
+	<g stroke="#e8b7c9" stroke-width="1.4" stroke-linecap="round">
+		<line x1="14" y1="39" x2="22" y2="41"/>
+		<line x1="13" y1="44" x2="21" y2="44"/>
+		<line x1="50" y1="39" x2="42" y2="41"/>
+		<line x1="51" y1="44" x2="43" y2="44"/>
+	</g>
+</svg>
