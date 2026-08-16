@@ -8,8 +8,9 @@
  *   the zustand store (hydrated from this query); this hook only powers loading /
  *   error / refetch;
  * - Every mutation invalidates the initial dump on success, so the store re-hydrates
- *   with fresh data automatically. Detail queries (single subscription / rule) stay
- *   for the edit forms;
+ *   with fresh data automatically. The update mutations additionally write their
+ *   return value straight into the detail cache (PUT returns the full resource).
+ *   Detail queries (single subscription / rule) stay for the edit forms;
  * - Transport (request<T> / envelope parsing) stays in subscriptions.ts / rules.ts.
  */
 
@@ -27,6 +28,7 @@ import {
 	deleteSubscription,
 	getInitialDump,
 	getSubscription,
+	type InitialDump,
 	type SubscriptionInput,
 	updateSubscription,
 } from "./subscriptions";
@@ -88,16 +90,30 @@ export function useCreateSubscription() {
 	});
 }
 
-/** Update: invalidate the initial dump and the detail on success. */
+/**
+ * Update: the PUT response is the full updated subscription, so write it into
+ * both caches in place (the detail and the initial dump) instead of refetching.
+ * Writing the dump updates its data reference, which re-runs hydration in
+ * App.tsx and keeps the zustand store in sync — no extra GET requests.
+ */
 export function useUpdateSubscription(id: number) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (input: SubscriptionInput) => updateSubscription(id, input),
 		onSuccess: (sub) => {
-			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
-			void queryClient.invalidateQueries({
-				queryKey: subscriptionDetailKey(sub.id),
-			});
+			queryClient.setQueryData(subscriptionDetailKey(sub.id), sub);
+			queryClient.setQueryData<InitialDump>(
+				initialDumpKey,
+				(dump) =>
+					dump === undefined
+						? dump
+						: {
+								...dump,
+								subscriptions: dump.subscriptions.map((s) =>
+									s.id === sub.id ? sub : s,
+								),
+							},
+			);
 		},
 	});
 }
@@ -137,13 +153,19 @@ export function useUpdateRule(id: number) {
 	});
 }
 
-/** Delete: invalidate the initial dump and drop the detail from cache on success. */
+/** Delete: on success, drop the rule from the cached dump in place (no refetch). */
 export function useDeleteRule() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: deleteRule,
 		onSuccess: (_data, id) => {
-			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+			queryClient.setQueryData<InitialDump>(
+				initialDumpKey,
+				(dump) =>
+					dump === undefined
+						? dump
+						: { ...dump, rules: dump.rules.filter((r) => r.id !== id) },
+			);
 			queryClient.removeQueries({ queryKey: ruleDetailKey(id) });
 		},
 	});
