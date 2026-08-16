@@ -88,7 +88,7 @@ export const zhCN = {
 	rules: {
 		title: "规则管理",
 		createTitle: "新建规则",
-		editTitle: "编辑规则 #{{id}}",
+		editTitle: "编辑规则",
 		new: "+ 新建规则",
 		backToList: "返回规则列表",
 		refresh: "刷新",

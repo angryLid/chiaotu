@@ -343,9 +343,6 @@ function RuleForm({
 													<span className="block truncate font-medium text-slate-700">
 														{sub.name === "" ? t("subs.unnamed") : sub.name}
 													</span>
-													<span className="block text-xs text-slate-400">
-														#{sub.id}
-													</span>
 												</span>
 											</label>
 										);
@@ -548,7 +545,7 @@ function EditRuleForm({ id }: { id: number }) {
 	return (
 		<RuleForm
 			key={rule.id}
-			title={t("rules.editTitle", { id: rule.id })}
+			title={t("rules.editTitle")}
 			submitLabel={t("rules.save")}
 			initial={formFromRule(rule)}
 			mutation={mutation}
@@ -648,9 +645,6 @@ export default function RulesPage() {
 								<div className="flex items-center gap-2">
 									<span className="truncate text-sm font-medium">
 										{rule.name}
-									</span>
-									<span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-										#{rule.id}
 									</span>
 								</div>
 								<FilterSummary filter={rule.filter} />

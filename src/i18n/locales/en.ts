@@ -93,7 +93,7 @@ export const en: DeepString<typeof zhCN> = {
 	rules: {
 		title: "Rules",
 		createTitle: "New rule",
-		editTitle: "Edit rule #{{id}}",
+		editTitle: "Edit rule",
 		new: "+ New rule",
 		backToList: "Back to rules",
 		refresh: "Refresh",

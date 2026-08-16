@@ -352,9 +352,6 @@ export default function StatusPage() {
 													<span className="block truncate font-medium text-slate-700">
 														{rule.name}
 													</span>
-													<span className="block text-xs text-slate-400">
-														#{rule.id}
-													</span>
 												</span>
 											</label>
 										);
