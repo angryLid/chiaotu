@@ -25,6 +25,8 @@ export const RuleSchema = z.object({
 	filter: RuleFilterSchema,
 	created_at: z.string(),
 	updated_at: z.string(),
+	/** Soft-delete tombstone; NULL = active. Deleted rules are never returned by the API. */
+	deleted_at: z.string().nullish(),
 });
 
 export type Rule = z.infer<typeof RuleSchema>;

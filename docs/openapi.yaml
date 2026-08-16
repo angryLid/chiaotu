@@ -13,6 +13,7 @@ info:
       object as-is (its shape is guaranteed by the frontend zod); the backend guards
       against junk: name is required and unique, subIds / nameKeywords / typeMatch
       must be arrays of non-empty strings, and referenced subscription ids must exist.
+      Deletes are soft (deleted_at tombstone; excluded from all reads).
     - generated: a generated result file (a full clash YAML config). The frontend
       computes it in the browser — apply a rule to the parsed nodes, run the produce
       pipeline, dump YAML — and uploads it; the backend only stores and serves the
@@ -322,8 +323,9 @@ paths:
     get:
       summary: List all rules
       description: |
-        Returns all node-filtering rules, newest first. Unlike subscriptions,
-        there is no summary shape: each entry is a full rule (with its filter).
+        Returns all active (non-soft-deleted) node-filtering rules, newest first.
+        Unlike subscriptions, there is no summary shape: each entry is a full
+        rule (with its filter). Soft-deleted rules are excluded.
       operationId: listRules
       tags: [rules]
       responses:
@@ -391,6 +393,8 @@ paths:
 
     get:
       summary: Get a single rule
+      description: |
+        Returns a single rule. Soft-deleted rules are excluded (returns 404).
       operationId: getRule
       tags: [rules]
       responses:
@@ -444,6 +448,10 @@ paths:
 
     delete:
       summary: Delete a rule
+      description: |
+        Soft delete: the rule is marked as deleted (deleted_at set) and excluded
+        from all reads. The underlying row is retained (no restore endpoint).
+        Deleting an already-deleted or absent rule returns 404.
       operationId: deleteRule
       tags: [rules]
       responses:
@@ -712,7 +720,7 @@ components:
           format: int64
         name:
           type: string
-          description: Rule name (unique)
+          description: Rule name (unique among active rules)
         filter:
           $ref: "#/components/schemas/RuleFilter"
         created_at:
@@ -721,6 +729,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Soft-delete tombstone; NULL = active. Deleted rules are excluded from all reads.
 
     RuleInput:
       description: |

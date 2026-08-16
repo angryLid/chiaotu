@@ -32,6 +32,7 @@ async function listRules(ctx: ApiCtx): Promise<Response> {
 	const { data, error } = await ctx.supabaseAdmin
 		.from("rules")
 		.select("*")
+		.is("deleted_at", null)
 		.order("id", { ascending: false });
 	if (error) return err(new Error(error.message));
 	return ok(data ?? []);

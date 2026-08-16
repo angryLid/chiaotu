@@ -28,3 +28,14 @@ The project is **currently being transformed into a Web project** (frontend SPA 
 - **Mobile-first**: write unprefixed mobile styles as the default, then layer enhancements with `sm:` / `md:` / `lg:` prefixes. Never build the desktop layout first and adapt it to mobile afterwards.
 - **Breakpoint semantics**: mobile = unprefixed default styles; `sm:` ≥640px, `md:` ≥768px, `lg:` ≥1024px.
 - **Acceptance baseline**: 375px (mainstream small phones) is the mobile acceptance width — no horizontal scrolling, no overflowing content, primary actions reachable with one hand (touch targets ≥44px). Any UI change must pass self-checks at both 375px and ≥1024px.
+
+### 2. Database tables must carry timestamps and a soft-delete flag
+
+- **Every database table must have three columns**: `created_at timestamptz not null default now()`, `updated_at timestamptz not null default now()`, and a soft-delete tombstone `deleted_at timestamptz` (NULL = active).
+- **Never hard-delete a row**: deletes must set `deleted_at` (soft delete) and be excluded from every read via `.is("deleted_at", null)`.
+- **Keep `updated_at` fresh** with a `before update` trigger using `public.set_updated_at()` (mirror the existing `subscriptions` / `rules` / `generated` tables).
+- **Uniqueness over a soft-deleted scope**: when a column is unique (e.g. `rules.name`), prefer a partial unique index scoped to active rows (`where deleted_at is null`) so soft-deleted names can be reused.
+
+### 3. Update the API spec (docs/openapi.yaml) before changing an API
+
+- **Spec-first**: before creating or modifying an API endpoint, first create or update its definition in `docs/openapi.yaml`. The spec is the source of truth for the API contract; code changes must follow the spec, not the other way around.

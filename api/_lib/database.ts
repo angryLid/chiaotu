@@ -42,6 +42,7 @@ export interface Database {
 					filter: unknown;
 					created_at: string;
 					updated_at: string;
+					deleted_at: string | null;
 				};
 				Insert: {
 					name: string;
@@ -50,6 +51,7 @@ export interface Database {
 				Update: Partial<{
 					name: string;
 					filter: unknown;
+					deleted_at: string | null;
 				}>;
 				Relationships: [];
 			};

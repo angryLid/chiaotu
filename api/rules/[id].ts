@@ -35,7 +35,8 @@ async function getRule(ctx: ApiCtx, id: number): Promise<Response> {
 	const { data, error } = await ctx.supabaseAdmin
 		.from("rules")
 		.select("*")
-		.eq("id", id);
+		.eq("id", id)
+		.is("deleted_at", null);
 	if (error) return err(new Error(error.message));
 	const rule = (data ?? [])[0];
 	if (!rule) return err(NotFound("rule not found"));
@@ -64,6 +65,7 @@ async function updateRule(
 		.from("rules")
 		.update({ name, filter: parseFilter(filter) })
 		.eq("id", id)
+		.is("deleted_at", null)
 		.select();
 	if (error) {
 		if (error.code === "23505")
@@ -75,15 +77,16 @@ async function updateRule(
 	return ok(rule);
 }
 
-/** DELETE: hard-delete the rule. */
+/** DELETE: soft-delete (mark deleted_at; excluded from all reads; mirrors repo.Delete). */
 async function deleteRule(ctx: ApiCtx, id: number): Promise<Response> {
 	const { data, error } = await ctx.supabaseAdmin
 		.from("rules")
-		.delete()
+		.update({ deleted_at: new Date().toISOString() })
 		.eq("id", id)
+		.is("deleted_at", null)
 		.select();
 	if (error) return err(new Error(error.message));
-	// An empty result means nothing matched — nothing was deleted.
+	// An empty result means no active row matched — already deleted or absent.
 	if ((data ?? []).length === 0) return err(NotFound("rule not found"));
 	return ok(null);
 }

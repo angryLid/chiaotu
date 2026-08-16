@@ -21,6 +21,7 @@ export default withApi(async (request, ctx) => {
 		ctx.supabaseAdmin
 			.from("rules")
 			.select("*")
+			.is("deleted_at", null)
 			.order("id", { ascending: false }),
 	]);
 	if (subs.error) return err(new Error(subs.error.message));
