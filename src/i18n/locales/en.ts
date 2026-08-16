@@ -18,11 +18,6 @@ export const en: DeepString<typeof zhCN> = {
 			label: "Main navigation",
 			open: "Open navigation menu",
 		},
-		backend: {
-			checking: "Checking backend…",
-			unreachable: "Backend unreachable",
-			connected: "Backend connected",
-		},
 		lang: {
 			label: "Language",
 		},

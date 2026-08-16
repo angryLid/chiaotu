@@ -48,7 +48,8 @@ function parsePath(path: string): Route {
 		case "status":
 			return { page: "status" };
 		default:
-			return { page: "subscriptions" };
+			// Unmatched or empty paths land on the status dashboard (the default route).
+			return { page: "status" };
 	}
 }
 
@@ -104,22 +105,6 @@ function useHydrateStore() {
 	}, [data, hydrate]);
 }
 
-/** Backend connectivity badge: reuses the initial dump query (same query key), so it fires no extra request. */
-function BackendStatus() {
-	const { t } = useTranslation();
-	const query = useInitialDump();
-
-	if (query.isLoading) {
-		return <span className="text-amber-600">{t("app.backend.checking")}</span>;
-	}
-	if (query.isError) {
-		return (
-			<span className="text-rose-600">{t("app.backend.unreachable")}</span>
-		);
-	}
-	return <span className="text-emerald-600">{t("app.backend.connected")}</span>;
-}
-
 /** Language picker: persists the choice and keeps <html lang> in sync. */
 function LanguageSwitcher() {
 	const { t, i18n } = useTranslation();
@@ -157,6 +142,14 @@ function Dashboard() {
 
 	// Single entry-point hydration: the store is rebuilt from each initial dump response.
 	useHydrateStore();
+
+	// Redirect the bare root (and any other unrecognized path) to /status so the
+	// URL always reflects the default route instead of silently resolving to it.
+	useEffect(() => {
+		if (window.location.pathname.replace(/\/$/, "") === "") {
+			navigate("/status");
+		}
+	}, []);
 
 	useEffect(() => {
 		const onPopState = () => {
@@ -276,7 +269,6 @@ function Dashboard() {
 				<NavButtons active={active} onNavigate={navigateTo} />
 				<div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
 					<LanguageSwitcher />
-					<BackendStatus />
 				</div>
 			</aside>
 
@@ -353,7 +345,6 @@ function Dashboard() {
 				/>
 				<div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
 					<LanguageSwitcher />
-					<BackendStatus />
 				</div>
 			</aside>
 		</div>

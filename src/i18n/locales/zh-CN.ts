@@ -14,11 +14,6 @@ export const zhCN = {
 			label: "主导航",
 			open: "打开导航菜单",
 		},
-		backend: {
-			checking: "后端检查中…",
-			unreachable: "后端不可达",
-			connected: "后端已连接",
-		},
 		lang: {
 			label: "语言",
 		},
