@@ -163,9 +163,10 @@ export const zhCN = {
 			hint: "浏览器侧按所选投影规则（可多选）从已同步的订阅节点中过滤，每条投影规则生成一个以投影规则名命名的代理组，套用 produce 管线生成 clash YAML，然后上传到后端。",
 		},
 		latest: {
-			title: "最新生成结果",
+			title: "最近生成结果",
 			empty: "还没有生成结果。勾选投影规则并点击「生成并上传」。",
-			name: "名称",
+			toggle: "{{name}} 的生成结果",
+			size: "{{lines}} 行",
 			generatedAt: "生成时间",
 			download: "下载",
 			link: "下载链接",

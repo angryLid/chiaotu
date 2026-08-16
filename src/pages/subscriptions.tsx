@@ -16,6 +16,7 @@ import {
 	type SubscriptionSummary,
 } from "~/api/subscriptions";
 import { errorMessage, formatDateTime } from "~/i18n";
+import { Collapsible } from "~/components/Collapsible";
 import { type ParsedSubscription, useAppStore } from "~/store/app-store";
 import type { NodeProxy } from "~/utils/nodes";
 
@@ -405,61 +406,41 @@ function SubscriptionItem({
 	const item = useAppStore((s) => s.parsed[String(sub.id)]);
 
 	return (
-		<li className="border-b border-slate-100 last:border-b-0">
-			<div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3">
-				<button
-					type="button"
-					aria-expanded={expanded}
-					aria-controls={`subscription-${sub.id}-nodes`}
-					aria-label={t(expanded ? "subs.collapse" : "subs.expand", {
-						name: sub.name,
-					})}
-					onClick={() => setExpanded((open) => !open)}
-					className="flex min-w-0 flex-1 cursor-pointer items-start gap-x-3 text-left transition-colors hover:bg-slate-50"
-				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						strokeWidth="2"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						aria-hidden="true"
-						className={`mt-0.5 shrink-0 text-slate-400 transition-transform ${
-							expanded ? "rotate-90" : ""
-						}`}
-					>
-						<polyline points="9 18 15 12 9 6" />
-					</svg>
-
-					<div className="min-w-0 flex-1">
-						<span className="block truncate text-sm font-medium">{sub.name}</span>
-						{sub.url === "" ? (
-							<span className="block truncate text-xs text-slate-400">
-								{t("subs.detail.noUrlList")}
-							</span>
-						) : (
-							<span className="block truncate text-xs text-slate-400">
-								{sub.url}
-							</span>
-						)}
-						<span className="mt-0.5 block text-xs text-slate-400">
-							{t("subs.updatedSuffix", {
-								date: formatDateTime(sub.updated_at),
-							})}
-						</span>
-					</div>
-				</button>
-
-				{item !== undefined && item.nodes !== null ? (
-					<span className="mt-0.5 shrink-0 text-xs text-slate-400">
-						{t("subs.nodeCount", { total: item.nodes.length })}
+		<Collapsible
+			id={`subscription-${sub.id}`}
+			expanded={expanded}
+			onToggle={() => setExpanded((o) => !o)}
+			ariaLabel={t(expanded ? "subs.collapse" : "subs.expand", {
+				name: sub.name,
+			})}
+			header={
+				<>
+					<span className="block truncate text-sm font-medium">
+						{sub.name}
 					</span>
-				) : null}
-
-				<div className="flex w-full shrink-0 gap-1 pl-7 md:w-auto md:pl-0">
+					{sub.url === "" ? (
+						<span className="block truncate text-xs text-slate-400">
+							{t("subs.detail.noUrlList")}
+						</span>
+					) : (
+						<span className="block truncate text-xs text-slate-400">
+							{sub.url}
+						</span>
+					)}
+					<span className="mt-0.5 block text-xs text-slate-400">
+						{t("subs.updatedSuffix", {
+							date: formatDateTime(sub.updated_at),
+						})}
+					</span>
+				</>
+			}
+			actions={
+				<>
+					{item !== undefined && item.nodes !== null ? (
+						<span className="mt-0.5 shrink-0 text-xs text-slate-400">
+							{t("subs.nodeCount", { total: item.nodes.length })}
+						</span>
+					) : null}
 					<button
 						type="button"
 						onClick={onEdit}
@@ -475,24 +456,17 @@ function SubscriptionItem({
 					>
 						{deleting ? t("subs.deleting") : t("subs.delete")}
 					</button>
-				</div>
-			</div>
-
-			{expanded ? (
-				<div
-					id={`subscription-${sub.id}-nodes`}
-					className="border-t border-slate-100 bg-slate-50/60 px-4 py-3"
-				>
-					{item === undefined ? (
-						<p className="py-4 text-center text-sm text-slate-400">
-							{t("common.loading")}
-						</p>
-					) : (
-						<NodeTable item={item} />
-					)}
-				</div>
-			) : null}
-		</li>
+				</>
+			}
+		>
+			{item === undefined ? (
+				<p className="py-4 text-center text-sm text-slate-400">
+					{t("common.loading")}
+				</p>
+			) : (
+				<NodeTable item={item} />
+			)}
+		</Collapsible>
 	);
 }
 

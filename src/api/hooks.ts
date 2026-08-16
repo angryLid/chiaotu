@@ -15,7 +15,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createGenerated, getLatestGenerated } from "./generated";
+import { createGenerated, getLatestGenerated, getRecentGenerated } from "./generated";
 import {
 	createRule,
 	deleteRule,
@@ -42,6 +42,11 @@ const subscriptionDetailKey = (id: number) => ["subscription", id] as const;
 const ruleDetailKey = (id: number) => ["rule", id] as const;
 
 const latestGeneratedKey = ["latestGenerated"] as const;
+
+/** Recent-history page size for the run-status panel. */
+const RECENT_GENERATED_LIMIT = 5;
+
+const recentGeneratedKey = ["recentGenerated", RECENT_GENERATED_LIMIT] as const;
 
 // ---- queries ----
 
@@ -74,6 +79,14 @@ export function useLatestGenerated() {
 	return useQuery({
 		queryKey: latestGeneratedKey,
 		queryFn: getLatestGenerated,
+	});
+}
+
+/** The most recently generated results, newest first, up to 5 (run-status panel). */
+export function useRecentGenerated() {
+	return useQuery({
+		queryKey: recentGeneratedKey,
+		queryFn: () => getRecentGenerated(RECENT_GENERATED_LIMIT),
 	});
 }
 
@@ -171,13 +184,13 @@ export function useDeleteRule() {
 	});
 }
 
-/** Store a new generated result; invalidate the latest query on success so the panel shows it. */
+/** Store a new generated result; invalidate the recent list on success so the panel shows it. */
 export function useCreateGenerated() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createGenerated,
 		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: latestGeneratedKey });
+			void queryClient.invalidateQueries({ queryKey: recentGeneratedKey });
 		},
 	});
 }

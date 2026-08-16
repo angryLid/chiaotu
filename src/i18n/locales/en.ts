@@ -171,9 +171,10 @@ export const en: DeepString<typeof zhCN> = {
 			hint: "The browser filters the synced subscription nodes by the selected projection rules (multiple allowed) — each projection rule becomes a proxy group named after the projection rule — runs the produce pipeline to build a clash YAML, and uploads it to the backend.",
 		},
 		latest: {
-			title: "Latest generated result",
+			title: "Recent generated results",
 			empty: "Nothing generated yet. Pick projection rules and click “Generate & upload”.",
-			name: "Name",
+			toggle: "Generated result {{name}}",
+			size: "{{lines}} lines",
 			generatedAt: "Generated at",
 			download: "Download",
 			link: "Download link",

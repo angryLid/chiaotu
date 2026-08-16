@@ -2,6 +2,7 @@
  * /api/generated — collection.
  *   GET  the generated result with the most recent creation time (Err:NOT_FOUND if none)
  *   POST store a new generated result (content produced by the frontend)
+ * Recent-history listing lives at /api/generated/recent (recent.ts).
  * Mirrors internal/controller/generated.go (generatedCollection).
  */
 

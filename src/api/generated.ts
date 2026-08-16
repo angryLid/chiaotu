@@ -4,7 +4,9 @@
  * Contract points (see friend-cats README and openapi.yaml):
  * - HTTP is always 200; success is decided by the envelope { status, result };
  * - GET /generated returns the generated result with the most recent generation
- *   time (Err:NOT_FOUND when none exists yet) — there is no list endpoint;
+ *   time (Err:NOT_FOUND when none exists yet);
+ * - GET /generated/recent returns the most recent generated results, newest
+ *   first, up to a `limit` (default 5, clamped 1–20) — returns [] when none yet;
  * - POST /generated stores a new generated result; the content is computed by
  *   the frontend in the browser (apply a rule → produce pipeline → YAML dump)
  *   and the name is a frontend-chosen nanoid.
@@ -30,6 +32,14 @@ export interface GeneratedInput {
 /** Get the generated result with the most recent generation time. */
 export function getLatestGenerated(): Promise<Generated> {
 	return request<Generated>("/generated");
+}
+
+/**
+ * Get the most recently generated results, newest first, up to `limit`
+ * (default 5, clamped to 1–20 by the backend). Returns [] when none yet.
+ */
+export function getRecentGenerated(limit = 5): Promise<Generated[]> {
+	return request<Generated[]>(`/generated/recent?limit=${limit}`);
 }
 
 /** Store a new generated result (content computed by the frontend). */
