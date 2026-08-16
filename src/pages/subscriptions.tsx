@@ -256,85 +256,8 @@ function SubscriptionFormModal({
 	);
 }
 
-// ---- detail ----
-
-function DetailModal({
-	summary,
-	onEdit,
-	onClose,
-}: {
-	summary: SubscriptionSummary;
-	onEdit: () => void;
-	onClose: () => void;
-}) {
-	const { t } = useTranslation();
-	const query = useSubscription(summary.id);
-
-	return (
-		<Modal
-			title={t("subs.detailTitle")}
-			onClose={onClose}
-			wide
-		>
-			{query.isError ? (
-				<ErrorBox>{errorMessage(query.error)}</ErrorBox>
-			) : !query.data ? (
-				<p className="py-8 text-center text-sm text-slate-400">
-					{t("common.loading")}
-				</p>
-			) : (
-				<div className="space-y-3">
-					<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-						<dt className="text-slate-400">{t("subs.field.name")}</dt>
-						<dd className="break-all">{query.data.name}</dd>
-						<dt className="text-slate-400">{t("subs.detail.url")}</dt>
-						<dd className="break-all">
-							{query.data.url === "" ? (
-								<span className="text-slate-400">{t("subs.detail.noUrl")}</span>
-							) : (
-								<span className="break-all text-slate-600">
-									{query.data.url}
-								</span>
-							)}
-						</dd>
-						<dt className="text-slate-400">{t("subs.detail.createdAt")}</dt>
-						<dd>{formatDateTime(query.data.created_at)}</dd>
-						<dt className="text-slate-400">{t("subs.detail.updatedAt")}</dt>
-						<dd>{formatDateTime(query.data.updated_at)}</dd>
-						<dt className="text-slate-400">{t("subs.detail.content")}</dt>
-						<dd className="col-span-2 min-w-0">
-							<pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-700">
-								{query.data.content === ""
-									? t("subs.detail.emptyContent")
-									: query.data.content}
-							</pre>
-						</dd>
-					</dl>
-
-					<div className="flex justify-end gap-2 pt-1">
-						<button
-							type="button"
-							onClick={onClose}
-							className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-						>
-							{t("common.close")}
-						</button>
-						<button
-							type="button"
-							onClick={onEdit}
-							className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700"
-						>
-							{t("subs.edit")}
-						</button>
-					</div>
-				</div>
-			)}
-		</Modal>
-	);
-}
-
 // ---- edit ----
-// Detail and edit share the useSubscription(id) cache: opening "edit" from the detail view needs no extra request.
+// The edit modal doubles as the detail view: it shows name / url / content and allows changes.
 
 function EditSubscriptionModal({
 	id,
@@ -469,13 +392,11 @@ function NodeTable({ item }: { item: ParsedSubscription }) {
 function SubscriptionItem({
 	sub,
 	deleting,
-	onView,
 	onEdit,
 	onDelete,
 }: {
 	sub: SubscriptionSummary;
 	deleting: boolean;
-	onView: () => void;
 	onEdit: () => void;
 	onDelete: () => void;
 }) {
@@ -541,13 +462,6 @@ function SubscriptionItem({
 				<div className="flex w-full shrink-0 gap-1 pl-7 md:w-auto md:pl-0">
 					<button
 						type="button"
-						onClick={onView}
-						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
-					>
-						{t("subs.view")}
-					</button>
-					<button
-						type="button"
 						onClick={onEdit}
 						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
 					>
@@ -592,7 +506,6 @@ export default function SubscriptionsPage() {
 	const createMutation = useCreateSubscription();
 
 	const [createOpen, setCreateOpen] = useState(false);
-	const [viewing, setViewing] = useState<SubscriptionSummary | null>(null);
 	const [editingId, setEditingId] = useState<number | null>(null);
 
 	const items = subscriptions;
@@ -672,7 +585,6 @@ export default function SubscriptionsPage() {
 							key={sub.id}
 							sub={sub}
 							deleting={deletingId === sub.id}
-							onView={() => setViewing(sub)}
 							onEdit={() => setEditingId(sub.id)}
 							onDelete={() => void handleDelete(sub)}
 						/>
@@ -688,17 +600,6 @@ export default function SubscriptionsPage() {
 					mutation={createMutation}
 					onClose={() => setCreateOpen(false)}
 					generateNameIfMissing
-				/>
-			) : null}
-
-			{viewing !== null ? (
-				<DetailModal
-					summary={viewing}
-					onClose={() => setViewing(null)}
-					onEdit={() => {
-						setViewing(null);
-						setEditingId(viewing.id);
-					}}
 				/>
 			) : null}
 
