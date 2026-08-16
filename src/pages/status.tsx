@@ -28,12 +28,26 @@ import {
 	type MatchedNode,
 	type NodeSource,
 } from "~/utils/ruleEngine";
-// The base clash template is imported at build time (Vite ?raw); this is the
-// browser-side replacement for the CLI's `address.template` file read.
-import baseTemplate from "../../resources/templates/base.yaml?raw";
 
 /** Length of the auto-generated result name (nanoid). */
 const GENERATED_NAME_LENGTH = 10;
+
+/**
+ * Load the base clash template. It ships as a static asset under `public/`
+ * (`/templates/base.yaml`), so we fetch it once and cache the promise.
+ */
+let baseTemplatePromise: Promise<string> | undefined;
+function loadBaseTemplate(): Promise<string> {
+	baseTemplatePromise ??= fetch("/templates/base.yaml").then((response) => {
+		if (!response.ok) {
+			throw new Error(
+				`Failed to load base template: ${response.status} ${response.statusText}`,
+			);
+		}
+		return response.text();
+	});
+	return baseTemplatePromise;
+}
 
 function ErrorBox({ children }: { children: ReactNode }) {
 	return (
@@ -295,16 +309,18 @@ export default function StatusPage() {
 			nodes: applyRule(rule.filter, nodeSources),
 		}));
 
-		const content = buildProfile(baseTemplate, sources);
-
 		setGenerationError(null);
 		try {
+			const baseTemplate = await loadBaseTemplate();
+			const content = buildProfile(baseTemplate, sources);
 			await createMutation.mutateAsync({
 				name: nanoid(GENERATED_NAME_LENGTH),
 				content,
 			});
-		} catch {
-			// Failure message is rendered from createMutation.error
+		} catch (error) {
+			setGenerationError(
+				error instanceof Error ? error.message : t("status.generate.failed"),
+			);
 		}
 	}
 

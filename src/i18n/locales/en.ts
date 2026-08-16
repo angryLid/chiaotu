@@ -163,6 +163,7 @@ export const en: DeepString<typeof zhCN> = {
 			noRules: "No projection rules yet — create one in the Node Projections page first.",
 			noRule: "Select at least one projection rule first",
 			noMatch: "The selected projection rules match no nodes — nothing to generate",
+			failed: "Generation failed",
 			hint: "The browser filters the synced subscription nodes by the selected projection rules (multiple allowed) — each projection rule becomes a proxy group named after the projection rule — runs the produce pipeline to build a clash YAML, and uploads it to the backend.",
 		},
 		latest: {

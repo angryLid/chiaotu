@@ -5,12 +5,13 @@
  * rebuilt as an SPA): load the base template, merge the nodes matched by each
  * rule into one select group named after the rule, add the service / country
  * groups on top, and dump the result as YAML. Unlike the CLI version it has no
- * Node dependencies — the base template is imported at build time (Vite `?raw`)
- * and the nodes come from the browser-side rule engine, not from disk.
+ * Node dependencies — the base template is fetched from the static asset served
+ * at `/templates/base.yaml` (see `public/templates/base.yaml`) and the nodes
+ * come from the browser-side rule engine, not from disk.
  */
 
 import yaml from "js-yaml";
-import { euRegExp, flagRegExp } from "~/constants";
+import { flagRegExp } from "~/constants";
 import {
 	ClashProfileSchema,
 	type ProxyGroup,
@@ -37,14 +38,24 @@ export interface RuleSource {
  *    by several rules appears once), create one select group per rule named
  *    after the rule (rules left with no nodes are skipped);
  * 4. append the service / country groups (🌐 手动选择, 🤖 AI, 🟦 Microsoft,
- *    🍎 Apple, 🇪🇺 Europe) referencing the rule groups;
+ *    🍎 Apple) referencing the rule groups;
  * 5. dump the assembled profile as YAML.
  */
 export function buildProfile(
 	baseTemplate: string,
 	sources: RuleSource[],
 ): string {
+	if (typeof baseTemplate !== "string" || baseTemplate.trim() === "") {
+		throw new Error(
+			"Missing base template: the fetched `/templates/base.yaml` content is empty.",
+		);
+	}
 	const rawYaml: unknown = yaml.load(baseTemplate);
+	if (typeof rawYaml !== "object" || rawYaml === null) {
+		throw new Error(
+			`Base template did not parse as a YAML object (got ${typeof rawYaml}). Check public/templates/base.yaml.`,
+		);
+	}
 	const baseProfile = ClashProfileSchema.parse(rawYaml);
 
 	const proxies: NodeProxy[] = [];
@@ -88,7 +99,6 @@ export function buildProfile(
 	assembled["proxy-groups"] = [
 		...ruleGroups,
 		...createGroupsByCountry(
-			proxies,
 			ruleGroups.map(({ name }) => name),
 		),
 	];
@@ -101,20 +111,8 @@ export function buildProfile(
 }
 
 function createGroupsByCountry(
-	proxies: NodeProxy[],
 	ruleGroupName: string[],
 ): ProxyGroup[] {
-	function createUrlTestGroup(name: string): ProxyGroup {
-		return {
-			name,
-			type: "select",
-			proxies: [],
-			timeout: undefined,
-			interval: 3600, // 60 * 60 seconds
-			url: "https://www.gstatic.com/generate_204",
-		};
-	}
-
 	function createSelectGroup(name: string, members: string[]): ProxyGroup {
 		return {
 			name,
@@ -126,15 +124,7 @@ function createGroupsByCountry(
 		};
 	}
 
-	const eu = createUrlTestGroup("🇪🇺 Europe");
-
-	for (const proxy of proxies) {
-		if (euRegExp.test(proxy.name)) {
-			eu.proxies.push(proxy.name);
-		}
-	}
-
-	const baseProxies = ["🇪🇺 Europe", ...ruleGroupName];
+	const baseProxies = [...ruleGroupName];
 
 	// Special service groups
 	const select = createSelectGroup("🌐 手动选择", baseProxies);
@@ -153,6 +143,5 @@ function createGroupsByCountry(
 		...baseProxies.slice(),
 	]);
 	// Return groups in the preferred order
-	eu.proxies.sort();
-	return [select, google, ms, apple, eu];
+	return [select, google, ms, apple];
 }

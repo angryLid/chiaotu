@@ -1,11 +1,10 @@
 import yaml from "js-yaml";
-import { euRegExp, flagRegExp } from "~/constants";
+import { flagRegExp } from "~/constants";
 import { address } from "~/persistence/address";
 import {
 	type ClashProfile,
 	ClashProfileSchema,
 	ClashProfileSegmentSchema,
-	type Proxy as IProxy,
 	type ProxyGroup,
 } from "~/persistence/clash-profile";
 import { readFile } from "~/persistence/file-utils";
@@ -46,7 +45,6 @@ export async function produce() {
 	baseProfile["proxy-groups"] = [
 		...groupsByVendors,
 		...createGroupsByCountry(
-			baseProfile.proxies,
 			groupsByVendors.map(({ name }) => name),
 		),
 	];
@@ -61,20 +59,8 @@ export async function produce() {
 }
 
 function createGroupsByCountry(
-	proxies: Array<IProxy>,
 	proxyGroupName: Array<string>,
 ): ProxyGroup[] {
-	function createUrlTestGroup(name: string): ProxyGroup {
-		return {
-			name,
-			type: "select",
-			proxies: [],
-			timeout: undefined,
-			interval: 3600, // 60 * 60 seconds
-			url: "https://www.gstatic.com/generate_204",
-		};
-	}
-
 	function createSelectGroup(name: string, proxies: string[]): ProxyGroup {
 		return {
 			name,
@@ -86,16 +72,7 @@ function createGroupsByCountry(
 		};
 	}
 
-	const eu = createUrlTestGroup("🇪🇺 Europe");
-
-	for (const proxy of proxies) {
-		const name = proxy.name as string;
-		if (euRegExp.test(name)) {
-			eu.proxies.push(name);
-		}
-	}
-
-	const baseProxies = ["🇪🇺 Europe", ...proxyGroupName];
+	const baseProxies = [...proxyGroupName];
 
 	// Special service groups
 	const select = createSelectGroup("🌐 手动选择", baseProxies);
@@ -114,6 +91,5 @@ function createGroupsByCountry(
 		...baseProxies.slice(),
 	]);
 	// Return groups in the preferred order
-	eu.proxies.sort();
-	return [select, google, ms, apple, eu];
+	return [select, google, ms, apple];
 }
