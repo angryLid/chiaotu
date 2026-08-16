@@ -272,7 +272,7 @@ function DetailModal({
 
 	return (
 		<Modal
-			title={t("subs.detailTitle", { id: summary.id })}
+			title={t("subs.detailTitle")}
 			onClose={onClose}
 			wide
 		>
@@ -349,14 +349,14 @@ function EditSubscriptionModal({
 
 	if (detail.isError) {
 		return (
-			<Modal title={t("subs.editTitle", { id })} onClose={onClose}>
+			<Modal title={t("subs.editTitle")} onClose={onClose}>
 				<ErrorBox>{errorMessage(detail.error)}</ErrorBox>
 			</Modal>
 		);
 	}
 	if (!detail.data) {
 		return (
-			<Modal title={t("subs.editTitle", { id })} onClose={onClose}>
+			<Modal title={t("subs.editTitle")} onClose={onClose}>
 				<p className="py-8 text-center text-sm text-slate-400">
 					{t("common.loading")}
 				</p>
@@ -365,7 +365,7 @@ function EditSubscriptionModal({
 	}
 	return (
 		<SubscriptionFormModal
-			title={t("subs.editTitle", { id })}
+			title={t("subs.editTitle")}
 			submitLabel={t("subs.save")}
 			initial={{
 				name: detail.data.name,
@@ -463,7 +463,7 @@ function NodeTable({ item }: { item: ParsedSubscription }) {
 }
 
 // ---- collapsible subscription item ----
-// Collapsed: basic info only (name, #id, url, updated-at, node count). Expanded:
+// Collapsed: basic info only (name, url, updated-at, node count). Expanded:
 // the full node table for this subscription, parsed in the browser from the dump.
 
 function SubscriptionItem({
@@ -485,55 +485,52 @@ function SubscriptionItem({
 
 	return (
 		<li className="border-b border-slate-100 last:border-b-0">
-			<button
-				type="button"
-				aria-expanded={expanded}
-				aria-controls={`subscription-${sub.id}-nodes`}
-				aria-label={t(expanded ? "subs.collapse" : "subs.expand", {
-					name: sub.name,
-				})}
-				onClick={() => setExpanded((open) => !open)}
-				className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 text-left transition-colors hover:bg-slate-50"
-			>
-				<svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					strokeWidth="2"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					aria-hidden="true"
-					className={`mt-0.5 shrink-0 text-slate-400 transition-transform ${
-						expanded ? "rotate-90" : ""
-					}`}
+			<div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3">
+				<button
+					type="button"
+					aria-expanded={expanded}
+					aria-controls={`subscription-${sub.id}-nodes`}
+					aria-label={t(expanded ? "subs.collapse" : "subs.expand", {
+						name: sub.name,
+					})}
+					onClick={() => setExpanded((open) => !open)}
+					className="flex min-w-0 flex-1 cursor-pointer items-start gap-x-3 text-left transition-colors hover:bg-slate-50"
 				>
-					<polyline points="9 18 15 12 9 6" />
-				</svg>
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+						aria-hidden="true"
+						className={`mt-0.5 shrink-0 text-slate-400 transition-transform ${
+							expanded ? "rotate-90" : ""
+						}`}
+					>
+						<polyline points="9 18 15 12 9 6" />
+					</svg>
 
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-2">
-						<span className="truncate text-sm font-medium">{sub.name}</span>
-						<span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-							#{sub.id}
+					<div className="min-w-0 flex-1">
+						<span className="block truncate text-sm font-medium">{sub.name}</span>
+						{sub.url === "" ? (
+							<span className="block truncate text-xs text-slate-400">
+								{t("subs.detail.noUrlList")}
+							</span>
+						) : (
+							<span className="block truncate text-xs text-slate-400">
+								{sub.url}
+							</span>
+						)}
+						<span className="mt-0.5 block text-xs text-slate-400">
+							{t("subs.updatedSuffix", {
+								date: formatDateTime(sub.updated_at),
+							})}
 						</span>
 					</div>
-					{sub.url === "" ? (
-						<span className="block truncate text-xs text-slate-400">
-							{t("subs.detail.noUrlList")}
-						</span>
-					) : (
-						<span className="block truncate text-xs text-slate-400">
-							{sub.url}
-						</span>
-					)}
-					<span className="mt-0.5 block text-xs text-slate-400">
-						{t("subs.updatedSuffix", {
-							date: formatDateTime(sub.updated_at),
-						})}
-					</span>
-				</div>
+				</button>
 
 				{item !== undefined && item.nodes !== null ? (
 					<span className="mt-0.5 shrink-0 text-xs text-slate-400">
@@ -544,37 +541,28 @@ function SubscriptionItem({
 				<div className="flex w-full shrink-0 gap-1 pl-7 md:w-auto md:pl-0">
 					<button
 						type="button"
-						onClick={(event) => {
-							event.stopPropagation();
-							onView();
-						}}
+						onClick={onView}
 						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
 					>
 						{t("subs.view")}
 					</button>
 					<button
 						type="button"
-						onClick={(event) => {
-							event.stopPropagation();
-							onEdit();
-						}}
+						onClick={onEdit}
 						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
 					>
 						{t("subs.edit")}
 					</button>
 					<button
 						type="button"
-						onClick={(event) => {
-							event.stopPropagation();
-							onDelete();
-						}}
+						onClick={onDelete}
 						disabled={deleting}
 						className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{deleting ? t("subs.deleting") : t("subs.delete")}
 					</button>
 				</div>
-			</button>
+			</div>
 
 			{expanded ? (
 				<div

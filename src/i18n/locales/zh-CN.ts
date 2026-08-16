@@ -43,8 +43,8 @@ export const zhCN = {
 		view: "查看",
 		submit: "提交中…",
 		deleteConfirm: "确定删除订阅「{{name}}」吗？删除后无法恢复。",
-		detailTitle: "订阅详情 #{{id}}",
-		editTitle: "编辑订阅 #{{id}}",
+		detailTitle: "订阅详情",
+		editTitle: "编辑订阅",
 		field: {
 			name: "名称",
 			url: "URL（更新来源）",

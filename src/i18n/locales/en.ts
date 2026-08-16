@@ -48,8 +48,8 @@ export const en: DeepString<typeof zhCN> = {
 		view: "View",
 		submit: "Submitting…",
 		deleteConfirm: "Delete subscription “{{name}}”? This cannot be undone.",
-		detailTitle: "Subscription #{{id}}",
-		editTitle: "Edit subscription #{{id}}",
+		detailTitle: "Subscription",
+		editTitle: "Edit subscription",
 		field: {
 			name: "Name",
 			url: "URL (update source)",
