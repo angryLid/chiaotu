@@ -54,10 +54,14 @@ info:
     ## Authentication
 
     Every endpoint (including `GET /healthz`) requires HTTP Bearer
-    authentication: `Authorization: Bearer <token>`. The token is configured on
-    the server via the `API_TOKEN` environment variable (required; the server
-    fails closed and refuses to start without it). A missing or wrong token is
-    reported as the unified envelope `Err:UNAUTHORIZED` (HTTP stays 200).
+    authentication: `Authorization: Bearer <credential>`. The credential is the
+    UTF-8 Base64 encoding of the shared secret: the server reads the raw secret
+    from the `API_TOKEN` environment variable (required; the server fails closed
+    and refuses requests without it) and Base64-encodes it once at startup, and
+    the SPA stores and sends the same Base64-encoded form. Using Base64 keeps
+    the header ASCII-safe and lets the shared secret contain non-ASCII
+    characters. A missing or wrong credential is reported as the unified
+    envelope `Err:UNAUTHORIZED` (HTTP stays 200).
 
     **Single exception**: `GET /api/generated/{name}` is unauthenticated — the
     name in the path is the access capability itself (the name is the secret;
@@ -642,7 +646,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: API token from the server's API_TOKEN environment variable.
+      description: >
+        The bearer credential is the UTF-8 Base64 encoding of the shared
+        secret from the server's API_TOKEN environment variable. Kept
+        header-safe (ASCII) and supports non-ASCII secrets.
   schemas:
     Envelope:
       description: Unified response envelope

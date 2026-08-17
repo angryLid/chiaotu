@@ -34,6 +34,31 @@ export type ApiCtx = SupabaseContext<Database>;
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
+ * Base64-encode a string as UTF-8 (browser-safe: `btoa` only covers Latin-1,
+ * so UTF-8 bytes must be expanded to code points first). Mirrors the SPA's
+ * `encodeToken` in `src/store/auth-store.ts` so both sides derive the same
+ * canonical credential for a given shared secret.
+ */
+function encodeToken(secret: string): string {
+	const bytes = new TextEncoder().encode(secret);
+	let binary = "";
+	for (let i = 0; i < bytes.length; i++) {
+		binary += String.fromCharCode(bytes[i]);
+	}
+	return btoa(binary);
+}
+
+/**
+ * Expected bearer credential, computed once at module load from the raw
+ * `API_TOKEN` env var (Base64-encoded exactly like the frontend stores it).
+ * Empty when `API_TOKEN` is unset, which fails closed in `apiTokenFailure`.
+ */
+const EXPECTED_TOKEN = (() => {
+	const raw = process.env.API_TOKEN;
+	return raw ? encodeToken(raw) : "";
+})();
+
+/**
  * Wrap a handler with the API_TOKEN bearer check and a Supabase context.
  * Fail-closed: an unset API_TOKEN refuses every request (mirrors the Go server).
  */
@@ -87,9 +112,9 @@ async function fetchWithTimeout(
 	}
 }
 
-/** Err:UNAUTHORIZED when the bearer token is missing or does not match API_TOKEN. */
+/** Err:UNAUTHORIZED when the bearer credential is missing or does not match the Base64-encoded API_TOKEN. */
 function apiTokenFailure(request: Request): Response | null {
-	const expected = process.env.API_TOKEN;
+	const expected = EXPECTED_TOKEN;
 	// Fail closed: if API_TOKEN is unset, refuse every request.
 	if (!expected) return unauthorized();
 

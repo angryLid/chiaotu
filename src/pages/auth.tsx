@@ -14,7 +14,7 @@
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate } from "~/router";
-import { useAuthStore } from "~/store/auth-store";
+import { encodeToken, useAuthStore } from "~/store/auth-store";
 
 type AuthErrorKey = "unauthorized" | "unreachable";
 
@@ -23,15 +23,15 @@ type ValidateState =
 	| { kind: "loading" }
 	| { kind: "error"; message: AuthErrorKey };
 
-/** Validate the token by calling the authenticated healthz endpoint. */
-async function validateToken(token: string): Promise<ValidateState> {
+/** Validate the raw shared secret by sending its Base64 encoding to healthz. */
+async function validateToken(secret: string): Promise<ValidateState> {
 	let response: Response;
 	try {
 		response = await fetch("/healthz", {
 			method: "GET",
 			headers: {
 				"Content-Type": "application/json",
-				Authorization: `Bearer ${token}`,
+				Authorization: `Bearer ${encodeToken(secret)}`,
 			},
 		});
 	} catch {
