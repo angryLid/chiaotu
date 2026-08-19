@@ -44,9 +44,7 @@ export async function produce() {
 	baseProfile.proxies = proxies;
 	baseProfile["proxy-groups"] = [
 		...groupsByVendors,
-		...createGroupsByCountry(
-			groupsByVendors.map(({ name }) => name),
-		),
+		...createGroupsByCountry(groupsByVendors.map(({ name }) => name)),
 	];
 
 	const dump = yaml.dump(baseProfile, {
@@ -58,9 +56,7 @@ export async function produce() {
 	return dump;
 }
 
-function createGroupsByCountry(
-	proxyGroupName: Array<string>,
-): ProxyGroup[] {
+function createGroupsByCountry(proxyGroupName: Array<string>): ProxyGroup[] {
 	function createSelectGroup(name: string, proxies: string[]): ProxyGroup {
 		return {
 			name,

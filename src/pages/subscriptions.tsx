@@ -15,8 +15,8 @@ import {
 	type SubscriptionInput,
 	type SubscriptionSummary,
 } from "~/api/subscriptions";
-import { errorMessage, formatDateTime } from "~/i18n";
 import { Collapsible } from "~/components/Collapsible";
+import { errorMessage, formatDateTime } from "~/i18n";
 import { type ParsedSubscription, useAppStore } from "~/store/app-store";
 import type { NodeProxy } from "~/utils/nodes";
 
@@ -415,9 +415,7 @@ function SubscriptionItem({
 			})}
 			header={
 				<>
-					<span className="block truncate text-sm font-medium">
-						{sub.name}
-					</span>
+					<span className="block truncate text-sm font-medium">{sub.name}</span>
 					{sub.url === "" ? (
 						<span className="block truncate text-xs text-slate-400">
 							{t("subs.detail.noUrlList")}
