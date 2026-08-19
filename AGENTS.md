@@ -39,3 +39,9 @@ The project is **currently being transformed into a Web project** (frontend SPA 
 ### 3. Update the API spec (docs/openapi.yaml) before changing an API
 
 - **Spec-first**: before creating or modifying an API endpoint, first create or update its definition in `docs/openapi.yaml`. The spec is the source of truth for the API contract; code changes must follow the spec, not the other way around.
+
+### 4. Prefer optimistic updates after successful mutations
+
+- **Cache-first**: when a mutation returns the expected updated resource or result, update the relevant frontend query/store cache directly from that response instead of refetching `initial-dump` or issuing another read request.
+- Keep the cache update structurally consistent with the server response, including list, detail, and derived caches where applicable.
+- Use refetching only when the mutation response is insufficient to update all affected client state or when consistency cannot be established safely from the response.
