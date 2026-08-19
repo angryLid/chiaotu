@@ -32,7 +32,12 @@ info:
 
     ```json
     { "status": "Ok", "result": <business data> }
-    { "status": "Err:<CODE>", "result": "<error description>" }
+    { "status": "Err:<CODE>", "result": "<error description>", "stack"?: "<server stack>" }
+
+    Error envelopes may carry an optional `stack` field: a diagnostic copy of the
+    server-side call stack (including the underlying network/Abort error when one
+    triggered the failure). It exists to aid debugging `FETCH_FAILED` and other
+    server errors from the browser DevTools; it is never present on `Ok`.
     ```
 
     - The client receives no HTTP response at all = gateway/server failure (transport-level error)
@@ -822,6 +827,13 @@ components:
         result:
           nullable: true
           description: Business payload. Business data on success, an error description string on failure.
+        stack:
+          type: string
+          description: >
+            Optional diagnostic copy of the server-side JavaScript call stack.
+            Present only on error envelopes (e.g. `Err:FETCH_FAILED`, when the
+            backend wraps a network/anupstream exception) to help debug
+            connectivity failures from the browser. Not present on success.
 
     Subscription:
       description: Full subscription (with raw content)

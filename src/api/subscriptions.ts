@@ -23,7 +23,7 @@ import { useAuthStore } from "~/store/auth-store";
 
 export type Envelope<T> =
 	| { status: "Ok"; result: T }
-	| { status: `Err:${string}`; result: string };
+	| { status: `Err:${string}`; result: string; stack?: string };
 
 // ---- types ----
 
@@ -99,10 +99,21 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 			useAuthStore.getState().clearToken();
 		}
 
+		const stack = envelope["stack"];
+		if (typeof stack === "string" && code === "FETCH_FAILED") {
+			// Surface the backend network exception's call stack to the console
+			// so connectivity failures can be debugged from the browser.
+			console.error(
+				`FETCH_FAILED server stack:\n${stack}\n`,
+				envelope.result,
+			);
+		}
+
 		throw new ApiError(
 			envelope.result,
 			code,
 			code === "LIMIT_EXCEEDED" ? { max: MAX_SUBSCRIPTIONS } : undefined,
+			typeof stack === "string" ? stack : undefined,
 		);
 	}
 	return envelope.result;

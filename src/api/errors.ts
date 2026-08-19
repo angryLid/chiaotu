@@ -31,16 +31,20 @@ export type ApiErrorCode =
 export class ApiError extends Error {
 	readonly code: ApiErrorCode | null;
 	readonly params: Record<string, unknown> | undefined;
+	/** Optional server-side call stack (from the error envelope) for debugging. */
+	readonly serverStack: string | undefined;
 
 	constructor(
 		message: string,
 		code: ApiErrorCode | null = null,
 		params?: Record<string, unknown>,
+		serverStack?: string,
 	) {
 		super(message);
 		this.name = "ApiError";
 		this.code = code;
 		this.params = params;
+		this.serverStack = serverStack;
 
 		// Maintains proper stack trace for where our error was thrown (only available on V8)
 		if (Error.captureStackTrace) {

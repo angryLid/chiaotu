@@ -47,11 +47,18 @@ export async function fetchUrl(
 		return { name: deriveName(rawUrl), content };
 	} catch (e) {
 		if (e instanceof Error && e.name === "AbortError") {
-			throw FetchFailed("request timed out");
+			// Preserve the timeout/AbortError so its call stack is surfaced
+			// in the error envelope (see envelope.ts).
+			throw FetchFailed("request timed out", e);
 		}
-		// Re-raise a BizError (e.g. upstream non-200 or size limit) as-is.
+		// Re-raise a BizError (e.g. upstream non-200 or size limit) as-is. Any
+		// network/cause it derived from is already carried on it.
 		if (e instanceof BizError) throw e;
-		throw FetchFailed(`request failed: ${String(e)}`);
+		// Last-resort network failure: attach the underlying exception for the stack.
+		throw FetchFailed(
+			`request failed: ${String(e)}`,
+			e instanceof Error ? e : undefined,
+		);
 	} finally {
 		clearTimeout(timer);
 	}
