@@ -20,6 +20,11 @@ import type { NodeProxy } from "~/utils/nodes";
 import { getFlagByNodeName } from "./string";
 
 /** One rule source: the nodes matched by a rule, named after the rule. */
+export interface HostsSource {
+	name: string;
+	entries: Array<{ domain: string; ip: string; enabled: boolean }>;
+}
+
 export interface RuleSource {
 	/** Rule name — becomes the proxy-group name. */
 	name: string;
@@ -44,6 +49,8 @@ export interface RuleSource {
 export function buildProfile(
 	baseTemplate: string,
 	sources: RuleSource[],
+	hostsSources: HostsSource[] = [],
+	loopbackOverride: string | null = null,
 ): string {
 	if (typeof baseTemplate !== "string" || baseTemplate.trim() === "") {
 		throw new Error(
@@ -98,10 +105,24 @@ export function buildProfile(
 	assembled.proxies = proxies;
 	assembled["proxy-groups"] = [
 		...ruleGroups,
-		...createGroupsByCountry(
-			ruleGroups.map(({ name }) => name),
-		),
+		...createGroupsByCountry(ruleGroups.map(({ name }) => name)),
 	];
+
+	const hosts = new Map<string, string>();
+	for (const source of hostsSources) {
+		for (const entry of source.entries) {
+			if (!entry.enabled) continue;
+			const ip = entry.ip || loopbackOverride || "127.0.0.1";
+			hosts.set(entry.domain, ip);
+		}
+	}
+	if (hosts.size > 0) {
+		assembled.hosts = Object.fromEntries(hosts);
+		assembled.rules = [
+			...Array.from(hosts.keys(), (domain) => `DOMAIN,${domain},DIRECT`),
+			...(baseProfile.rules ?? []),
+		];
+	}
 
 	return yaml.dump(assembled, {
 		flowLevel: 2,
@@ -110,9 +131,7 @@ export function buildProfile(
 	});
 }
 
-function createGroupsByCountry(
-	ruleGroupName: string[],
-): ProxyGroup[] {
+function createGroupsByCountry(ruleGroupName: string[]): ProxyGroup[] {
 	function createSelectGroup(name: string, members: string[]): ProxyGroup {
 		return {
 			name,

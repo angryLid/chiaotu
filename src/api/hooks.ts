@@ -15,7 +15,21 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createGenerated, getLatestGenerated, getRecentGenerated } from "./generated";
+import type { HostsProfile } from "~/persistence/hosts";
+import {
+	createGenerated,
+	type Generated,
+	getLatestGenerated,
+	getRecentGenerated,
+} from "./generated";
+import {
+	createHostsProfile,
+	deleteHostsProfile,
+	getHostsProfile,
+	type HostsImportEntry,
+	importHostsEntries,
+	updateHostsEntry,
+} from "./hosts";
 import {
 	createRule,
 	deleteRule,
@@ -40,6 +54,7 @@ const initialDumpKey = ["initialDump"] as const;
 const subscriptionDetailKey = (id: number) => ["subscription", id] as const;
 
 const ruleDetailKey = (id: number) => ["rule", id] as const;
+const hostsProfileDetailKey = (id: number) => ["hostsProfile", id] as const;
 
 const latestGeneratedKey = ["latestGenerated"] as const;
 
@@ -59,6 +74,123 @@ export function useInitialDump() {
 }
 
 /** Single subscription (with raw content); detail and edit share the same cache entry. */
+export function useHostsProfile(id: number) {
+	return useQuery({
+		queryKey: hostsProfileDetailKey(id),
+		queryFn: () => getHostsProfile(id),
+	});
+}
+
+export function useCreateHostsProfile() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: createHostsProfile,
+		onSuccess: (profile) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: { ...dump, hostsProfiles: [profile, ...dump.hostsProfiles] },
+			);
+			queryClient.setQueryData(hostsProfileDetailKey(profile.id), profile);
+		},
+	});
+}
+export function useImportHostsEntries() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			id,
+			entries,
+		}: {
+			id: number;
+			entries: HostsImportEntry[];
+		}) => importHostsEntries(id, entries),
+		onSuccess: (entries, variables) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							hostsProfiles: dump.hostsProfiles.map((profile) =>
+								profile.id === variables.id ? { ...profile, entries } : profile,
+							),
+						},
+			);
+			queryClient.setQueryData(
+				hostsProfileDetailKey(variables.id),
+				(profile) =>
+					profile === undefined ? profile : { ...profile, entries },
+			);
+		},
+	});
+}
+export function useUpdateHostsEntry() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			profileId,
+			entryId,
+			...input
+		}: {
+			profileId: number;
+			entryId: number;
+			domain: string;
+			ip: string;
+			enabled: boolean;
+		}) => updateHostsEntry(profileId, entryId, input),
+		onSuccess: (entry, variables) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							hostsProfiles: dump.hostsProfiles.map((profile) =>
+								profile.id !== variables.profileId
+									? profile
+									: {
+											...profile,
+											entries: profile.entries.map((item) =>
+												item.id === entry.id ? entry : item,
+											),
+										},
+							),
+						},
+			);
+			queryClient.setQueryData<HostsProfile>(
+				hostsProfileDetailKey(variables.profileId),
+				(profile) =>
+					profile === undefined
+						? profile
+						: {
+								...profile,
+								entries: profile.entries.map((item) =>
+									item.id === entry.id ? entry : item,
+								),
+							},
+			);
+		},
+	});
+}
+export function useDeleteHostsProfile() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: deleteHostsProfile,
+		onSuccess: (_result, id) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							hostsProfiles: dump.hostsProfiles.filter(
+								(profile) => profile.id !== id,
+							),
+						},
+			);
+			queryClient.removeQueries({ queryKey: hostsProfileDetailKey(id) });
+		},
+	});
+}
+
 export function useSubscription(id: number) {
 	return useQuery({
 		queryKey: subscriptionDetailKey(id),
@@ -97,8 +229,12 @@ export function useCreateSubscription() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createSubscription,
-		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+		onSuccess: (sub) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: { ...dump, subscriptions: [...dump.subscriptions, sub] },
+			);
 		},
 	});
 }
@@ -115,17 +251,15 @@ export function useUpdateSubscription(id: number) {
 		mutationFn: (input: SubscriptionInput) => updateSubscription(id, input),
 		onSuccess: (sub) => {
 			queryClient.setQueryData(subscriptionDetailKey(sub.id), sub);
-			queryClient.setQueryData<InitialDump>(
-				initialDumpKey,
-				(dump) =>
-					dump === undefined
-						? dump
-						: {
-								...dump,
-								subscriptions: dump.subscriptions.map((s) =>
-									s.id === sub.id ? sub : s,
-								),
-							},
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							subscriptions: dump.subscriptions.map((s) =>
+								s.id === sub.id ? sub : s,
+							),
+						},
 			);
 		},
 	});
@@ -137,7 +271,14 @@ export function useDeleteSubscription() {
 	return useMutation({
 		mutationFn: deleteSubscription,
 		onSuccess: (_data, id) => {
-			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							subscriptions: dump.subscriptions.filter((sub) => sub.id !== id),
+						},
+			);
 			queryClient.removeQueries({ queryKey: subscriptionDetailKey(id) });
 		},
 	});
@@ -148,8 +289,10 @@ export function useCreateRule() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createRule,
-		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
+		onSuccess: (rule) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined ? dump : { ...dump, rules: [rule, ...dump.rules] },
+			);
 		},
 	});
 }
@@ -160,8 +303,17 @@ export function useUpdateRule(id: number) {
 	return useMutation({
 		mutationFn: (input: RuleInput) => updateRule(id, input),
 		onSuccess: (rule) => {
-			void queryClient.invalidateQueries({ queryKey: initialDumpKey });
-			void queryClient.invalidateQueries({ queryKey: ruleDetailKey(rule.id) });
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							rules: dump.rules.map((item) =>
+								item.id === rule.id ? rule : item,
+							),
+						},
+			);
+			queryClient.setQueryData(ruleDetailKey(rule.id), rule);
 		},
 	});
 }
@@ -172,12 +324,10 @@ export function useDeleteRule() {
 	return useMutation({
 		mutationFn: deleteRule,
 		onSuccess: (_data, id) => {
-			queryClient.setQueryData<InitialDump>(
-				initialDumpKey,
-				(dump) =>
-					dump === undefined
-						? dump
-						: { ...dump, rules: dump.rules.filter((r) => r.id !== id) },
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: { ...dump, rules: dump.rules.filter((r) => r.id !== id) },
 			);
 			queryClient.removeQueries({ queryKey: ruleDetailKey(id) });
 		},
@@ -189,8 +339,16 @@ export function useCreateGenerated() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createGenerated,
-		onSuccess: () => {
-			void queryClient.invalidateQueries({ queryKey: recentGeneratedKey });
+		onSuccess: (generated) => {
+			queryClient.setQueryData<Generated[]>(recentGeneratedKey, (items) =>
+				items === undefined
+					? items
+					: [
+							generated,
+							...items.filter((item) => item.id !== generated.id),
+						].slice(0, RECENT_GENERATED_LIMIT),
+			);
+			queryClient.setQueryData(latestGeneratedKey, generated);
 		},
 	});
 }

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
 import AuthPage from "~/pages/auth";
+import HostsPage from "~/pages/hosts";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
 import StatusPage from "~/pages/status";
 import SubscriptionsPage from "~/pages/subscriptions";
@@ -16,7 +17,7 @@ import { navigate } from "~/router";
 import { useAppStore } from "~/store/app-store";
 import { useAuthStore } from "~/store/auth-store";
 
-type NavKey = "subscriptions" | "rules" | "status";
+type NavKey = "subscriptions" | "rules" | "hosts" | "status";
 
 /**
  * App route, derived from the URL path (history API, no router dependency).
@@ -27,7 +28,8 @@ type Route =
 	| { page: "rules"; view: "list" }
 	| { page: "rules"; view: "new" }
 	| { page: "rules"; view: "edit"; id: number }
-	| { page: "status" };
+	| { page: "status" }
+	| { page: "hosts" };
 
 /** Parse /subscriptions | /rules | /rules/new | /rules/{id}/edit | /status. */
 function parsePath(path: string): Route {
@@ -47,6 +49,8 @@ function parsePath(path: string): Route {
 			return { page: "rules", view: "list" };
 		case "status":
 			return { page: "status" };
+		case "hosts":
+			return { page: "hosts" };
 		default:
 			// Unmatched or empty paths land on the status dashboard (the default route).
 			return { page: "status" };
@@ -57,6 +61,7 @@ const NAV_ITEMS = [
 	{ key: "status", labelKey: "app.nav.status", icon: "🚀" },
 	{ key: "subscriptions", labelKey: "app.nav.subscriptions", icon: "📥" },
 	{ key: "rules", labelKey: "app.nav.rules", icon: "📜" },
+	{ key: "hosts", labelKey: "app.nav.hosts", icon: "🧩" },
 ] as const;
 
 function navigateTo(key: NavKey) {
@@ -224,7 +229,9 @@ function Dashboard() {
 			? "rules"
 			: route.page === "status"
 				? "status"
-				: "subscriptions";
+				: route.page === "hosts"
+					? "hosts"
+					: "subscriptions";
 
 	return (
 		<div className="min-h-screen bg-slate-50 text-slate-900">
@@ -276,6 +283,8 @@ function Dashboard() {
 			<main className="px-4 pb-4 pt-4 md:ml-56 md:px-6 md:py-6">
 				{route.page === "subscriptions" ? (
 					<SubscriptionsPage />
+				) : route.page === "hosts" ? (
+					<HostsPage />
 				) : route.page === "status" ? (
 					<StatusPage />
 				) : route.view === "list" ? (

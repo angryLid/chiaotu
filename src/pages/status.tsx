@@ -16,13 +16,21 @@ import { nanoid } from "nanoid";
 import { QRCodeSVG } from "qrcode.react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCreateGenerated, useInitialDump, useRecentGenerated } from "~/api/hooks";
 import type { Generated } from "~/api/generated";
-import { errorMessage, formatDateTime } from "~/i18n";
+import {
+	useCreateGenerated,
+	useInitialDump,
+	useRecentGenerated,
+} from "~/api/hooks";
 import { Collapsible } from "~/components/Collapsible";
+import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule } from "~/persistence/rules";
 import { useAppStore } from "~/store/app-store";
-import { buildProfile, type RuleSource } from "~/utils/produceProfile";
+import {
+	buildProfile,
+	type HostsSource,
+	type RuleSource,
+} from "~/utils/produceProfile";
 import {
 	applyRule,
 	type MatchedNode,
@@ -151,8 +159,7 @@ function GeneratedItem({
 						{item.name}
 					</span>
 					<span className="mt-0.5 block text-xs text-slate-400">
-						{t("status.latest.generatedAt")}：
-						{formatDateTime(item.created_at)}
+						{t("status.latest.generatedAt")}：{formatDateTime(item.created_at)}
 					</span>
 				</>
 			}
@@ -222,10 +229,14 @@ export default function StatusPage() {
 
 	const subscriptions = useAppStore((s) => s.subscriptions);
 	const rules = useAppStore((s) => s.rules);
+	const hostsProfiles = useAppStore((s) => s.hostsProfiles);
 	const parsed = useAppStore((s) => s.parsed);
 	const hydratedAt = useAppStore((s) => s.hydratedAt);
 
 	const [selectedRuleIds, setSelectedRuleIds] = useState<number[]>([]);
+	const [selectedHostsProfileIds, setSelectedHostsProfileIds] = useState<
+		number[]
+	>([]);
 	const [generationError, setGenerationError] = useState<string | null>(null);
 
 	const selectedRules: Rule[] = useMemo(
@@ -309,10 +320,37 @@ export default function StatusPage() {
 			nodes: applyRule(rule.filter, nodeSources),
 		}));
 
+		if (selectedHostsProfileIds.length === 0 && selectedRules.length === 0) {
+			setGenerationError(t("status.generate.noRule"));
+			return;
+		}
+		const hostsSources: HostsSource[] = selectedHostsProfileIds
+			.map((id) => hostsProfiles.find((profile) => profile.id === id))
+			.filter(
+				(profile): profile is NonNullable<typeof profile> =>
+					profile !== undefined,
+			)
+			.map((profile) => ({ name: profile.name, entries: profile.entries }));
 		setGenerationError(null);
 		try {
 			const baseTemplate = await loadBaseTemplate();
-			const content = buildProfile(baseTemplate, sources);
+			const loopbackOverride = (() => {
+				const value =
+					window.localStorage.getItem("chiaotu.hosts.loopbackOverride") ?? "";
+				const parts = value.split(".");
+				return parts.length === 4 &&
+					parts.every(
+						(part) => /^(?:0|[1-9]\\d{0,2})$/.test(part) && Number(part) <= 255,
+					)
+					? value
+					: null;
+			})();
+			const content = buildProfile(
+				baseTemplate,
+				sources,
+				hostsSources,
+				loopbackOverride,
+			);
 			await createMutation.mutateAsync({
 				name: nanoid(GENERATED_NAME_LENGTH),
 				content,
@@ -462,6 +500,103 @@ export default function StatusPage() {
 							</span>
 						</>
 					)}
+				</div>
+
+				<div className="mt-4">
+					<span className="text-sm font-medium text-slate-700">
+						Hosts profiles (ordered)
+					</span>
+					<div className="mt-2 space-y-1 rounded-md border border-slate-200 p-2">
+						{selectedHostsProfileIds.map((id, index) => {
+							const profile = hostsProfiles.find((item) => item.id === id);
+							if (!profile) return null;
+							return (
+								<div
+									key={id}
+									className="flex items-center gap-2 rounded px-2 py-1 text-sm"
+								>
+									<span className="w-5 text-xs text-slate-400">
+										{index + 1}
+									</span>
+									<span className="min-w-0 flex-1 truncate">
+										{profile.name}
+									</span>
+									<button
+										type="button"
+										disabled={index === 0}
+										onClick={() =>
+											setSelectedHostsProfileIds((current) => {
+												const next = [...current];
+												[next[index - 1], next[index]] = [
+													next[index],
+													next[index - 1],
+												];
+												return next;
+											})
+										}
+										className="rounded border px-2 py-1 text-xs disabled:opacity-30"
+									>
+										↑
+									</button>
+									<button
+										type="button"
+										disabled={index === selectedHostsProfileIds.length - 1}
+										onClick={() =>
+											setSelectedHostsProfileIds((current) => {
+												const next = [...current];
+												[next[index], next[index + 1]] = [
+													next[index + 1],
+													next[index],
+												];
+												return next;
+											})
+										}
+										className="rounded border px-2 py-1 text-xs disabled:opacity-30"
+									>
+										↓
+									</button>
+									<button
+										type="button"
+										onClick={() =>
+											setSelectedHostsProfileIds((current) =>
+												current.filter((item) => item !== id),
+											)
+										}
+										className="rounded border px-2 py-1 text-xs"
+									>
+										Remove
+									</button>
+								</div>
+							);
+						})}
+						<div className="border-t border-slate-100 pt-2">
+							<select
+								value=""
+								onChange={(event) => {
+									const id = Number(event.target.value);
+									if (id)
+										setSelectedHostsProfileIds((current) =>
+											current.includes(id) ? current : [...current, id],
+										);
+								}}
+								className="min-h-11 w-full rounded border border-slate-300 px-2 text-sm"
+							>
+								<option value="">Add a Hosts profile…</option>
+								{hostsProfiles
+									.filter(
+										(profile) => !selectedHostsProfileIds.includes(profile.id),
+									)
+									.map((profile) => (
+										<option key={profile.id} value={profile.id}>
+											{profile.name}
+										</option>
+									))}
+							</select>
+						</div>
+					</div>
+					<p className="mt-1 text-xs text-slate-400">
+						Profiles later in the selection override earlier profiles.
+					</p>
 				</div>
 
 				<p className="mt-2 text-xs text-slate-400">

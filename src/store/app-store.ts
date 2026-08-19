@@ -20,6 +20,7 @@
 import { create } from "zustand";
 import { ApiError } from "~/api/errors";
 import type { InitialDump, Subscription } from "~/api/subscriptions";
+import type { HostsProfile } from "~/persistence/hosts";
 import type { Rule } from "~/persistence/rules";
 import { type NodeProxy, parseNodes } from "~/utils/nodes";
 
@@ -34,6 +35,7 @@ interface AppStore {
 	subscriptions: Subscription[];
 	/** All rules, newest first, from the initial dump. */
 	rules: Rule[];
+	hostsProfiles: HostsProfile[];
 	/** Per-subscription parse result, keyed by subId (string). */
 	parsed: Record<string, ParsedSubscription>;
 	/** Client-side timestamp of the last hydration (for "synced at" display). */
@@ -45,6 +47,7 @@ interface AppStore {
 export const useAppStore = create<AppStore>()((set) => ({
 	subscriptions: [],
 	rules: [],
+	hostsProfiles: [],
 	parsed: {},
 	hydratedAt: null,
 	hydrate: (dump) => {
@@ -68,6 +71,7 @@ export const useAppStore = create<AppStore>()((set) => ({
 		set({
 			subscriptions: dump.subscriptions,
 			rules: dump.rules,
+			hostsProfiles: dump.hostsProfiles,
 			parsed,
 			hydratedAt: Date.now(),
 		});

@@ -12,7 +12,7 @@ export const config = { runtime: "edge" };
 
 export default withApi(async (request, ctx) => {
 	if (request.method !== "GET") return methodNotAllowed();
-	const [subs, rules] = await Promise.all([
+	const [subs, rules, hosts] = await Promise.all([
 		ctx.supabaseAdmin
 			.from("subscriptions")
 			.select("*")
@@ -23,8 +23,22 @@ export default withApi(async (request, ctx) => {
 			.select("*")
 			.is("deleted_at", null)
 			.order("id", { ascending: false }),
+		ctx.supabaseAdmin
+			.from("hosts_profiles")
+			.select("*, hosts_entries(*)")
+			.is("deleted_at", null)
+			.is("hosts_entries.deleted_at", null)
+			.order("id", { ascending: false }),
 	]);
 	if (subs.error) return err(new Error(subs.error.message));
 	if (rules.error) return err(new Error(rules.error.message));
-	return ok({ subscriptions: subs.data ?? [], rules: rules.data ?? [] });
+	if (hosts.error) return err(new Error(hosts.error.message));
+	return ok({
+		subscriptions: subs.data ?? [],
+		rules: rules.data ?? [],
+		hostsProfiles: (hosts.data ?? []).map((profile) => ({
+			...profile,
+			entries: profile.hosts_entries ?? [],
+		})),
+	});
 });

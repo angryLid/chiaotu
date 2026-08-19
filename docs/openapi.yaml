@@ -91,6 +91,8 @@ tags:
     description: Node-filtering rule management (CRUD only; the backend stores and validates, the frontend evaluates)
   - name: generated
     description: Generated result files (the frontend produces them in the browser and uploads them; the backend stores and serves the latest one)
+  - name: hosts
+    description: Hosts profiles and entries used during browser-side projection generation
 
 paths:
   /healthz:
@@ -154,6 +156,117 @@ paths:
                       updated_at: "2026-01-01T00:00:00Z"
         "500":
           $ref: "#/components/responses/InternalError"
+
+  /api/hosts/profiles:
+    get:
+      summary: List active Hosts profiles
+      operationId: listHostsProfiles
+      tags: [hosts]
+      responses:
+        "200":
+          description: Active profiles with active entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result:
+                        type: array
+                        items: { $ref: "#/components/schemas/HostsProfile" }
+    post:
+      summary: Create a Hosts profile
+      operationId: createHostsProfile
+      tags: [hosts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostsProfileInput" }
+      responses:
+        "200":
+          description: Created profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Envelope" }
+
+  /api/hosts/profiles/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      summary: Get a Hosts profile
+      operationId: getHostsProfile
+      tags: [hosts]
+      responses:
+        "200": { description: Profile, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+    put:
+      summary: Rename a Hosts profile
+      operationId: updateHostsProfile
+      tags: [hosts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostsProfileInput" }
+      responses:
+        "200": { description: Updated profile, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+    delete:
+      summary: Soft-delete a Hosts profile and all its entries
+      operationId: deleteHostsProfile
+      tags: [hosts]
+      responses:
+        "200": { description: Deleted profile, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+
+  /api/hosts/profiles/{id}/entries/import:
+    post:
+      summary: Import up to 50 normalized Hosts entries
+      operationId: importHostsEntries
+      tags: [hosts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostsImportInput" }
+      responses:
+        "200": { description: Active entries after import, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+
+  /api/hosts/profiles/{id}/entries/{entryId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+      - name: entryId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    put:
+      summary: Update a Hosts entry or its enabled state
+      operationId: updateHostsEntry
+      tags: [hosts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostsEntryInput" }
+      responses:
+        "200": { description: Updated entry, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+    delete:
+      summary: Soft-delete a Hosts entry
+      operationId: deleteHostsEntry
+      tags: [hosts]
+      responses:
+        "200": { description: Deleted entry, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
 
   /api/subscriptions:
     get:
@@ -805,6 +918,55 @@ components:
         filter:
           $ref: "#/components/schemas/RuleFilter"
 
+    HostsEntry:
+      type: object
+      required: [id, profile_id, domain, ip, enabled, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        profile_id: { type: integer, format: int64 }
+        domain: { type: string }
+        ip: { type: string, description: Empty means fallback is resolved during generation }
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time, nullable: true }
+    HostsProfile:
+      type: object
+      required: [id, name, entries, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/HostsEntry" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time, nullable: true }
+    HostsProfileInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+    HostsEntryInput:
+      type: object
+      required: [domain, ip, enabled]
+      properties:
+        domain: { type: string }
+        ip: { type: string, description: Empty or valid IPv4; IPv6 reserved for future use }
+        enabled: { type: boolean }
+    HostsImportInput:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [domain, ip]
+            properties:
+              domain: { type: string }
+              ip: { type: string }
     InitialDump:
       description: |
         Complete application state returned by GET /api/initial-dump: all active
@@ -812,8 +974,11 @@ components:
         calls this once on entry and hydrates its store from the single response;
         the backend never parses YAML, node parsing stays in the browser.
       type: object
-      required: [subscriptions, rules]
+      required: [subscriptions, rules, hostsProfiles]
       properties:
+        hostsProfiles:
+          type: array
+          items: { $ref: "#/components/schemas/HostsProfile" }
         subscriptions:
           type: array
           items: { $ref: "#/components/schemas/Subscription" }

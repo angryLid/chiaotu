@@ -15,6 +15,7 @@ import { ApiError } from "./errors";
 
 export { ApiError, type ApiErrorCode } from "./errors";
 
+import type { HostsProfile } from "~/persistence/hosts";
 import type { Rule } from "~/persistence/rules";
 import { useAuthStore } from "~/store/auth-store";
 
@@ -51,6 +52,12 @@ export interface Subscription extends SubscriptionSummary {
  * Body for creating / updating a subscription.
  * Validation: url and content must provide at least one non-empty value; url wins when both are given.
  */
+export interface InitialDump {
+	subscriptions: Subscription[];
+	rules: Rule[];
+	hostsProfiles: HostsProfile[];
+}
+
 export interface SubscriptionInput {
 	name?: string;
 	url?: string;
@@ -103,11 +110,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ---- subscription API ----
 
-/** Complete application state: all active subscriptions (full content) + all rules (newest first). */
-export interface InitialDump {
-	subscriptions: Subscription[];
-	rules: Rule[];
-}
+/** Complete application state: active subscriptions, rules, and Hosts profiles. */
 
 /** List all subscriptions (summaries, without content). */
 export function listSubscriptions(): Promise<SubscriptionSummary[]> {
