@@ -10,7 +10,7 @@ import { MAX_CONTENT_SIZE } from "./_lib/constants";
 import { err, methodNotAllowed, ok } from "./_lib/envelope";
 import { NotFound } from "./_lib/errors";
 import { readJson } from "./_lib/http";
-import { resolveGenerated } from "./_lib/validate";
+import { normalizeDisplayName, resolveGenerated } from "./_lib/validate";
 import { type ApiCtx, withApi } from "./_lib/with-api";
 
 export const config = { runtime: "edge" };
@@ -46,13 +46,17 @@ async function createGenerated(
 	ctx: ApiCtx,
 ): Promise<Response> {
 	const input = await readJson(request, MAX_CONTENT_SIZE);
-	const { name, content } = resolveGenerated({
+	const { name, display_name, content } = resolveGenerated({
 		name: typeof input.name === "string" ? input.name : "",
+		display_name:
+			typeof input.display_name === "string" || input.display_name === null
+				? input.display_name
+				: undefined,
 		content: typeof input.content === "string" ? input.content : "",
 	});
 	const { data, error } = await ctx.supabaseAdmin
 		.from("generated")
-		.insert({ name, content })
+		.insert({ name, display_name, content })
 		.select();
 	if (error) return err(new Error(error.message));
 	return ok((data ?? [])[0] ?? null);

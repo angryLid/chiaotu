@@ -1,5 +1,11 @@
 {
 	"devCommand": "vite --port $PORT --strictPort",
+	"crons": [
+		{
+			"path": "/api/cron/cleanup-generated",
+			"schedule": "0 20 * * *"
+		}
+	],
 	"rewrites": [
 		{
 			"source": "/healthz",

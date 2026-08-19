@@ -196,7 +196,7 @@ export const en: DeepString<typeof zhCN> = {
 			selectAll: "Select all",
 			matchCount:
 				"{{nodeCount}} nodes will match the selected projection rules",
-			submit: "Generate & upload",
+			submit: "Generate",
 			submitting: "Generating…",
 			noRules:
 				"No projection rules yet — create one in the Node Projections page first.",
@@ -204,12 +204,18 @@ export const en: DeepString<typeof zhCN> = {
 			noMatch:
 				"The selected projection rules match no nodes — nothing to generate",
 			failed: "Generation failed",
-			hint: "The browser filters the synced subscription nodes by the selected projection rules (multiple allowed) — each projection rule becomes a proxy group named after the projection rule — runs the produce pipeline to build a clash YAML, and uploads it to the backend.",
+			hint: "The browser generates the clash YAML locally. Upload it only after choosing whether to create a new generated subscription or update an existing one.",
+			ready: "Configuration generated. Choose how to save it.",
+			displayName: "Display name (optional)",
+			updateExisting: "Generated subscription",
+			createNew: "Create new generated subscription",
+			update: "Update generated subscription",
+			rename: "Rename",
 		},
 		latest: {
 			title: "Recent generated results",
 			empty:
-				"Nothing generated yet. Pick projection rules and click “Generate & upload”.",
+				"Nothing generated yet. Pick projection rules and click “Generate”",
 			toggle: "Generated result {{name}}",
 			size: "{{lines}} lines",
 			generatedAt: "Generated at",

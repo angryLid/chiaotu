@@ -710,6 +710,44 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   /api/generated/{name}:
+    put:
+      summary: Update an active generated result
+      description: |
+        Updates the generated content and/or optional display name. The public
+        download token (`name`) does not change. An empty display name clears it.
+      operationId: updateGenerated
+      security:
+        - bearerAuth: []
+      tags: [generated]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratedUpdate"
+      responses:
+        "200":
+          description: Success; result is the updated generated result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/Generated" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
     get:
       summary: Fetch a generated result by name (unauthenticated download link)
       description: |
@@ -989,9 +1027,8 @@ components:
     Generated:
       description: |
         A generated result file: the full clash YAML config produced by the
-        frontend in the browser (apply a rule to the parsed nodes, run the produce
-        pipeline, dump YAML) and uploaded to the backend. name is the nanoid chosen
-        by the frontend.
+        frontend in the browser and uploaded to the backend. name is the public
+        download token; display_name is optional and may be duplicated.
       type: object
       required: [id, name, content, created_at, updated_at]
       properties:
@@ -1000,31 +1037,52 @@ components:
           format: int64
         name:
           type: string
-          description: Nanoid chosen by the frontend
+          description: Public download token chosen by the frontend
+        display_name:
+          type: string
+          nullable: true
+          description: Optional user-facing name; duplicate values are allowed
         content:
           type: string
           description: The produced clash YAML config, stored as-is
         created_at:
           type: string
           format: date-time
-          description: Generation time (the GET endpoint returns the newest by this)
+          description: Generation time
         updated_at:
           type: string
           format: date-time
 
     GeneratedInput:
       description: |
-        Request body for storing a new generated result. name and content must both
-        be non-empty; the content is produced by the frontend and stored as-is.
+        Request body for storing a generated result. display_name is optional;
+        name and content must be non-empty.
       type: object
       required: [name, content]
       properties:
         name:
           type: string
-          description: Nanoid chosen by the frontend (non-empty)
+          description: Public download token chosen by the frontend (non-empty)
+        display_name:
+          type: string
+          nullable: true
+          description: Optional user-facing name; duplicate values are allowed
         content:
           type: string
           description: The produced clash YAML config (non-empty)
+
+    GeneratedUpdate:
+      description: Partial update for an active generated result. At least one field must be provided.
+      type: object
+      properties:
+        display_name:
+          type: string
+          nullable: true
+          description: User-facing name; null clears it
+        content:
+          type: string
+          description: The produced clash YAML config (non-empty)
+      minProperties: 1
 
 
   responses:

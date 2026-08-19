@@ -59,6 +59,7 @@ export interface Database {
 				Row: {
 					id: number;
 					name: string;
+					display_name: string | null;
 					content: string;
 					created_at: string;
 					updated_at: string;
@@ -66,10 +67,12 @@ export interface Database {
 				};
 				Insert: {
 					name: string;
+					display_name?: string | null;
 					content: string;
 				};
 				Update: Partial<{
 					name: string;
+					display_name: string | null;
 					content: string;
 					deleted_at: string | null;
 				}>;

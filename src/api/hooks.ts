@@ -19,6 +19,8 @@ import type { HostsProfile } from "~/persistence/hosts";
 import {
 	createGenerated,
 	type Generated,
+	type GeneratedUpdate,
+	updateGenerated,
 	getLatestGenerated,
 	getRecentGenerated,
 } from "./generated";
@@ -335,20 +337,28 @@ export function useDeleteRule() {
 }
 
 /** Store a new generated result; invalidate the recent list on success so the panel shows it. */
+function updateGeneratedCaches(queryClient: ReturnType<typeof useQueryClient>, generated: Generated) {
+	queryClient.setQueryData<Generated[]>(recentGeneratedKey, (items) =>
+		items === undefined
+			? items
+			: [generated, ...items.filter((item) => item.id !== generated.id)].slice(0, RECENT_GENERATED_LIMIT),
+	);
+	queryClient.setQueryData(latestGeneratedKey, generated);
+}
+
 export function useCreateGenerated() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: createGenerated,
-		onSuccess: (generated) => {
-			queryClient.setQueryData<Generated[]>(recentGeneratedKey, (items) =>
-				items === undefined
-					? items
-					: [
-							generated,
-							...items.filter((item) => item.id !== generated.id),
-						].slice(0, RECENT_GENERATED_LIMIT),
-			);
-			queryClient.setQueryData(latestGeneratedKey, generated);
-		},
+		onSuccess: (generated) => updateGeneratedCaches(queryClient, generated),
+	});
+}
+
+export function useUpdateGenerated() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ name, input }: { name: string; input: GeneratedUpdate }) =>
+			updateGenerated(name, input),
+		onSuccess: (generated) => updateGeneratedCaches(queryClient, generated),
 	});
 }

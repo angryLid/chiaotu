@@ -20,6 +20,7 @@ import type { Generated } from "~/api/generated";
 import {
 	useCreateGenerated,
 	useInitialDump,
+	useUpdateGenerated,
 	useRecentGenerated,
 } from "~/api/hooks";
 import { Collapsible } from "~/components/Collapsible";
@@ -128,6 +129,8 @@ function GeneratedItem({
 }) {
 	const { t } = useTranslation();
 	const [linkCopied, setLinkCopied] = useState(false);
+	const [editedDisplayName, setEditedDisplayName] = useState(item.display_name ?? "");
+	const renameMutation = useUpdateGenerated();
 
 	/**
 	 * Shareable download link for this result. GET /api/generated/{name} is
@@ -156,7 +159,7 @@ function GeneratedItem({
 			header={
 				<>
 					<span className="block truncate font-mono text-sm font-medium text-slate-800">
-						{item.name}
+						{item.display_name || item.name}
 					</span>
 					<span className="mt-0.5 block text-xs text-slate-400">
 						{t("status.latest.generatedAt")}：{formatDateTime(item.created_at)}
@@ -169,7 +172,26 @@ function GeneratedItem({
 				</span>
 			}
 		>
-			<div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+			<div className="flex flex-wrap items-center gap-2 text-sm">
+				<input
+					value={editedDisplayName}
+					onChange={(event) => setEditedDisplayName(event.target.value)}
+					placeholder={t("status.generate.displayName")}
+					className="min-h-11 min-w-0 flex-1 rounded border border-slate-300 px-2 text-xs"
+				/>
+				<button
+					type="button"
+					disabled={renameMutation.isPending}
+					onClick={() =>
+						void renameMutation.mutateAsync({
+							name: item.name,
+							input: { display_name: editedDisplayName },
+						})
+					}
+					className="min-h-11 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+				>
+					{t("status.generate.rename")}
+				</button>
 				<button
 					type="button"
 					onClick={() => downloadResult(item.name, item.content)}
@@ -226,6 +248,7 @@ export default function StatusPage() {
 	const query = useInitialDump();
 	const recentQuery = useRecentGenerated();
 	const createMutation = useCreateGenerated();
+	const updateMutation = useUpdateGenerated();
 
 	const subscriptions = useAppStore((s) => s.subscriptions);
 	const rules = useAppStore((s) => s.rules);
@@ -238,6 +261,9 @@ export default function StatusPage() {
 		number[]
 	>([]);
 	const [generationError, setGenerationError] = useState<string | null>(null);
+	const [pendingContent, setPendingContent] = useState<string | null>(null);
+	const [displayName, setDisplayName] = useState("");
+	const [targetGeneratedName, setTargetGeneratedName] = useState("");
 
 	const selectedRules: Rule[] = useMemo(
 		() => rules.filter((rule) => selectedRuleIds.includes(rule.id)),
@@ -351,10 +377,8 @@ export default function StatusPage() {
 				hostsSources,
 				loopbackOverride,
 			);
-			await createMutation.mutateAsync({
-				name: nanoid(GENERATED_NAME_LENGTH),
-				content,
-			});
+			setPendingContent(content);
+			setGenerationError(null);
 		} catch (error) {
 			setGenerationError(
 				error instanceof Error ? error.message : t("status.generate.failed"),
@@ -362,11 +386,36 @@ export default function StatusPage() {
 		}
 	}
 
+	async function saveGenerated() {
+		if (pendingContent === null) return;
+		try {
+			if (targetGeneratedName !== "") {
+				await updateMutation.mutateAsync({
+					name: targetGeneratedName,
+					input: { content: pendingContent, display_name: displayName },
+				});
+			} else {
+				await createMutation.mutateAsync({
+					name: nanoid(GENERATED_NAME_LENGTH),
+					display_name: displayName,
+					content: pendingContent,
+				});
+			}
+			setPendingContent(null);
+			setDisplayName("");
+			setTargetGeneratedName("");
+		} catch (error) {
+			setGenerationError(error instanceof Error ? error.message : t("status.generate.failed"));
+		}
+	}
+
 	const generationErrorBox =
 		generationError ??
 		(createMutation.isError && !createMutation.isPending
 			? errorMessage(createMutation.error)
-			: null);
+			: updateMutation.isError && !updateMutation.isPending
+				? errorMessage(updateMutation.error)
+				: null);
 
 	return (
 		<div>
@@ -430,11 +479,12 @@ export default function StatusPage() {
 						disabled={
 							query.isLoading ||
 							selectedRules.length === 0 ||
-							createMutation.isPending
+							createMutation.isPending ||
+							updateMutation.isPending
 						}
 						className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
-						{createMutation.isPending
+						{createMutation.isPending || updateMutation.isPending
 							? t("status.generate.submitting")
 							: t("status.generate.submit")}
 					</button>
@@ -598,6 +648,45 @@ export default function StatusPage() {
 						Profiles later in the selection override earlier profiles.
 					</p>
 				</div>
+
+				{pendingContent !== null ? (
+					<div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+						<p className="text-sm font-medium text-emerald-800">
+							{t("status.generate.ready")}
+						</p>
+						<label className="mt-2 block text-sm text-slate-700">
+							{t("status.generate.displayName")}
+							<input
+								value={displayName}
+								onChange={(event) => setDisplayName(event.target.value)}
+								className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-white px-3"
+							/>
+						</label>
+						<label className="mt-2 block text-sm text-slate-700">
+							{t("status.generate.updateExisting")}
+							<select
+								value={targetGeneratedName}
+								onChange={(event) => setTargetGeneratedName(event.target.value)}
+								className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-white px-3"
+							>
+								<option value="">{t("status.generate.createNew")}</option>
+								{(recentQuery.data ?? []).map((item) => (
+									<option key={item.id} value={item.name}>
+										{item.display_name || item.name}
+									</option>
+								))}
+							</select>
+						</label>
+						<div className="mt-3 flex flex-wrap gap-2">
+							<button type="button" onClick={() => downloadResult("generated", pendingContent)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700">
+								{t("status.latest.download")}
+							</button>
+							<button type="button" onClick={() => void saveGenerated()} disabled={createMutation.isPending || updateMutation.isPending} className="min-h-11 rounded-md bg-slate-900 px-3 text-sm font-medium text-white disabled:opacity-50">
+								{targetGeneratedName === "" ? t("status.generate.createNew") : t("status.generate.update")}
+							</button>
+						</div>
+					</div>
+				) : null}
 
 				<p className="mt-2 text-xs text-slate-400">
 					{t("status.generate.hint")}

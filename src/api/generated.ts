@@ -18,6 +18,7 @@ import { request } from "./subscriptions";
 export interface Generated {
 	id: number;
 	name: string;
+	display_name: string | null;
 	content: string;
 	created_at: string;
 	updated_at: string;
@@ -26,7 +27,13 @@ export interface Generated {
 /** Body for storing a new generated result. */
 export interface GeneratedInput {
 	name: string;
+	display_name?: string | null;
 	content: string;
+}
+
+export interface GeneratedUpdate {
+	display_name?: string | null;
+	content?: string;
 }
 
 /** Get the generated result with the most recent generation time. */
@@ -46,6 +53,17 @@ export function getRecentGenerated(limit = 5): Promise<Generated[]> {
 export function createGenerated(input: GeneratedInput): Promise<Generated> {
 	return request<Generated>("/generated", {
 		method: "POST",
+		body: JSON.stringify(input),
+	});
+}
+
+/** Update generated content and/or its optional display name. */
+export function updateGenerated(
+	name: string,
+	input: GeneratedUpdate,
+): Promise<Generated> {
+	return request<Generated>(`/generated/${encodeURIComponent(name)}`, {
+		method: "PUT",
 		body: JSON.stringify(input),
 	});
 }

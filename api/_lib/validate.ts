@@ -58,16 +58,24 @@ export function deriveName(rawUrl: string): string {
 }
 
 /** Validate a generated result input: name and content must be non-empty. */
-export function resolveGenerated(input: { name?: string; content?: string }): {
-	name: string;
-	content: string;
-} {
+export function resolveGenerated(input: {
+	name?: string;
+	display_name?: string | null;
+	content?: string;
+}): { name: string; display_name: string | null; content: string } {
 	const name = (input.name ?? "").trim();
 	if (name === "") throw InvalidArgument("generated name must not be empty");
+	const display_name = normalizeDisplayName(input.display_name);
 	const content = input.content ?? "";
 	if (content.trim() === "")
 		throw InvalidArgument("generated content must not be empty");
-	return { name, content };
+	return { name, display_name, content };
+}
+
+/** Empty display names are stored consistently as NULL. */
+export function normalizeDisplayName(value: string | null | undefined): string | null {
+	const normalized = typeof value === "string" ? value.trim() : "";
+	return normalized === "" ? null : normalized;
 }
 
 /**
