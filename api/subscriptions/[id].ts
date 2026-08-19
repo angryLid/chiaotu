@@ -6,13 +6,13 @@
  * Mirrors internal/controller/subscriptions.go (subscriptionItem).
  */
 
-import { MAX_CONTENT_SIZE } from "~api/_lib/constants";
-import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
-import { InvalidArgument, NotFound } from "~api/_lib/errors";
-import { fetchUrl } from "~api/_lib/fetch-url";
-import { idFromPath, readJson } from "~api/_lib/http";
-import { resolveSubscription } from "~api/_lib/validate";
-import { type ApiCtx, withApi } from "~api/_lib/with-api";
+import { MAX_CONTENT_SIZE } from "../_lib/constants";
+import { err, methodNotAllowed, ok } from "../_lib/envelope";
+import { InvalidArgument, NotFound } from "../_lib/errors";
+import { fetchUrl } from "../_lib/fetch-url";
+import { idFromPath, readJson } from "../_lib/http";
+import { resolveSubscription } from "../_lib/validate";
+import { type ApiCtx, withApi } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 

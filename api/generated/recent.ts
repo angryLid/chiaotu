@@ -6,8 +6,8 @@
  * has been generated yet.
  */
 
-import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
-import { type ApiCtx, withApi } from "~api/_lib/with-api";
+import { err, methodNotAllowed, ok } from "../_lib/envelope";
+import { type ApiCtx, withApi } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 

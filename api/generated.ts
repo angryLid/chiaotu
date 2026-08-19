@@ -6,7 +6,7 @@
  * Mirrors internal/controller/generated.go (generatedCollection).
  */
 
-import { resolveGenerated } from "~api/_lib/validate";
+import { resolveGenerated } from "./_lib/validate";
 import { MAX_CONTENT_SIZE } from "./_lib/constants";
 import { err, methodNotAllowed, ok } from "./_lib/envelope";
 import { NotFound } from "./_lib/errors";

@@ -13,11 +13,7 @@
 		"skipLibCheck": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
-		"noFallthroughCasesInSwitch": true,
-		"baseUrl": ".",
-		"paths": {
-			"~api/*": ["./*"]
-		}
+		"noFallthroughCasesInSwitch": true
 	},
 	"include": ["./**/*.ts"]
 }

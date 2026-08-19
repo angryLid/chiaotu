@@ -14,12 +14,12 @@
  * envelope (Err:NOT_FOUND).
  */
 
-import { MAX_CONTENT_SIZE } from "~api/_lib/constants";
-import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
-import { InvalidArgument, NotFound } from "~api/_lib/errors";
-import { readJson } from "~api/_lib/http";
-import { normalizeDisplayName } from "~api/_lib/validate";
-import { type ApiCtx, withApi, withPublicCtx } from "~api/_lib/with-api";
+import { MAX_CONTENT_SIZE } from "../_lib/constants";
+import { err, methodNotAllowed, ok } from "../_lib/envelope";
+import { InvalidArgument, NotFound } from "../_lib/errors";
+import { readJson } from "../_lib/http";
+import { normalizeDisplayName } from "../_lib/validate";
+import { type ApiCtx, withApi, withPublicCtx } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 

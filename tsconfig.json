@@ -19,10 +19,8 @@
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,
-		"baseUrl": ".",
 		"paths": {
-			"~/*": ["./src/*"],
-			"~api/*": ["./api/*"]
+			"~/*": ["./src/*"]
 		}
 	},
 	"include": ["src"]

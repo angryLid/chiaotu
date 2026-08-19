@@ -1,6 +1,6 @@
 /** Vercel Cron: soft-delete unnamed generated artifacts older than 14 days. */
-import { methodNotAllowed, ok } from "~api/_lib/envelope";
-import { type ApiCtx, withApi } from "~api/_lib/with-api";
+import { methodNotAllowed, ok } from "../_lib/envelope";
+import { type ApiCtx, withApi } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 
