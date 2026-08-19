@@ -20,8 +20,8 @@ import type { Generated } from "~/api/generated";
 import {
 	useCreateGenerated,
 	useInitialDump,
-	useUpdateGenerated,
 	useRecentGenerated,
+	useUpdateGenerated,
 } from "~/api/hooks";
 import { Collapsible } from "~/components/Collapsible";
 import { errorMessage, formatDateTime } from "~/i18n";
@@ -129,7 +129,9 @@ function GeneratedItem({
 }) {
 	const { t } = useTranslation();
 	const [linkCopied, setLinkCopied] = useState(false);
-	const [editedDisplayName, setEditedDisplayName] = useState(item.display_name ?? "");
+	const [editedDisplayName, setEditedDisplayName] = useState(
+		item.display_name ?? "",
+	);
 	const renameMutation = useUpdateGenerated();
 
 	/**
@@ -405,7 +407,9 @@ export default function StatusPage() {
 			setDisplayName("");
 			setTargetGeneratedName("");
 		} catch (error) {
-			setGenerationError(error instanceof Error ? error.message : t("status.generate.failed"));
+			setGenerationError(
+				error instanceof Error ? error.message : t("status.generate.failed"),
+			);
 		}
 	}
 
@@ -678,11 +682,22 @@ export default function StatusPage() {
 							</select>
 						</label>
 						<div className="mt-3 flex flex-wrap gap-2">
-							<button type="button" onClick={() => downloadResult("generated", pendingContent)} className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700">
+							<button
+								type="button"
+								onClick={() => downloadResult("generated", pendingContent)}
+								className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700"
+							>
 								{t("status.latest.download")}
 							</button>
-							<button type="button" onClick={() => void saveGenerated()} disabled={createMutation.isPending || updateMutation.isPending} className="min-h-11 rounded-md bg-slate-900 px-3 text-sm font-medium text-white disabled:opacity-50">
-								{targetGeneratedName === "" ? t("status.generate.createNew") : t("status.generate.update")}
+							<button
+								type="button"
+								onClick={() => void saveGenerated()}
+								disabled={createMutation.isPending || updateMutation.isPending}
+								className="min-h-11 rounded-md bg-slate-900 px-3 text-sm font-medium text-white disabled:opacity-50"
+							>
+								{targetGeneratedName === ""
+									? t("status.generate.createNew")
+									: t("status.generate.update")}
 							</button>
 						</div>
 					</div>

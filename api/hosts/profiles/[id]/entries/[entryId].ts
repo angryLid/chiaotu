@@ -1,7 +1,7 @@
-import { err, methodNotAllowed, ok } from "../../../../../_lib/envelope";
-import { InvalidArgument, NotFound } from "../../../../../_lib/errors";
-import { readJson } from "../../../../../_lib/http";
-import { withApi } from "../../../../../_lib/with-api";
+import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
+import { InvalidArgument, NotFound } from "~api/_lib/errors";
+import { readJson } from "~api/_lib/http";
+import { withApi } from "~api/_lib/with-api";
 export const config = { runtime: "edge" };
 export default withApi(async (request, ctx) => {
 	const parts = new URL(request.url).pathname.split("/");

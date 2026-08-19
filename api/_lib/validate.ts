@@ -73,7 +73,9 @@ export function resolveGenerated(input: {
 }
 
 /** Empty display names are stored consistently as NULL. */
-export function normalizeDisplayName(value: string | null | undefined): string | null {
+export function normalizeDisplayName(
+	value: string | null | undefined,
+): string | null {
 	const normalized = typeof value === "string" ? value.trim() : "";
 	return normalized === "" ? null : normalized;
 }

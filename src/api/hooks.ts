@@ -20,9 +20,9 @@ import {
 	createGenerated,
 	type Generated,
 	type GeneratedUpdate,
-	updateGenerated,
 	getLatestGenerated,
 	getRecentGenerated,
+	updateGenerated,
 } from "./generated";
 import {
 	createHostsProfile,
@@ -337,11 +337,17 @@ export function useDeleteRule() {
 }
 
 /** Store a new generated result; invalidate the recent list on success so the panel shows it. */
-function updateGeneratedCaches(queryClient: ReturnType<typeof useQueryClient>, generated: Generated) {
+function updateGeneratedCaches(
+	queryClient: ReturnType<typeof useQueryClient>,
+	generated: Generated,
+) {
 	queryClient.setQueryData<Generated[]>(recentGeneratedKey, (items) =>
 		items === undefined
 			? items
-			: [generated, ...items.filter((item) => item.id !== generated.id)].slice(0, RECENT_GENERATED_LIMIT),
+			: [generated, ...items.filter((item) => item.id !== generated.id)].slice(
+					0,
+					RECENT_GENERATED_LIMIT,
+				),
 	);
 	queryClient.setQueryData(latestGeneratedKey, generated);
 }

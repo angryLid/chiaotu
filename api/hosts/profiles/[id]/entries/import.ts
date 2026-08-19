@@ -1,7 +1,7 @@
-import { err, methodNotAllowed, ok } from "../../../../_lib/envelope";
-import { InvalidArgument, NotFound } from "../../../../_lib/errors";
-import { readJson } from "../../../../_lib/http";
-import { withApi } from "../../../../_lib/with-api";
+import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
+import { InvalidArgument, NotFound } from "~api/_lib/errors";
+import { readJson } from "~api/_lib/http";
+import { withApi } from "~api/_lib/with-api";
 
 const IPV4 = /^(?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}$/;
 const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;

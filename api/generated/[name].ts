@@ -14,12 +14,12 @@
  * envelope (Err:NOT_FOUND).
  */
 
-import { MAX_CONTENT_SIZE } from "../_lib/constants";
-import { err, methodNotAllowed, ok } from "../_lib/envelope";
-import { InvalidArgument, NotFound } from "../_lib/errors";
-import { readJson } from "../_lib/http";
-import { normalizeDisplayName } from "../_lib/validate";
-import { type ApiCtx, withApi, withPublicCtx } from "../_lib/with-api";
+import { MAX_CONTENT_SIZE } from "~api/_lib/constants";
+import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
+import { InvalidArgument, NotFound } from "~api/_lib/errors";
+import { readJson } from "~api/_lib/http";
+import { normalizeDisplayName } from "~api/_lib/validate";
+import { type ApiCtx, withApi, withPublicCtx } from "~api/_lib/with-api";
 
 export const config = { runtime: "edge" };
 
@@ -66,16 +66,21 @@ async function handleUpdate(request: Request, ctx: ApiCtx): Promise<Response> {
 	if (request.method !== "PUT") return methodNotAllowed();
 	const input = await readJson(request, MAX_CONTENT_SIZE);
 	const hasContent = typeof input.content === "string";
-	const hasDisplayName = typeof input.display_name === "string" || input.display_name === null;
-	if (!hasContent && !hasDisplayName) return err(InvalidArgument("at least one field must be provided"));
-	if (hasContent && input.content.trim() === "") return err(InvalidArgument("generated content must not be empty"));
+	const hasDisplayName =
+		typeof input.display_name === "string" || input.display_name === null;
+	if (!hasContent && !hasDisplayName)
+		return err(InvalidArgument("at least one field must be provided"));
+	if (hasContent && input.content.trim() === "")
+		return err(InvalidArgument("generated content must not be empty"));
 	const name = new URL(request.url).pathname
 		.slice("/api/generated/".length)
 		.replace(/^\/+|\/+$/g, "");
-	if (name === "" || name.includes("/")) return err(InvalidArgument("invalid generated name"));
+	if (name === "" || name.includes("/"))
+		return err(InvalidArgument("invalid generated name"));
 	const patch: { content?: string; display_name?: string | null } = {};
 	if (hasContent) patch.content = input.content;
-	if (hasDisplayName) patch.display_name = normalizeDisplayName(input.display_name);
+	if (hasDisplayName)
+		patch.display_name = normalizeDisplayName(input.display_name);
 	const { data, error } = await ctx.supabaseAdmin
 		.from("generated")
 		.update(patch)
@@ -89,7 +94,9 @@ async function handleUpdate(request: Request, ctx: ApiCtx): Promise<Response> {
 	return ok(updated);
 }
 
-export default async function generatedItem(request: Request): Promise<Response> {
+export default async function generatedItem(
+	request: Request,
+): Promise<Response> {
 	if (request.method === "GET") return withPublicCtx(handleGet)(request);
 	return withApi(handleUpdate)(request);
 }

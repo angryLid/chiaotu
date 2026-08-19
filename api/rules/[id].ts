@@ -6,11 +6,11 @@
  * Mirrors internal/controller/rules.go (ruleItem).
  */
 
-import { err, methodNotAllowed, ok } from "../_lib/envelope";
-import { InvalidArgument, NotFound } from "../_lib/errors";
-import { idFromPath, readJson } from "../_lib/http";
-import { MAX_RULE_SIZE, resolveRule } from "../_lib/validate";
-import { type ApiCtx, withApi } from "../_lib/with-api";
+import { err, methodNotAllowed, ok } from "~api/_lib/envelope";
+import { InvalidArgument, NotFound } from "~api/_lib/errors";
+import { idFromPath, readJson } from "~api/_lib/http";
+import { MAX_RULE_SIZE, resolveRule } from "~api/_lib/validate";
+import { type ApiCtx, withApi } from "~api/_lib/with-api";
 
 export const config = { runtime: "edge" };
 
