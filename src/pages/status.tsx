@@ -392,11 +392,19 @@ export default function StatusPage() {
 		if (pendingContent === null) return;
 		try {
 			if (targetGeneratedName !== "") {
+				// An empty name means "leave the existing display name unchanged"
+				// when updating. Omitting the field is important here: sending an
+				// empty string is normalized to NULL by the API and clears the name.
+				const input = displayName.trim()
+					? { content: pendingContent, display_name: displayName }
+					: { content: pendingContent };
 				await updateMutation.mutateAsync({
 					name: targetGeneratedName,
-					input: { content: pendingContent, display_name: displayName },
+					input,
 				});
 			} else {
+				// For a new result, an empty display name is intentional and is
+				// normalized to NULL by the API.
 				await createMutation.mutateAsync({
 					name: nanoid(GENERATED_NAME_LENGTH),
 					display_name: displayName,
