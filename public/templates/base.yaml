@@ -4,6 +4,24 @@ bind-address: "*"
 mode: rule
 log-level: info
 
+# Enable traffic sniffing to resolve domain names for TUN mode rules.
+sniffer:
+  enable: true
+  # Force sniffing for specified ports.
+  ports:
+    - 443
+    - 80
+    - 8080
+  # Override the destination with the sniffed domain name.
+  override-destination: true
+  sniff:
+    TLS:
+      ports: [443, 8443]
+    HTTP:
+      ports: [80, 8080-8090]
+    QUIC:
+      ports: [443]
+
 dns:
   enable: true
   listen: "0.0.0.0:1053"
