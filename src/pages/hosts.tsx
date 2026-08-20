@@ -10,6 +10,7 @@ import type { HostsImportEntry } from "~/api/hosts";
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
+import { Switch } from "~/components/Switch";
 import type { HostsProfile } from "~/persistence/hosts";
 import { parseHostsInput } from "~/persistence/hosts";
 import { useAppStore } from "~/store/app-store";
@@ -77,7 +78,13 @@ function ImportHostsModal({
 					className="mt-3 min-h-32 w-full rounded-md border border-slate-300 p-3 font-mono text-sm"
 					placeholder={t("hosts.importPlaceholder")}
 				/>
-				<Button type="button" onClick={showPreview} size="md" minH className="mt-2">
+				<Button
+					type="button"
+					onClick={showPreview}
+					size="md"
+					minH
+					className="mt-2"
+				>
 					{t("hosts.previewImport")}
 				</Button>
 
@@ -130,14 +137,21 @@ function ImportHostsModal({
 				) : null}
 
 				<div className="mt-4 flex justify-end gap-2">
-					<Button type="button" onClick={onClose} variant="outline" size="md" minH>
+					<Button
+						type="button"
+						onClick={onClose}
+						variant="outline"
+						size="md"
+						minH
+					>
 						{t("hosts.cancelImport")}
 					</Button>
 					<Button
 						type="button"
 						onClick={confirm}
 						disabled={!preview}
-						size="md" minH
+						size="md"
+						minH
 					>
 						{t("hosts.confirmImport")}
 					</Button>
@@ -161,7 +175,10 @@ function HostsProfileItem({
 	expanded: boolean;
 	onToggle: () => void;
 	onImport: () => void;
-	onUpdateEntry: (entryId: number, patch: { ip: string; enabled: boolean }) => void;
+	onUpdateEntry: (
+		entryId: number,
+		patch: { ip: string; enabled: boolean },
+	) => void;
 	onDelete: () => void;
 }) {
 	const { t } = useTranslation();
@@ -198,16 +215,12 @@ function HostsProfileItem({
 						key={entry.id}
 						className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 sm:flex-row sm:items-center"
 					>
-						<input
-							type="checkbox"
+						<Switch
 							checked={entry.enabled}
-							onChange={(e) =>
-								onUpdateEntry(entry.id, {
-									ip: entry.ip,
-									enabled: e.target.checked,
-								})
+							onChange={(enabled) =>
+								onUpdateEntry(entry.id, { ip: entry.ip, enabled })
 							}
-							className="size-5 accent-slate-900"
+							ariaLabel={t("hosts.entryEnabled", { domain: entry.domain })}
 						/>
 						<input
 							value={entry.ip}
@@ -270,9 +283,9 @@ export default function HostsPage() {
 						className="min-h-11 min-w-0 flex-1 rounded-md border border-slate-300 px-3"
 						placeholder={t("hosts.loopback.placeholder")}
 					/>
-				<Button type="button" onClick={saveOverride} size="md" minH>
-					{t("hosts.loopback.update")}
-				</Button>
+					<Button type="button" onClick={saveOverride} size="md" minH>
+						{t("hosts.loopback.update")}
+					</Button>
 				</div>
 				<p className="mt-2 text-xs text-slate-500">
 					{getOverride()
@@ -308,17 +321,15 @@ export default function HostsPage() {
 									key={profile.id}
 									profile={profile}
 									expanded={expanded}
-									onToggle={() =>
-										setExpandedId(expanded ? null : profile.id)
-									}
+									onToggle={() => setExpandedId(expanded ? null : profile.id)}
 									onImport={() => setImportProfileId(profile.id)}
 									onUpdateEntry={(entryId, patch) =>
 										update.mutate({
 											profileId: profile.id,
 											entryId,
 											domain:
-												profile.entries.find((e) => e.id === entryId)
-													?.domain ?? "",
+												profile.entries.find((e) => e.id === entryId)?.domain ??
+												"",
 											...patch,
 										})
 									}

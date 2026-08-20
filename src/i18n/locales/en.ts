@@ -163,6 +163,7 @@ export const en: DeepString<typeof zhCN> = {
 		noProfiles: "No Hosts profiles yet.",
 		entries: "entries",
 		entryCount: "{{count}} entries",
+		entryEnabled: "{{domain}} enabled",
 		deleteProfile: "Delete",
 		deleteProfileConfirm:
 			"Delete profile “{{name}}”? All Hosts entries under it will also be deleted.",

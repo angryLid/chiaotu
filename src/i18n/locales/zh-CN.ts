@@ -153,6 +153,7 @@ export const zhCN = {
 		noProfiles: "还没有 Hosts Profile。",
 		entries: "条目",
 		entryCount: "{{count}} 条目",
+		entryEnabled: "{{domain}} 开关",
 		deleteProfile: "删除",
 		deleteProfileConfirm:
 			"确定删除 Profile「{{name}}」吗？其下所有 Hosts 条目也会被删除。",
