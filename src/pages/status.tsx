@@ -25,6 +25,12 @@ import {
 } from "~/api/hooks";
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
+import {
+	Skeleton,
+	SkeletonArea,
+	SkeletonCheckboxRows,
+	SkeletonListItem,
+} from "~/components/Skeleton";
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule } from "~/persistence/rules";
 import { useAppStore } from "~/store/app-store";
@@ -67,14 +73,26 @@ function ErrorBox({ children }: { children: ReactNode }) {
 	);
 }
 
-/** One summary stat of the panel header. */
-function StatCard({ label, value }: { label: string; value: string }) {
+/** One summary stat of the panel header; `loading` swaps the value for a placeholder block. */
+function StatCard({
+	label,
+	value,
+	loading = false,
+}: {
+	label: string;
+	value: string;
+	loading?: boolean;
+}) {
 	return (
 		<div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
 			<p className="text-xs text-slate-400">{label}</p>
-			<p className="mt-0.5 truncate text-lg font-semibold text-slate-800">
-				{value}
-			</p>
+			{loading ? (
+				<Skeleton className="mt-1.5 h-7 w-16" />
+			) : (
+				<p className="mt-0.5 truncate text-lg font-semibold text-slate-800">
+					{value}
+				</p>
+			)}
 		</div>
 	);
 }
@@ -468,12 +486,18 @@ export default function StatusPage() {
 				<StatCard
 					label={t("status.stats.subscriptions")}
 					value={String(subscriptions.length)}
+					loading={query.isLoading}
 				/>
 				<StatCard
 					label={t("status.stats.rules")}
 					value={String(rules.length)}
+					loading={query.isLoading}
 				/>
-				<StatCard label={t("status.stats.nodes")} value={String(totalNodes)} />
+				<StatCard
+					label={t("status.stats.nodes")}
+					value={String(totalNodes)}
+					loading={query.isLoading}
+				/>
 				<StatCard
 					label={t("status.stats.syncedAt")}
 					value={
@@ -481,6 +505,7 @@ export default function StatusPage() {
 							? "—"
 							: formatDateTime(new Date(hydratedAt).toISOString())
 					}
+					loading={query.isLoading}
 				/>
 			</div>
 
@@ -513,7 +538,18 @@ export default function StatusPage() {
 					<span className="text-sm font-medium text-slate-700">
 						{t("status.generate.rule")}
 					</span>
-					{rules.length === 0 ? (
+					{query.isLoading ? (
+						<SkeletonArea>
+							<div className="mt-2 rounded-md border border-slate-200 p-2">
+								<div className="flex items-center gap-2 rounded px-2 py-1">
+									<Skeleton className="h-4 w-4 shrink-0" />
+									<Skeleton className="h-4 w-24" />
+								</div>
+								<div className="mx-2 my-1 border-t border-slate-100" />
+								<SkeletonCheckboxRows rows={4} />
+							</div>
+						</SkeletonArea>
+					) : rules.length === 0 ? (
 						<p className="mt-2 text-sm text-slate-400">
 							{t("status.generate.noRules")}
 						</p>
@@ -744,7 +780,13 @@ export default function StatusPage() {
 				</h2>
 
 				{recentQuery.isLoading ? (
-					<p className="mt-3 text-sm text-slate-400">{t("common.loading")}</p>
+					<SkeletonArea>
+						<ul className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+							<SkeletonListItem lines={2} />
+							<SkeletonListItem lines={2} />
+							<SkeletonListItem lines={2} />
+						</ul>
+					</SkeletonArea>
 				) : recentQuery.isError ? (
 					<div className="mt-3">
 						<ErrorBox>{errorMessage(recentQuery.error)}</ErrorBox>

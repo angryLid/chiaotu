@@ -11,6 +11,14 @@ import {
 import type { RuleInput } from "~/api/rules";
 import { Button } from "~/components/Button";
 import { LinkButton } from "~/components/LinkButton";
+import {
+	Skeleton,
+	SkeletonArea,
+	SkeletonCheckboxRows,
+	SkeletonField,
+	SkeletonListItem,
+	SkeletonTable,
+} from "~/components/Skeleton";
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule, RuleFilter } from "~/persistence/rules";
 import { navigate } from "~/router";
@@ -301,9 +309,12 @@ function RuleForm({
 					<div>
 						<FieldLabel optional>{t("rules.field.subscriptions")}</FieldLabel>
 						{query.isLoading ? (
-							<p className="mt-2 text-sm text-slate-400">
-								{t("common.loading")}
-							</p>
+							<SkeletonArea>
+								<div className="mt-2 rounded-md border border-slate-200 p-2">
+									<Skeleton className="mx-2 h-3 w-28" />
+									<SkeletonCheckboxRows rows={4} className="mt-1" />
+								</div>
+							</SkeletonArea>
 						) : subscriptions.length === 0 ? (
 							<p className="mt-2 text-sm text-slate-400">
 								{t("subs.noSubscriptions")}
@@ -413,7 +424,11 @@ function RuleForm({
 					</div>
 
 					{query.isLoading ? (
-						<p className="mt-2 text-sm text-slate-400">{t("common.loading")}</p>
+						<SkeletonArea>
+							<div className="mt-2 overflow-hidden rounded-md border border-slate-200 bg-white">
+								<SkeletonTable rows={8} />
+							</div>
+						</SkeletonArea>
 					) : subscriptions.length === 0 ? (
 						<p className="mt-2 text-sm text-slate-400">
 							{t("rules.preview.noData")}
@@ -531,7 +546,34 @@ function EditRuleForm({ id }: { id: number }) {
 	const subscriptions = useAppStore((s) => s.subscriptions);
 
 	if (query.isLoading) {
-		return <p className="text-sm text-slate-400">{t("common.loading")}</p>;
+		// Mirror the RuleForm layout (header + form column + preview column) so the
+		// loaded page replaces the skeleton without any layout shift.
+		return (
+			<SkeletonArea>
+				<div className="mb-4 flex items-center gap-2">
+					<Skeleton className="h-8 w-24 rounded-md" />
+					<Skeleton className="h-7 w-40" />
+				</div>
+				<div className="grid items-start gap-4 lg:grid-cols-2">
+					<div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+						<SkeletonField labelWidth="w-14" />
+						<SkeletonField labelWidth="w-24" />
+						<SkeletonField labelWidth="w-24" />
+						<SkeletonField labelWidth="w-24" />
+						<div className="flex justify-end gap-2 pt-1">
+							<Skeleton className="h-9 w-20 rounded-md" />
+							<Skeleton className="h-9 w-16 rounded-md" />
+						</div>
+					</div>
+					<div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+						<Skeleton className="h-4 w-28" />
+						<div className="mt-2 overflow-hidden rounded-md border border-slate-200 bg-white">
+							<SkeletonTable rows={8} />
+						</div>
+					</div>
+				</div>
+			</SkeletonArea>
+		);
 	}
 	if (query.isError) {
 		return <ErrorBox>{errorMessage(query.error)}</ErrorBox>;
@@ -628,10 +670,15 @@ export default function RulesPage() {
 				</div>
 			) : null}
 
+			{/* Same list container as the real list, so the skeleton occupies the exact final layout. */}
 			{query.isLoading ? (
-				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
-					{t("common.loading")}
-				</div>
+				<SkeletonArea>
+					<ul className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+						<SkeletonListItem />
+						<SkeletonListItem />
+						<SkeletonListItem />
+					</ul>
+				</SkeletonArea>
 			) : items.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
 					{t("rules.empty")}

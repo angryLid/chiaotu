@@ -18,6 +18,12 @@ import {
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
+import {
+	SkeletonArea,
+	SkeletonField,
+	SkeletonListItem,
+	SkeletonTable,
+} from "~/components/Skeleton";
 import { errorMessage, formatDateTime } from "~/i18n";
 import { type ParsedSubscription, useAppStore } from "~/store/app-store";
 import type { NodeProxy } from "~/utils/nodes";
@@ -281,9 +287,12 @@ function EditSubscriptionModal({
 	if (!detail.data) {
 		return (
 			<Modal title={t("subs.editTitle")} onClose={onClose}>
-				<p className="py-8 text-center text-sm text-slate-400">
-					{t("common.loading")}
-				</p>
+				{/* Mirror the real form's shape: name + url inputs, then the content textarea. */}
+				<SkeletonArea className="space-y-4">
+					<SkeletonField />
+					<SkeletonField labelWidth="w-24" />
+					<SkeletonField multiline />
+				</SkeletonArea>
 			</Modal>
 		);
 	}
@@ -447,9 +456,9 @@ function SubscriptionItem({
 			}
 		>
 			{item === undefined ? (
-				<p className="py-4 text-center text-sm text-slate-400">
-					{t("common.loading")}
-				</p>
+				<SkeletonArea>
+					<SkeletonTable rows={6} />
+				</SkeletonArea>
 			) : (
 				<NodeTable item={item} />
 			)}
@@ -532,10 +541,15 @@ export default function SubscriptionsPage() {
 				</div>
 			) : null}
 
+			{/* Same list container as the real list, so the skeleton occupies the exact final layout. */}
 			{query.isLoading ? (
-				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
-					{t("common.loading")}
-				</div>
+				<SkeletonArea>
+					<ul className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+						<SkeletonListItem />
+						<SkeletonListItem />
+						<SkeletonListItem />
+					</ul>
+				</SkeletonArea>
 			) : items.length === 0 ? (
 				<div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-400">
 					{t("subs.empty")}

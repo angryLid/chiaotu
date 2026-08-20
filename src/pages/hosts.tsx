@@ -4,12 +4,14 @@ import {
 	useCreateHostsProfile,
 	useDeleteHostsProfile,
 	useImportHostsEntries,
+	useInitialDump,
 	useUpdateHostsEntry,
 } from "~/api/hooks";
 import type { HostsImportEntry } from "~/api/hosts";
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
+import { SkeletonArea, SkeletonListItem } from "~/components/Skeleton";
 import { Switch } from "~/components/Switch";
 import type { HostsProfile } from "~/persistence/hosts";
 import { parseHostsInput } from "~/persistence/hosts";
@@ -243,6 +245,8 @@ function HostsProfileItem({
 export default function HostsPage() {
 	const { t } = useTranslation();
 	const profiles = useAppStore((s) => s.hostsProfiles);
+	// Shares the initial-dump query cache (no extra request); powers the loading skeleton below.
+	const query = useInitialDump();
 	// Single open collapsible (accordion): expanding one closes the others.
 	const [expandedId, setExpandedId] = useState<number | null>(null);
 	const [name, setName] = useState("");
@@ -308,7 +312,15 @@ export default function HostsPage() {
 						</Button>
 					</div>
 				</div>
-				{profiles.length === 0 ? (
+				{/* Skeleton while the initial dump is in flight - the empty state must not flash before the data arrives. */}
+				{query.isLoading ? (
+					<SkeletonArea>
+						<ul className="border-t border-slate-100">
+							<SkeletonListItem lines={2} />
+							<SkeletonListItem lines={2} />
+						</ul>
+					</SkeletonArea>
+				) : profiles.length === 0 ? (
 					<p className="border-t border-slate-100 px-4 py-6 text-center text-sm text-slate-500">
 						{t("hosts.noProfiles")}
 					</p>
