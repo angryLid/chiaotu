@@ -114,9 +114,9 @@ function ImportHostsModal({
 									</tr>
 								</thead>
 								<tbody>
-									{preview.entries.map((entry, index) => (
+									{preview.entries.map((entry) => (
 										<tr
-											key={index}
+											key={entry.line}
 											className="border-b border-slate-50 last:border-0"
 										>
 											<td className="px-3 py-1.5 text-xs text-slate-400">

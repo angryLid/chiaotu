@@ -99,14 +99,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 			useAuthStore.getState().clearToken();
 		}
 
-		const stack = envelope["stack"];
+		const stack = envelope.stack;
 		if (typeof stack === "string" && code === "FETCH_FAILED") {
 			// Surface the backend network exception's call stack to the console
 			// so connectivity failures can be debugged from the browser.
-			console.error(
-				`FETCH_FAILED server stack:\n${stack}\n`,
-				envelope.result,
-			);
+			console.error(`FETCH_FAILED server stack:\n${stack}\n`, envelope.result);
 		}
 
 		throw new ApiError(
