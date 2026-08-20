@@ -13,6 +13,7 @@
 
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "~/components/Button";
 import { navigate } from "~/router";
 import { encodeToken, useAuthStore } from "~/store/auth-store";
 
@@ -107,13 +108,14 @@ export default function AuthPage() {
 							{t(`auth.error.${state.message}`)}
 						</p>
 					)}
-					<button
+					<Button
 						type="submit"
+						size="md"
+						className="w-full"
 						disabled={state.kind === "loading" || value.trim() === ""}
-						className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{t(state.kind === "loading" ? "auth.connecting" : "auth.submit")}
-					</button>
+					</Button>
 				</form>
 			</div>
 		</div>

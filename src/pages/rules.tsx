@@ -9,6 +9,8 @@ import {
 	useUpdateRule,
 } from "~/api/hooks";
 import type { RuleInput } from "~/api/rules";
+import { Button } from "~/components/Button";
+import { LinkButton } from "~/components/LinkButton";
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule, RuleFilter } from "~/persistence/rules";
 import { navigate } from "~/router";
@@ -249,13 +251,14 @@ function RuleForm({
 	return (
 		<div>
 			<div className="mb-4 flex items-center gap-2">
-				<button
+				<Button
 					type="button"
 					onClick={goToList}
-					className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+					variant="outline"
+					size="sm"
 				>
 					← {t("rules.backToList")}
-				</button>
+				</Button>
 				<h1 className="text-xl font-semibold">{title}</h1>
 			</div>
 
@@ -271,14 +274,16 @@ function RuleForm({
 						</p>
 						<div className="mt-1 flex flex-wrap gap-2">
 							{RULE_PRESETS.map((preset) => (
-								<button
-									key={preset.key}
-									type="button"
-									onClick={() => setValues(formFromPreset(preset))}
-									className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-								>
-									{preset.name}
-								</button>
+							<Button
+								key={preset.key}
+								type="button"
+								onClick={() => setValues(formFromPreset(preset))}
+								variant="outline"
+								size="sm"
+								className="hover:text-slate-900"
+							>
+								{preset.name}
+							</Button>
 							))}
 						</div>
 					</div>
@@ -384,21 +389,22 @@ function RuleForm({
 					{error !== null ? <ErrorBox>{error}</ErrorBox> : null}
 
 					<div className="flex justify-end gap-2 pt-1">
-						<button
+						<Button
 							type="button"
 							onClick={goToList}
 							disabled={mutation.isPending}
-							className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+							variant="outline"
+							size="md"
 						>
 							{t("common.cancel")}
-						</button>
-						<button
+						</Button>
+						<Button
 							type="submit"
 							disabled={mutation.isPending}
-							className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+							size="md"
 						>
 							{mutation.isPending ? t("rules.submit") : submitLabel}
-						</button>
+						</Button>
 					</div>
 				</form>
 
@@ -598,23 +604,24 @@ export default function RulesPage() {
 			<div className="mb-4 flex items-center justify-between gap-3">
 				<h1 className="text-xl font-semibold">{t("rules.title")}</h1>
 				<div className="flex gap-2">
-					<button
+					<Button
 						type="button"
 						onClick={() => void query.refetch()}
 						disabled={query.isRefetching}
-						className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+						variant="outlineDisabled"
+						size="sm"
 					>
 						{query.isRefetching ? t("rules.refreshing") : t("rules.refresh")}
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						onClick={() => {
 							navigate("/rules/new");
 						}}
-						className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+						size="sm"
 					>
 						{t("rules.new")}
-					</button>
+					</Button>
 				</div>
 			</div>
 
@@ -659,25 +666,22 @@ export default function RulesPage() {
 								</span>
 							</div>
 							<div className="flex shrink-0 gap-1">
-								<button
-									type="button"
+								<LinkButton
 									onClick={() => {
 										navigate(`/rules/${rule.id}/edit`);
 									}}
-									className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
 								>
 									{t("rules.edit")}
-								</button>
-								<button
-									type="button"
+								</LinkButton>
+								<LinkButton
+									variant="danger"
 									onClick={() => void handleDelete(rule)}
 									disabled={deletingId === rule.id}
-									className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									{deletingId === rule.id
 										? t("rules.deleting")
 										: t("rules.delete")}
-								</button>
+								</LinkButton>
 							</div>
 						</li>
 					))}

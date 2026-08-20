@@ -7,6 +7,7 @@ import {
 	useUpdateHostsEntry,
 } from "~/api/hooks";
 import type { HostsImportEntry } from "~/api/hosts";
+import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import type { HostsProfile } from "~/persistence/hosts";
 import { parseHostsInput } from "~/persistence/hosts";
@@ -75,13 +76,9 @@ function ImportHostsModal({
 					className="mt-3 min-h-32 w-full rounded-md border border-slate-300 p-3 font-mono text-sm"
 					placeholder={t("hosts.importPlaceholder")}
 				/>
-				<button
-					type="button"
-					onClick={showPreview}
-					className="mt-2 min-h-11 rounded-md bg-slate-900 px-4 text-white"
-				>
+				<Button type="button" onClick={showPreview} size="md" minH className="mt-2">
 					{t("hosts.previewImport")}
-				</button>
+				</Button>
 
 				{preview ? (
 					<div className="mt-4">
@@ -132,21 +129,17 @@ function ImportHostsModal({
 				) : null}
 
 				<div className="mt-4 flex justify-end gap-2">
-					<button
-						type="button"
-						onClick={onClose}
-						className="min-h-11 rounded border px-4"
-					>
+					<Button type="button" onClick={onClose} variant="outline" size="md" minH>
 						{t("hosts.cancelImport")}
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						onClick={confirm}
 						disabled={!preview}
-						className="min-h-11 rounded bg-slate-900 px-4 text-white disabled:cursor-not-allowed disabled:opacity-50"
+						size="md" minH
 					>
 						{t("hosts.confirmImport")}
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -191,13 +184,9 @@ function HostsProfileItem({
 			}
 		>
 			<div className="space-y-4">
-				<button
-					type="button"
-					onClick={onImport}
-					className="min-h-11 rounded-md bg-slate-900 px-4 text-white"
-				>
+				<Button type="button" onClick={onImport} size="md" minH>
 					{t("hosts.import")}
-				</button>
+				</Button>
 				<div className="space-y-2">
 					{profile.entries.map((entry) => (
 						<div
@@ -229,13 +218,14 @@ function HostsProfileItem({
 						</div>
 					))}
 				</div>
-				<button
+				<Button
 					type="button"
 					onClick={onDelete}
-					className="min-h-11 rounded-md border border-rose-300 px-4 text-rose-700"
+					variant="danger"
+					size="md" minH
 				>
 					{t("hosts.deleteProfile")}
-				</button>
+				</Button>
 			</div>
 		</Collapsible>
 	);
@@ -284,13 +274,9 @@ export default function HostsPage() {
 						className="min-h-11 min-w-0 flex-1 rounded-md border border-slate-300 px-3"
 						placeholder={t("hosts.loopback.placeholder")}
 					/>
-					<button
-						type="button"
-						onClick={saveOverride}
-						className="min-h-11 rounded-md bg-slate-900 px-4 text-white"
-					>
-						{t("hosts.loopback.update")}
-					</button>
+				<Button type="button" onClick={saveOverride} size="md" minH>
+					{t("hosts.loopback.update")}
+				</Button>
 				</div>
 				<p className="mt-2 text-xs text-slate-500">
 					{getOverride()
@@ -308,13 +294,9 @@ export default function HostsPage() {
 							className="min-h-11 rounded-md border border-slate-300 px-3"
 							placeholder={t("hosts.profileNamePlaceholder")}
 						/>
-						<button
-							type="button"
-							onClick={createProfile}
-							className="min-h-11 rounded-md bg-slate-900 px-4 text-white"
-						>
+						<Button type="button" onClick={createProfile} size="md" minH>
 							{t("hosts.createProfile")}
-						</button>
+						</Button>
 					</div>
 				</div>
 				{profiles.length === 0 ? (

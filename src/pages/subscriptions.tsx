@@ -15,7 +15,9 @@ import {
 	type SubscriptionInput,
 	type SubscriptionSummary,
 } from "~/api/subscriptions";
+import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
+import { LinkButton } from "~/components/LinkButton";
 import { errorMessage, formatDateTime } from "~/i18n";
 import { type ParsedSubscription, useAppStore } from "~/store/app-store";
 import type { NodeProxy } from "~/utils/nodes";
@@ -126,14 +128,15 @@ function Modal({
 			>
 				<div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
 					<h2 className="text-base font-semibold">{title}</h2>
-					<button
+					<Button
 						type="button"
 						onClick={onClose}
 						aria-label={t("common.close")}
-						className="rounded-md px-2 py-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+						variant="close"
+						size="xs"
 					>
 						✕
-					</button>
+					</Button>
 				</div>
 				<div className="overflow-y-auto p-4">{children}</div>
 			</div>
@@ -236,21 +239,22 @@ function SubscriptionFormModal({
 				{error !== null ? <ErrorBox>{error}</ErrorBox> : null}
 
 				<div className="flex justify-end gap-2 pt-1">
-					<button
-						type="button"
-						onClick={onClose}
-						disabled={mutation.isPending}
-						className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-					>
-						{t("common.cancel")}
-					</button>
-					<button
-						type="submit"
-						disabled={mutation.isPending}
-						className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						{mutation.isPending ? t("subs.submit") : submitLabel}
-					</button>
+				<Button
+					type="button"
+					onClick={onClose}
+					disabled={mutation.isPending}
+					variant="outline"
+					size="md"
+				>
+					{t("common.cancel")}
+				</Button>
+				<Button
+					type="submit"
+					disabled={mutation.isPending}
+					size="md"
+				>
+					{mutation.isPending ? t("subs.submit") : submitLabel}
+				</Button>
 				</div>
 			</form>
 		</Modal>
@@ -439,21 +443,10 @@ function SubscriptionItem({
 							{t("subs.nodeCount", { total: item.nodes.length })}
 						</span>
 					) : null}
-					<button
-						type="button"
-						onClick={onEdit}
-						className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
-					>
-						{t("subs.edit")}
-					</button>
-					<button
-						type="button"
-						onClick={onDelete}
-						disabled={deleting}
-						className="rounded-md px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-					>
+					<LinkButton onClick={onEdit}>{t("subs.edit")}</LinkButton>
+					<LinkButton variant="danger" onClick={onDelete} disabled={deleting}>
 						{deleting ? t("subs.deleting") : t("subs.delete")}
-					</button>
+					</LinkButton>
 				</>
 			}
 		>
@@ -500,15 +493,16 @@ export default function SubscriptionsPage() {
 			<div className="mb-4 flex items-center justify-between gap-3">
 				<h1 className="text-xl font-semibold">{t("subs.title")}</h1>
 				<div className="flex gap-2">
-					<button
+					<Button
 						type="button"
 						onClick={() => void query.refetch()}
 						disabled={query.isRefetching}
-						className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+						variant="outlineDisabled"
+						size="sm"
 					>
 						{query.isRefetching ? t("subs.refreshing") : t("subs.refresh")}
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
 						onClick={() => setCreateOpen(true)}
 						disabled={atLimit}
@@ -517,10 +511,10 @@ export default function SubscriptionsPage() {
 								? t("subs.limitReached", { max: MAX_SUBSCRIPTIONS })
 								: undefined
 						}
-						className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+						size="sm"
 					>
 						{t("subs.new")}
-					</button>
+					</Button>
 				</div>
 			</div>
 
