@@ -34,5 +34,4 @@ export const FetchFailed = (msg: string, cause?: Error) =>
 	new BizError("FETCH_FAILED", msg, cause);
 export const LimitExceeded = (msg: string) =>
 	new BizError("LIMIT_EXCEEDED", msg);
-export const InternalError = (msg: string) =>
-	new BizError("INTERNAL", msg);
+export const InternalError = (msg: string) => new BizError("INTERNAL", msg);

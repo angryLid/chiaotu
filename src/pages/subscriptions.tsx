@@ -239,22 +239,18 @@ function SubscriptionFormModal({
 				{error !== null ? <ErrorBox>{error}</ErrorBox> : null}
 
 				<div className="flex justify-end gap-2 pt-1">
-				<Button
-					type="button"
-					onClick={onClose}
-					disabled={mutation.isPending}
-					variant="outline"
-					size="md"
-				>
-					{t("common.cancel")}
-				</Button>
-				<Button
-					type="submit"
-					disabled={mutation.isPending}
-					size="md"
-				>
-					{mutation.isPending ? t("subs.submit") : submitLabel}
-				</Button>
+					<Button
+						type="button"
+						onClick={onClose}
+						disabled={mutation.isPending}
+						variant="outline"
+						size="md"
+					>
+						{t("common.cancel")}
+					</Button>
+					<Button type="submit" disabled={mutation.isPending} size="md">
+						{mutation.isPending ? t("subs.submit") : submitLabel}
+					</Button>
 				</div>
 			</form>
 		</Modal>

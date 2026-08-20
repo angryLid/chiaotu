@@ -251,12 +251,7 @@ function RuleForm({
 	return (
 		<div>
 			<div className="mb-4 flex items-center gap-2">
-				<Button
-					type="button"
-					onClick={goToList}
-					variant="outline"
-					size="sm"
-				>
+				<Button type="button" onClick={goToList} variant="outline" size="sm">
 					← {t("rules.backToList")}
 				</Button>
 				<h1 className="text-xl font-semibold">{title}</h1>
@@ -274,16 +269,16 @@ function RuleForm({
 						</p>
 						<div className="mt-1 flex flex-wrap gap-2">
 							{RULE_PRESETS.map((preset) => (
-							<Button
-								key={preset.key}
-								type="button"
-								onClick={() => setValues(formFromPreset(preset))}
-								variant="outline"
-								size="sm"
-								className="hover:text-slate-900"
-							>
-								{preset.name}
-							</Button>
+								<Button
+									key={preset.key}
+									type="button"
+									onClick={() => setValues(formFromPreset(preset))}
+									variant="outline"
+									size="sm"
+									className="hover:text-slate-900"
+								>
+									{preset.name}
+								</Button>
 							))}
 						</div>
 					</div>
@@ -398,11 +393,7 @@ function RuleForm({
 						>
 							{t("common.cancel")}
 						</Button>
-						<Button
-							type="submit"
-							disabled={mutation.isPending}
-							size="md"
-						>
+						<Button type="submit" disabled={mutation.isPending} size="md">
 							{mutation.isPending ? t("rules.submit") : submitLabel}
 						</Button>
 					</div>

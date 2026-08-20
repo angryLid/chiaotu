@@ -6,11 +6,11 @@
  * Mirrors internal/controller/generated.go (generatedCollection).
  */
 
-import { resolveGenerated } from "./_lib/validate";
 import { MAX_CONTENT_SIZE } from "./_lib/constants";
 import { err, methodNotAllowed, ok } from "./_lib/envelope";
 import { NotFound } from "./_lib/errors";
 import { readJson } from "./_lib/http";
+import { resolveGenerated } from "./_lib/validate";
 import { type ApiCtx, withApi } from "./_lib/with-api";
 
 export const config = { runtime: "edge" };

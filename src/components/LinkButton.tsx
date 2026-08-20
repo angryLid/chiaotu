@@ -7,7 +7,7 @@
  * "delete" actions in list rows (subscriptions, rules).
  */
 
-import { type MouseEventHandler, type ReactNode } from "react";
+import type { MouseEventHandler, ReactNode } from "react";
 import { Button } from "./Button";
 
 type LinkButtonVariant = "default" | "danger";

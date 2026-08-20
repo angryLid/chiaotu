@@ -47,22 +47,35 @@ export function err(e: unknown): Response {
 		e instanceof BizError
 			? e
 			: new BizError("INTERNAL", "internal server error", toError(e));
-	return writeEnvelope({ status: `Err:${be.code}`, result: be.message, stack: errorStack(be) });
+	return writeEnvelope({
+		status: `Err:${be.code}`,
+		result: be.message,
+		stack: errorStack(be),
+	});
 }
 
 /** Render "method not allowed". */
 export function methodNotAllowed(): Response {
-	return writeEnvelope({ status: STATUS.METHOD_NOT_ALLOWED, result: "method not allowed" });
+	return writeEnvelope({
+		status: STATUS.METHOD_NOT_ALLOWED,
+		result: "method not allowed",
+	});
 }
 
 /** Render "authentication failed" (missing/invalid bearer token); HTTP stays 200. */
 export function unauthorized(): Response {
-	return writeEnvelope({ status: STATUS.UNAUTHORIZED, result: "authentication required" });
+	return writeEnvelope({
+		status: STATUS.UNAUTHORIZED,
+		result: "authentication required",
+	});
 }
 
 /** Render "endpoint not found" (route fallback). */
 export function notFound(): Response {
-	return writeEnvelope({ status: STATUS.NOT_FOUND, result: "endpoint not found" });
+	return writeEnvelope({
+		status: STATUS.NOT_FOUND,
+		result: "endpoint not found",
+	});
 }
 
 /** Narrow a thrown value to an Error, or undefined. */
@@ -77,7 +90,9 @@ function toError(e: unknown): Error | undefined {
 function errorStack(be: BizError): string | undefined {
 	const parts: string[] = [];
 	if (be.cause?.stack) {
-		parts.push(`[cause: ${be.cause.name}] ${be.cause.message}\n${be.cause.stack}`);
+		parts.push(
+			`[cause: ${be.cause.name}] ${be.cause.message}\n${be.cause.stack}`,
+		);
 	}
 	if (be.stack) parts.push(be.stack);
 	return parts.length > 0 ? parts.join("\n\nCaused by:\n") : undefined;

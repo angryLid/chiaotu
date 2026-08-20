@@ -20,8 +20,8 @@
  */
 
 import {
-	forwardRef,
 	type ButtonHTMLAttributes,
+	forwardRef,
 	type MouseEventHandler,
 	type ReactNode,
 } from "react";
@@ -66,7 +66,8 @@ const variantClass: Record<ButtonVariant, string> = {
 	edit: "text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800",
 	delete:
 		"text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50",
-	close: "text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600",
+	close:
+		"text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600",
 	bare: "border",
 };
 
@@ -76,14 +77,30 @@ const sizeClass: Record<ButtonSize, string> = {
 	md: "rounded-md px-4 py-2 text-sm font-medium",
 };
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-	{ children, variant = "primary", size = "sm", minH = false, type = "button", className = "", ...rest },
-	ref,
-) {
-	const merged = `${variantClass[variant]} ${sizeClass[size]}${minH ? " min-h-11" : ""}`.trim();
-	return (
-		<button ref={ref} type={type} className={className ? `${merged} ${className}` : merged} {...rest}>
-			{children}
-		</button>
-	);
-});
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+	function Button(
+		{
+			children,
+			variant = "primary",
+			size = "sm",
+			minH = false,
+			type = "button",
+			className = "",
+			...rest
+		},
+		ref,
+	) {
+		const merged =
+			`${variantClass[variant]} ${sizeClass[size]}${minH ? " min-h-11" : ""}`.trim();
+		return (
+			<button
+				ref={ref}
+				type={type}
+				className={className ? `${merged} ${className}` : merged}
+				{...rest}
+			>
+				{children}
+			</button>
+		);
+	},
+);

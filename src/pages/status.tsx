@@ -192,7 +192,8 @@ function GeneratedItem({
 						})
 					}
 					variant="outlineDisabled"
-					size="xs" minH
+					size="xs"
+					minH
 				>
 					{t("status.generate.rename")}
 				</Button>
@@ -705,7 +706,8 @@ export default function StatusPage() {
 								type="button"
 								onClick={() => downloadResult("generated", pendingContent)}
 								variant="outlineLight"
-								size="sm" minH
+								size="sm"
+								minH
 							>
 								{t("status.latest.download")}
 							</Button>
@@ -713,7 +715,8 @@ export default function StatusPage() {
 								type="button"
 								onClick={() => void saveGenerated()}
 								disabled={createMutation.isPending || updateMutation.isPending}
-								size="sm" minH
+								size="sm"
+								minH
 							>
 								{targetGeneratedName === ""
 									? t("status.generate.createNew")
