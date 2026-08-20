@@ -163,7 +163,7 @@ export const en: DeepString<typeof zhCN> = {
 		noProfiles: "No Hosts profiles yet.",
 		entries: "entries",
 		entryCount: "{{count}} entries",
-		deleteProfile: "Delete profile",
+		deleteProfile: "Delete",
 		deleteProfileConfirm:
 			"Delete profile “{{name}}”? All Hosts entries under it will also be deleted.",
 		importPlaceholder: "192.168.1.10 router.local\nrouter.local",

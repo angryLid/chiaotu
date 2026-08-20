@@ -9,6 +9,7 @@ import {
 import type { HostsImportEntry } from "~/api/hosts";
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
+import { LinkButton } from "~/components/LinkButton";
 import type { HostsProfile } from "~/persistence/hosts";
 import { parseHostsInput } from "~/persistence/hosts";
 import { useAppStore } from "~/store/app-store";
@@ -146,8 +147,8 @@ function ImportHostsModal({
 	);
 }
 
-/** One collapsible hosts profile: header shows name + entry count; the body
- * hosts the import entry-point, the entry list, and the delete action. */
+/** One collapsible hosts profile: header shows name + entry count with
+ * link-button import / delete actions; the body hosts the entry list. */
 function HostsProfileItem({
 	profile,
 	expanded,
@@ -182,50 +183,45 @@ function HostsProfileItem({
 					</span>
 				</>
 			}
+			actions={
+				<>
+					<LinkButton onClick={onImport}>{t("hosts.import")}</LinkButton>
+					<LinkButton variant="danger" onClick={onDelete}>
+						{t("hosts.deleteProfile")}
+					</LinkButton>
+				</>
+			}
 		>
-			<div className="space-y-4">
-				<Button type="button" onClick={onImport} size="md" minH>
-					{t("hosts.import")}
-				</Button>
-				<div className="space-y-2">
-					{profile.entries.map((entry) => (
-						<div
-							key={entry.id}
-							className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 sm:flex-row sm:items-center"
-						>
-							<input
-								type="checkbox"
-								checked={entry.enabled}
-								onChange={(e) =>
-									onUpdateEntry(entry.id, {
-										ip: entry.ip,
-										enabled: e.target.checked,
-									})
-								}
-								className="size-5 accent-slate-900"
-							/>
-							<input
-								value={entry.ip}
-								onChange={(e) =>
-									onUpdateEntry(entry.id, {
-										ip: e.target.value,
-										enabled: entry.enabled,
-									})
-								}
-								className="min-h-11 rounded border border-slate-300 px-2 sm:w-44"
-							/>
-							<span className="font-mono text-sm">{entry.domain}</span>
-						</div>
-					))}
-				</div>
-				<Button
-					type="button"
-					onClick={onDelete}
-					variant="danger"
-					size="md" minH
-				>
-					{t("hosts.deleteProfile")}
-				</Button>
+			<div className="space-y-2">
+				{profile.entries.map((entry) => (
+					<div
+						key={entry.id}
+						className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 sm:flex-row sm:items-center"
+					>
+						<input
+							type="checkbox"
+							checked={entry.enabled}
+							onChange={(e) =>
+								onUpdateEntry(entry.id, {
+									ip: entry.ip,
+									enabled: e.target.checked,
+								})
+							}
+							className="size-5 accent-slate-900"
+						/>
+						<input
+							value={entry.ip}
+							onChange={(e) =>
+								onUpdateEntry(entry.id, {
+									ip: e.target.value,
+									enabled: entry.enabled,
+								})
+							}
+							className="min-h-11 rounded border border-slate-300 px-2 sm:w-44"
+						/>
+						<span className="font-mono text-sm">{entry.domain}</span>
+					</div>
+				))}
 			</div>
 		</Collapsible>
 	);

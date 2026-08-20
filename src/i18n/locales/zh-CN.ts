@@ -153,7 +153,7 @@ export const zhCN = {
 		noProfiles: "还没有 Hosts Profile。",
 		entries: "条目",
 		entryCount: "{{count}} 条目",
-		deleteProfile: "删除 Profile",
+		deleteProfile: "删除",
 		deleteProfileConfirm:
 			"确定删除 Profile「{{name}}」吗？其下所有 Hosts 条目也会被删除。",
 		importPlaceholder: "192.168.1.10 router.local\nrouter.local",
