@@ -25,6 +25,7 @@ import {
 } from "~/api/hooks";
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
+import { LinkButton } from "~/components/LinkButton";
 import {
 	Skeleton,
 	SkeletonArea,
@@ -215,14 +216,6 @@ function GeneratedItem({
 				>
 					{t("status.generate.rename")}
 				</Button>
-				<Button
-					type="button"
-					onClick={() => downloadResult(item.name, item.content)}
-					variant="outline"
-					size="xs"
-				>
-					{t("status.latest.download")}
-				</Button>
 			</div>
 			{/* Shareable download link: /api/generated/{name}, unauthenticated (name is the capability) */}
 			<div className="mt-2 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center sm:gap-3">
@@ -235,15 +228,12 @@ function GeneratedItem({
 				>
 					{downloadUrl}
 				</span>
-				<Button
-					type="button"
-					onClick={() => void handleCopyLink()}
-					variant="outlineLight"
-					size="xs"
-					className="shrink-0"
-				>
+				<LinkButton onClick={() => void handleCopyLink()}>
 					{linkCopied ? t("status.latest.copied") : t("status.latest.copy")}
-				</Button>
+				</LinkButton>
+				<LinkButton onClick={() => downloadResult(item.name, item.content)}>
+					{t("status.latest.download")}
+				</LinkButton>
 			</div>
 			{/* QR code for the shareable link — scan with a phone to subscribe */}
 			<div className="mt-2 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center">
