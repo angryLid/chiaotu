@@ -3,8 +3,8 @@
  *
  * What it does:
  * - shows a live summary of the app data (subscriptions / rules / nodes / sync time);
- * - lets the user pick one or more rules (multi-select) and generate a
- *   clash YAML config in the browser: each selected rule is applied to the
+ * - lets the user pick a single projection rule and generate a
+ *   clash YAML config in the browser: the selected rule is applied to the
  *   nodes parsed from the initial dump and becomes its own proxy group named
  *   after the rule (run through the produce pipeline, buildProfile), then the
  *   result is uploaded (name = nanoid) to the backend via POST /api/generated;
@@ -36,7 +36,6 @@ import { TransferList } from "~/components/TransferList";
 import {
 	Skeleton,
 	SkeletonArea,
-	SkeletonCheckboxRows,
 	SkeletonListItem,
 } from "~/components/Skeleton";
 import { errorMessage, formatDateTime } from "~/i18n";
@@ -297,9 +296,10 @@ export default function StatusPage() {
 	const parsed = useAppStore((s) => s.parsed);
 	const hydratedAt = useAppStore((s) => s.hydratedAt);
 
-	const [selectedRuleIds, setSelectedRuleIds] = useState<number[]>(() =>
-		readStoredIds(RULES_STORAGE_KEY),
-	);
+	const [selectedRuleId, setSelectedRuleId] = useState<number | null>(() => {
+		const ids = readStoredIds(RULES_STORAGE_KEY);
+		return ids.length > 0 ? ids[0] : null;
+	});
 	const [selectedHostsProfileIds, setSelectedHostsProfileIds] = useState<
 		number[]
 	>(() => readStoredIds(HOSTS_STORAGE_KEY));
@@ -313,9 +313,9 @@ export default function StatusPage() {
 	useEffect(() => {
 		window.localStorage.setItem(
 			RULES_STORAGE_KEY,
-			JSON.stringify(selectedRuleIds),
+			JSON.stringify(selectedRuleId === null ? [] : [selectedRuleId]),
 		);
-	}, [selectedRuleIds]);
+	}, [selectedRuleId]);
 	useEffect(() => {
 		window.localStorage.setItem(
 			HOSTS_STORAGE_KEY,
@@ -325,7 +325,9 @@ export default function StatusPage() {
 	useEffect(() => {
 		if (hydratedAt === null) return;
 		const valid = new Set(rules.map((rule) => rule.id));
-		setSelectedRuleIds((current) => current.filter((id) => valid.has(id)));
+		setSelectedRuleId((current) =>
+			current !== null && valid.has(current) ? current : null,
+		);
 	}, [rules, hydratedAt]);
 	useEffect(() => {
 		if (hydratedAt === null) return;
@@ -336,8 +338,8 @@ export default function StatusPage() {
 	}, [hostsProfiles, hydratedAt]);
 
 	const selectedRules: Rule[] = useMemo(
-		() => rules.filter((rule) => selectedRuleIds.includes(rule.id)),
-		[rules, selectedRuleIds],
+		() => rules.filter((rule) => rule.id === selectedRuleId),
+		[rules, selectedRuleId],
 	);
 
 	/** Nodes parsed in the browser from the initial dump, as rule-engine input. */
@@ -380,9 +382,9 @@ export default function StatusPage() {
 		[nodeSources],
 	);
 
-	/** Clear both shuttle selections and their localStorage copies. */
+	/** Clear both selections and their localStorage copies. */
 	function clearSelections() {
-		setSelectedRuleIds([]);
+		setSelectedRuleId(null);
 		setSelectedHostsProfileIds([]);
 		setGenerationError(null);
 	}
@@ -398,7 +400,7 @@ export default function StatusPage() {
 			return;
 		}
 
-		// Each selected rule becomes its own proxy group, named after the rule
+		// The selected rule becomes its own proxy group, named after the rule
 		// (the produce pipeline groups the nodes by rule source).
 		const sources: RuleSource[] = selectedRules.map((rule) => ({
 			name: rule.name,
@@ -557,15 +559,8 @@ export default function StatusPage() {
 					</span>
 					{query.isLoading ? (
 						<SkeletonArea>
-							<div className="mt-2 grid gap-3 sm:grid-cols-2">
-								<div className="rounded-md border border-slate-200 p-2">
-									<Skeleton className="h-4 w-24" />
-									<SkeletonCheckboxRows rows={4} className="mt-1" />
-								</div>
-								<div className="rounded-md border border-slate-200 p-2">
-									<Skeleton className="h-4 w-24" />
-									<SkeletonCheckboxRows rows={4} className="mt-1" />
-								</div>
+							<div className="mt-2">
+								<Skeleton className="h-11 w-full rounded-md" />
 							</div>
 						</SkeletonArea>
 					) : rules.length === 0 ? (
@@ -574,22 +569,26 @@ export default function StatusPage() {
 						</p>
 					) : (
 						<div className="mt-2">
-							<TransferList
-								items={rules.map((rule) => ({
-									id: rule.id,
-									label: rule.name,
-								}))}
-								selectedIds={selectedRuleIds}
-								onChange={(ids) => {
-									setSelectedRuleIds(ids);
+							<select
+								value={selectedRuleId ?? ""}
+								onChange={(event) => {
+									const value = event.target.value;
+									setSelectedRuleId(value === "" ? null : Number(value));
 									setGenerationError(null);
 								}}
-							/>
+								className="min-h-11 w-full rounded border border-slate-300 bg-white px-3 text-sm"
+							>
+								<option value="">{t("status.generate.selectRule")}</option>
+								{rules.map((rule) => (
+									<option key={rule.id} value={rule.id}>
+										{rule.name}
+									</option>
+								))}
+							</select>
 							<span className="mt-1 block text-xs text-slate-400">
 								{selectedRules.length === 0
 									? t("status.generate.noRule")
 									: t("status.generate.matchCount", {
-											count: selectedRules.length,
 											nodeCount: matchedCount,
 										})}
 							</span>

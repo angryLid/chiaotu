@@ -213,10 +213,10 @@ export const en: DeepString<typeof zhCN> = {
 		},
 		generate: {
 			title: "Generate config from projection rules",
-			rule: "Projection rules",
+			rule: "Projection rule",
+			selectRule: "Select a projection rule",
 			clearSelections: "Clear selections",
-			matchCount:
-				"{{nodeCount}} nodes will match the selected projection rules",
+			matchCount: "{{nodeCount}} nodes will match the selected projection rule",
 			submit: "Generate",
 			submitting: "Generating…",
 			noRules:

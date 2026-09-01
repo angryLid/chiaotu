@@ -204,8 +204,9 @@ export const zhCN = {
 		generate: {
 			title: "按投影规则生成配置",
 			rule: "选择投影规则",
+			selectRule: "请选择一条投影规则",
 			clearSelections: "清空选择",
-			matchCount: "已选 {{count}} 条投影规则，共命中 {{nodeCount}} 个节点",
+			matchCount: "已选投影规则共命中 {{nodeCount}} 个节点",
 			submit: "生成",
 			submitting: "生成中…",
 			noRules: "还没有投影规则，请先到「节点投影」创建。",
