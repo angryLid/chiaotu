@@ -154,31 +154,31 @@ export function TransferList({
 								key={item.id}
 								className="flex min-h-11 items-center gap-1 rounded px-2 py-1.5"
 							>
-								{ordered ? (
-									<span className="flex shrink-0 flex-col">
-										<button
-											type="button"
-											onClick={() => move(item.id, -1)}
-											disabled={index === 0}
-											aria-label={t("transfer.moveUp")}
-											className="px-0.5 text-xs leading-tight text-slate-400 disabled:opacity-30"
-										>
-											↑
-										</button>
-										<button
-											type="button"
-											onClick={() => move(item.id, 1)}
-											disabled={index === selectedItems.length - 1}
-											aria-label={t("transfer.moveDown")}
-											className="px-0.5 text-xs leading-tight text-slate-400 disabled:opacity-30"
-										>
-											↓
-										</button>
-									</span>
-								) : null}
 								<span className="min-w-0 flex-1 truncate text-sm text-slate-700">
 									{item.label}
 								</span>
+								{ordered ? (
+									<button
+										type="button"
+										onClick={() => move(item.id, -1)}
+										disabled={index === 0}
+										aria-label={t("transfer.moveUp")}
+										className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+									>
+										↑
+									</button>
+								) : null}
+								{ordered ? (
+									<button
+										type="button"
+										onClick={() => move(item.id, 1)}
+										disabled={index === selectedItems.length - 1}
+										aria-label={t("transfer.moveDown")}
+										className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+									>
+										↓
+									</button>
+								) : null}
 								<button
 									type="button"
 									onClick={() => remove(item.id)}
