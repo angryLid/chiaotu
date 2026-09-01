@@ -28,6 +28,16 @@ export const en: DeepString<typeof zhCN> = {
 		close: "Close",
 		cancel: "Cancel",
 	},
+	transfer: {
+		available: "Available",
+		selected: "Selected",
+		addAll: "Add all",
+		clear: "Clear",
+		empty: "Empty",
+		remove: "Remove",
+		moveUp: "Move up",
+		moveDown: "Move down",
+	},
 	subs: {
 		title: "Subscriptions",
 		createTitle: "New subscription",
@@ -204,7 +214,7 @@ export const en: DeepString<typeof zhCN> = {
 		generate: {
 			title: "Generate config from projection rules",
 			rule: "Projection rules",
-			selectAll: "Select all",
+			clearSelections: "Clear selections",
 			matchCount:
 				"{{nodeCount}} nodes will match the selected projection rules",
 			submit: "Generate",

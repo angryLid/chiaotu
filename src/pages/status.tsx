@@ -14,7 +14,13 @@
 
 import { nanoid } from "nanoid";
 import { QRCodeSVG } from "qrcode.react";
-import { type FormEvent, type ReactNode, useMemo, useState } from "react";
+import {
+	type FormEvent,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import type { Generated } from "~/api/generated";
 import {
@@ -26,6 +32,7 @@ import {
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
+import { TransferList } from "~/components/TransferList";
 import {
 	Skeleton,
 	SkeletonArea,
@@ -48,6 +55,23 @@ import {
 
 /** Length of the auto-generated result name (nanoid). */
 const GENERATED_NAME_LENGTH = 10;
+
+/** localStorage keys for the status-page shuttle selections. */
+const RULES_STORAGE_KEY = "chiaotu.status.rules";
+const HOSTS_STORAGE_KEY = "chiaotu.status.hosts";
+
+function readStoredIds(key: string): number[] {
+	try {
+		const value = window.localStorage.getItem(key);
+		if (value === null) return [];
+		const parsed = JSON.parse(value);
+		return Array.isArray(parsed)
+			? parsed.filter((id): id is number => typeof id === "number")
+			: [];
+	} catch {
+		return [];
+	}
+}
 
 /**
  * Load the base clash template. It ships as a static asset under `public/`
@@ -273,14 +297,43 @@ export default function StatusPage() {
 	const parsed = useAppStore((s) => s.parsed);
 	const hydratedAt = useAppStore((s) => s.hydratedAt);
 
-	const [selectedRuleIds, setSelectedRuleIds] = useState<number[]>([]);
+	const [selectedRuleIds, setSelectedRuleIds] = useState<number[]>(() =>
+		readStoredIds(RULES_STORAGE_KEY),
+	);
 	const [selectedHostsProfileIds, setSelectedHostsProfileIds] = useState<
 		number[]
-	>([]);
+	>(() => readStoredIds(HOSTS_STORAGE_KEY));
 	const [generationError, setGenerationError] = useState<string | null>(null);
 	const [pendingContent, setPendingContent] = useState<string | null>(null);
 	const [displayName, setDisplayName] = useState("");
 	const [targetGeneratedName, setTargetGeneratedName] = useState("");
+
+	// Persist shuttle selections so they survive a reload; prune ids that no
+	// longer exist in the hydrated data so stale entries never build up.
+	useEffect(() => {
+		window.localStorage.setItem(
+			RULES_STORAGE_KEY,
+			JSON.stringify(selectedRuleIds),
+		);
+	}, [selectedRuleIds]);
+	useEffect(() => {
+		window.localStorage.setItem(
+			HOSTS_STORAGE_KEY,
+			JSON.stringify(selectedHostsProfileIds),
+		);
+	}, [selectedHostsProfileIds]);
+	useEffect(() => {
+		if (hydratedAt === null) return;
+		const valid = new Set(rules.map((rule) => rule.id));
+		setSelectedRuleIds((current) => current.filter((id) => valid.has(id)));
+	}, [rules, hydratedAt]);
+	useEffect(() => {
+		if (hydratedAt === null) return;
+		const valid = new Set(hostsProfiles.map((profile) => profile.id));
+		setSelectedHostsProfileIds((current) =>
+			current.filter((id) => valid.has(id)),
+		);
+	}, [hostsProfiles, hydratedAt]);
 
 	const selectedRules: Rule[] = useMemo(
 		() => rules.filter((rule) => selectedRuleIds.includes(rule.id)),
@@ -322,28 +375,17 @@ export default function StatusPage() {
 	/** How many nodes the selected rules would match in total (union). */
 	const matchedCount = matchedNodes.length;
 
-	function toggleRuleId(id: number) {
-		setSelectedRuleIds((prev) =>
-			prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-		);
-		setGenerationError(null);
-	}
-
-	/** All rules selected (drives the select-all checkbox). */
-	const allSelected =
-		rules.length > 0 && selectedRuleIds.length === rules.length;
-	/** Some but not all rules selected (drives the indeterminate state). */
-	const someSelected = selectedRuleIds.length > 0 && !allSelected;
-
-	function toggleSelectAll() {
-		setSelectedRuleIds(allSelected ? [] : rules.map((rule) => rule.id));
-		setGenerationError(null);
-	}
-
 	const totalNodes = useMemo(
 		() => nodeSources.reduce((sum, item) => sum + item.content.length, 0),
 		[nodeSources],
 	);
+
+	/** Clear both shuttle selections and their localStorage copies. */
+	function clearSelections() {
+		setSelectedRuleIds([]);
+		setSelectedHostsProfileIds([]);
+		setGenerationError(null);
+	}
 
 	async function handleGenerate(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -505,25 +547,9 @@ export default function StatusPage() {
 				onSubmit={handleGenerate}
 				className="mb-4 rounded-lg border border-slate-200 bg-white p-4"
 			>
-				<div className="flex flex-wrap items-end justify-between gap-2">
-					<h2 className="text-sm font-semibold text-slate-700">
-						{t("status.generate.title")}
-					</h2>
-					<Button
-						type="submit"
-						disabled={
-							query.isLoading ||
-							selectedRules.length === 0 ||
-							createMutation.isPending ||
-							updateMutation.isPending
-						}
-						size="md"
-					>
-						{createMutation.isPending || updateMutation.isPending
-							? t("status.generate.submitting")
-							: t("status.generate.submit")}
-					</Button>
-				</div>
+				<h2 className="text-sm font-semibold text-slate-700">
+					{t("status.generate.title")}
+				</h2>
 
 				<div className="mt-3">
 					<span className="text-sm font-medium text-slate-700">
@@ -531,13 +557,15 @@ export default function StatusPage() {
 					</span>
 					{query.isLoading ? (
 						<SkeletonArea>
-							<div className="mt-2 rounded-md border border-slate-200 p-2">
-								<div className="flex items-center gap-2 rounded px-2 py-1">
-									<Skeleton className="h-4 w-4 shrink-0" />
+							<div className="mt-2 grid gap-3 sm:grid-cols-2">
+								<div className="rounded-md border border-slate-200 p-2">
 									<Skeleton className="h-4 w-24" />
+									<SkeletonCheckboxRows rows={4} className="mt-1" />
 								</div>
-								<div className="mx-2 my-1 border-t border-slate-100" />
-								<SkeletonCheckboxRows rows={4} />
+								<div className="rounded-md border border-slate-200 p-2">
+									<Skeleton className="h-4 w-24" />
+									<SkeletonCheckboxRows rows={4} className="mt-1" />
+								</div>
 							</div>
 						</SkeletonArea>
 					) : rules.length === 0 ? (
@@ -545,47 +573,18 @@ export default function StatusPage() {
 							{t("status.generate.noRules")}
 						</p>
 					) : (
-						<>
-							<div className="mt-2 rounded-md border border-slate-200 p-2">
-								<label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-slate-50">
-									<input
-										type="checkbox"
-										checked={allSelected}
-										ref={(el) => {
-											if (el) el.indeterminate = someSelected;
-										}}
-										onChange={toggleSelectAll}
-										className="accent-slate-900"
-									/>
-									<span className="font-medium text-slate-700">
-										{t("status.generate.selectAll")}
-									</span>
-								</label>
-								<div className="mx-2 my-1 border-t border-slate-100" />
-								<div className="space-y-1">
-									{rules.map((rule) => {
-										const checked = selectedRuleIds.includes(rule.id);
-										return (
-											<label
-												key={rule.id}
-												className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm transition-colors hover:bg-slate-50"
-											>
-												<input
-													type="checkbox"
-													checked={checked}
-													onChange={() => toggleRuleId(rule.id)}
-													className="accent-slate-900"
-												/>
-												<span className="min-w-0">
-													<span className="block truncate font-medium text-slate-700">
-														{rule.name}
-													</span>
-												</span>
-											</label>
-										);
-									})}
-								</div>
-							</div>
+						<div className="mt-2">
+							<TransferList
+								items={rules.map((rule) => ({
+									id: rule.id,
+									label: rule.name,
+								}))}
+								selectedIds={selectedRuleIds}
+								onChange={(ids) => {
+									setSelectedRuleIds(ids);
+									setGenerationError(null);
+								}}
+							/>
 							<span className="mt-1 block text-xs text-slate-400">
 								{selectedRules.length === 0
 									? t("status.generate.noRule")
@@ -594,109 +593,36 @@ export default function StatusPage() {
 											nodeCount: matchedCount,
 										})}
 							</span>
-						</>
+						</div>
 					)}
 				</div>
 
 				<div className="mt-4">
 					<span className="text-sm font-medium text-slate-700">
-						Hosts profiles (ordered)
+						{t("hosts.profiles")}
 					</span>
-					<div className="mt-2 space-y-1 rounded-md border border-slate-200 p-2">
-						{selectedHostsProfileIds.map((id, index) => {
-							const profile = hostsProfiles.find((item) => item.id === id);
-							if (!profile) return null;
-							return (
-								<div
-									key={id}
-									className="flex items-center gap-2 rounded px-2 py-1 text-sm"
-								>
-									<span className="w-5 text-xs text-slate-400">
-										{index + 1}
-									</span>
-									<span className="min-w-0 flex-1 truncate">
-										{profile.name}
-									</span>
-									<Button
-										type="button"
-										disabled={index === 0}
-										onClick={() =>
-											setSelectedHostsProfileIds((current) => {
-												const next = [...current];
-												[next[index - 1], next[index]] = [
-													next[index],
-													next[index - 1],
-												];
-												return next;
-											})
-										}
-										variant="bare"
-										size="xs"
-										className="disabled:opacity-30"
-									>
-										↑
-									</Button>
-									<Button
-										type="button"
-										disabled={index === selectedHostsProfileIds.length - 1}
-										onClick={() =>
-											setSelectedHostsProfileIds((current) => {
-												const next = [...current];
-												[next[index], next[index + 1]] = [
-													next[index + 1],
-													next[index],
-												];
-												return next;
-											})
-										}
-										variant="bare"
-										size="xs"
-										className="disabled:opacity-30"
-									>
-										↓
-									</Button>
-									<Button
-										type="button"
-										onClick={() =>
-											setSelectedHostsProfileIds((current) =>
-												current.filter((item) => item !== id),
-											)
-										}
-										variant="bare"
-										size="xs"
-									>
-										Remove
-									</Button>
-								</div>
-							);
-						})}
-						<div className="border-t border-slate-100 pt-2">
-							<select
-								value=""
-								onChange={(event) => {
-									const id = Number(event.target.value);
-									if (id)
-										setSelectedHostsProfileIds((current) =>
-											current.includes(id) ? current : [...current, id],
-										);
+					{hostsProfiles.length === 0 ? (
+						<p className="mt-2 text-sm text-slate-400">
+							{t("hosts.noProfiles")}
+						</p>
+					) : (
+						<div className="mt-2">
+							<TransferList
+								items={hostsProfiles.map((profile) => ({
+									id: profile.id,
+									label: profile.name,
+								}))}
+								selectedIds={selectedHostsProfileIds}
+								onChange={(ids) => {
+									setSelectedHostsProfileIds(ids);
+									setGenerationError(null);
 								}}
-								className="min-h-11 w-full rounded border border-slate-300 px-2 text-sm"
-							>
-								<option value="">Add a Hosts profile…</option>
-								{hostsProfiles
-									.filter(
-										(profile) => !selectedHostsProfileIds.includes(profile.id),
-									)
-									.map((profile) => (
-										<option key={profile.id} value={profile.id}>
-											{profile.name}
-										</option>
-									))}
-							</select>
+								ordered
+							/>
 						</div>
-					</div>
+					)}
 					<p className="mt-1 text-xs text-slate-400">
-						Profiles later in the selection override earlier profiles.
+						{t("hosts.orderedHint")}
 					</p>
 				</div>
 
@@ -762,6 +688,32 @@ export default function StatusPage() {
 						<ErrorBox>{generationErrorBox}</ErrorBox>
 					</div>
 				) : null}
+
+				<div className="mt-4 flex flex-wrap justify-end gap-2">
+					<Button
+						type="button"
+						onClick={clearSelections}
+						variant="outline"
+						size="md"
+						minH
+					>
+						{t("status.generate.clearSelections")}
+					</Button>
+					<Button
+						type="submit"
+						disabled={
+							query.isLoading ||
+							selectedRules.length === 0 ||
+							createMutation.isPending ||
+							updateMutation.isPending
+						}
+						size="md"
+					>
+						{createMutation.isPending || updateMutation.isPending
+							? t("status.generate.submitting")
+							: t("status.generate.submit")}
+					</Button>
+				</div>
 			</form>
 
 			{/* Recent generated results (collapsible history, newest first) */}

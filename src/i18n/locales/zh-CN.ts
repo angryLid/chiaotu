@@ -24,6 +24,16 @@ export const zhCN = {
 		close: "关闭",
 		cancel: "取消",
 	},
+	transfer: {
+		available: "可选",
+		selected: "已选",
+		addAll: "全部添加",
+		clear: "清空",
+		empty: "空",
+		remove: "移除",
+		moveUp: "上移",
+		moveDown: "下移",
+	},
 	subs: {
 		title: "订阅管理",
 		createTitle: "新建订阅",
@@ -194,7 +204,7 @@ export const zhCN = {
 		generate: {
 			title: "按投影规则生成配置",
 			rule: "选择投影规则",
-			selectAll: "全选",
+			clearSelections: "清空选择",
 			matchCount: "已选 {{count}} 条投影规则，共命中 {{nodeCount}} 个节点",
 			submit: "生成",
 			submitting: "生成中…",
