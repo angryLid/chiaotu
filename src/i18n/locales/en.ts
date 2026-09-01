@@ -225,12 +225,8 @@ export const en: DeepString<typeof zhCN> = {
 			noMatch:
 				"The selected projection rules match no nodes — nothing to generate",
 			failed: "Generation failed",
-			hint: "The browser generates the clash YAML locally. Upload it only after choosing whether to create a new generated subscription or update an existing one.",
-			ready: "Configuration generated. Choose how to save it.",
+			hint: "The browser generates the clash YAML locally and creates a new generated subscription directly.",
 			displayName: "Display name (optional)",
-			updateExisting: "Generated subscription",
-			createNew: "Create new generated subscription",
-			update: "Update generated subscription",
 			rename: "Rename",
 		},
 		latest: {
@@ -244,6 +240,8 @@ export const en: DeepString<typeof zhCN> = {
 			link: "Download link",
 			copy: "Copy link",
 			copied: "Copied",
+			update: "Update",
+			updating: "Updating…",
 			qrTitle: "Scan to subscribe",
 			qrHint:
 				"Point your phone camera at the code to open the subscription link.",

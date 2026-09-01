@@ -166,9 +166,11 @@ async function copyText(text: string): Promise<boolean> {
 function GeneratedItem({
 	item,
 	defaultExpanded,
+	onBuildContent,
 }: {
 	item: Generated;
 	defaultExpanded: boolean;
+	onBuildContent: () => Promise<string>;
 }) {
 	const { t } = useTranslation();
 	const [linkCopied, setLinkCopied] = useState(false);
@@ -176,6 +178,8 @@ function GeneratedItem({
 		item.display_name ?? "",
 	);
 	const renameMutation = useUpdateGenerated();
+	const updateMutation = useUpdateGenerated();
+	const [updateError, setUpdateError] = useState<string | null>(null);
 
 	/**
 	 * Shareable download link for this result. GET /api/generated/{name} is
@@ -191,6 +195,21 @@ function GeneratedItem({
 		if (await copyText(downloadUrl)) {
 			setLinkCopied(true);
 			window.setTimeout(() => setLinkCopied(false), 2000);
+		}
+	}
+
+	async function handleUpdate() {
+		setUpdateError(null);
+		try {
+			const content = await onBuildContent();
+			await updateMutation.mutateAsync({
+				name: item.name,
+				input: { content },
+			});
+		} catch (error) {
+			setUpdateError(
+				error instanceof Error ? error.message : t("status.generate.failed"),
+			);
 		}
 	}
 
@@ -239,6 +258,18 @@ function GeneratedItem({
 				>
 					{t("status.generate.rename")}
 				</Button>
+				<Button
+					type="button"
+					onClick={() => void handleUpdate()}
+					disabled={updateMutation.isPending}
+					variant="outlineDisabled"
+					size="xs"
+					minH
+				>
+					{updateMutation.isPending
+						? t("status.latest.updating")
+						: t("status.latest.update")}
+				</Button>
 			</div>
 			{/* Shareable download link: /api/generated/{name}, unauthenticated (name is the capability) */}
 			<div className="mt-2 flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center sm:gap-3">
@@ -258,6 +289,11 @@ function GeneratedItem({
 					{t("status.latest.download")}
 				</LinkButton>
 			</div>
+			{updateError !== null ? (
+				<div className="mt-2">
+					<ErrorBox>{updateError}</ErrorBox>
+				</div>
+			) : null}
 			{/* QR code for the shareable link — scan with a phone to subscribe */}
 			<div className="mt-2 flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-2 sm:flex-row sm:items-center">
 				<div className="flex justify-center rounded bg-white p-2 sm:shrink-0">
@@ -288,7 +324,6 @@ export default function StatusPage() {
 	const [recentPage, setRecentPage] = useState(1);
 	const recentQuery = useRecentGenerated(recentPage);
 	const createMutation = useCreateGenerated();
-	const updateMutation = useUpdateGenerated();
 
 	const subscriptions = useAppStore((s) => s.subscriptions);
 	const rules = useAppStore((s) => s.rules);
@@ -304,9 +339,6 @@ export default function StatusPage() {
 		number[]
 	>(() => readStoredIds(HOSTS_STORAGE_KEY));
 	const [generationError, setGenerationError] = useState<string | null>(null);
-	const [pendingContent, setPendingContent] = useState<string | null>(null);
-	const [displayName, setDisplayName] = useState("");
-	const [targetGeneratedName, setTargetGeneratedName] = useState("");
 
 	// Persist shuttle selections so they survive a reload; prune ids that no
 	// longer exist in the hydrated data so stale entries never build up.
@@ -389,28 +421,19 @@ export default function StatusPage() {
 		setGenerationError(null);
 	}
 
-	async function handleGenerate(event: FormEvent<HTMLFormElement>) {
-		event.preventDefault();
+	/** Build the clash YAML for the current selections in the browser. */
+	async function buildGeneratedContent(): Promise<string> {
 		if (selectedRules.length === 0) {
-			setGenerationError(t("status.generate.noRule"));
-			return;
+			throw new Error(t("status.generate.noRule"));
 		}
 		if (matchedNodes.length === 0) {
-			setGenerationError(t("status.generate.noMatch"));
-			return;
+			throw new Error(t("status.generate.noMatch"));
 		}
 
-		// The selected rule becomes its own proxy group, named after the rule
-		// (the produce pipeline groups the nodes by rule source).
 		const sources: RuleSource[] = selectedRules.map((rule) => ({
 			name: rule.name,
 			nodes: applyRule(rule.filter, nodeSources),
 		}));
-
-		if (selectedHostsProfileIds.length === 0 && selectedRules.length === 0) {
-			setGenerationError(t("status.generate.noRule"));
-			return;
-		}
 		const hostsSources: HostsSource[] = selectedHostsProfileIds
 			.map((id) => hostsProfiles.find((profile) => profile.id === id))
 			.filter(
@@ -418,61 +441,39 @@ export default function StatusPage() {
 					profile !== undefined,
 			)
 			.map((profile) => ({ name: profile.name, entries: profile.entries }));
-		setGenerationError(null);
-		try {
-			const baseTemplate = await loadBaseTemplate();
-			const loopbackOverride = (() => {
-				const value =
-					window.localStorage.getItem("chiaotu.hosts.loopbackOverride") ?? "";
-				const parts = value.split(".");
-				return parts.length === 4 &&
-					parts.every(
-						(part) => /^(?:0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255,
-					)
-					? value
-					: null;
-			})();
-			const content = buildProfile(
-				baseTemplate,
-				sources,
-				hostsSources,
-				loopbackOverride,
-			);
-			setPendingContent(content);
-			setGenerationError(null);
-		} catch (error) {
-			setGenerationError(
-				error instanceof Error ? error.message : t("status.generate.failed"),
-			);
-		}
+		const baseTemplate = await loadBaseTemplate();
+		const loopbackOverride = (() => {
+			const value =
+				window.localStorage.getItem("chiaotu.hosts.loopbackOverride") ?? "";
+			const parts = value.split(".");
+			return parts.length === 4 &&
+				parts.every(
+					(part) => /^(?:0|[1-9]\d{0,2})$/.test(part) && Number(part) <= 255,
+				)
+				? value
+				: null;
+		})();
+		return buildProfile(
+			baseTemplate,
+			sources,
+			hostsSources,
+			loopbackOverride,
+		);
 	}
 
-	async function saveGenerated() {
-		if (pendingContent === null) return;
+	async function handleGenerate(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		setGenerationError(null);
 		try {
-			if (targetGeneratedName !== "") {
-				// An empty name means "leave the existing display name unchanged"
-				// when updating. Omitting the field is important here: sending an
-				// empty string is normalized to NULL by the API and clears the name.
-				const input = displayName.trim()
-					? { content: pendingContent, display_name: displayName }
-					: { content: pendingContent };
-				await updateMutation.mutateAsync({
-					name: targetGeneratedName,
-					input,
-				});
-			} else {
-				// For a new result, an empty display name is intentional and is
-				// normalized to NULL by the API.
-				await createMutation.mutateAsync({
-					name: nanoid(GENERATED_NAME_LENGTH),
-					display_name: displayName,
-					content: pendingContent,
-				});
-			}
-			setPendingContent(null);
-			setDisplayName("");
-			setTargetGeneratedName("");
+			const content = await buildGeneratedContent();
+			// Create a new generated subscription immediately instead of showing
+			// the save-method prompt. An empty display name is intentional and is
+			// normalized to NULL by the API.
+			await createMutation.mutateAsync({
+				name: nanoid(GENERATED_NAME_LENGTH),
+				display_name: "",
+				content,
+			});
 		} catch (error) {
 			setGenerationError(
 				error instanceof Error ? error.message : t("status.generate.failed"),
@@ -484,9 +485,7 @@ export default function StatusPage() {
 		generationError ??
 		(createMutation.isError && !createMutation.isPending
 			? errorMessage(createMutation.error)
-			: updateMutation.isError && !updateMutation.isPending
-				? errorMessage(updateMutation.error)
-				: null);
+			: null);
 
 	return (
 		<div>
@@ -625,59 +624,6 @@ export default function StatusPage() {
 					</p>
 				</div>
 
-				{pendingContent !== null ? (
-					<div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3">
-						<p className="text-sm font-medium text-emerald-800">
-							{t("status.generate.ready")}
-						</p>
-						<label className="mt-2 block text-sm text-slate-700">
-							{t("status.generate.displayName")}
-							<input
-								value={displayName}
-								onChange={(event) => setDisplayName(event.target.value)}
-								className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-white px-3"
-							/>
-						</label>
-						<label className="mt-2 block text-sm text-slate-700">
-							{t("status.generate.updateExisting")}
-							<select
-								value={targetGeneratedName}
-								onChange={(event) => setTargetGeneratedName(event.target.value)}
-								className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-white px-3"
-							>
-								<option value="">{t("status.generate.createNew")}</option>
-								{(recentQuery.data?.items ?? []).map((item) => (
-									<option key={item.id} value={item.name}>
-										{item.display_name || item.name}
-									</option>
-								))}
-							</select>
-						</label>
-						<div className="mt-3 flex flex-wrap gap-2">
-							<Button
-								type="button"
-								onClick={() => downloadResult("generated", pendingContent)}
-								variant="outlineLight"
-								size="sm"
-								minH
-							>
-								{t("status.latest.download")}
-							</Button>
-							<Button
-								type="button"
-								onClick={() => void saveGenerated()}
-								disabled={createMutation.isPending || updateMutation.isPending}
-								size="sm"
-								minH
-							>
-								{targetGeneratedName === ""
-									? t("status.generate.createNew")
-									: t("status.generate.update")}
-							</Button>
-						</div>
-					</div>
-				) : null}
-
 				<p className="mt-2 text-xs text-slate-400">
 					{t("status.generate.hint")}
 				</p>
@@ -703,12 +649,11 @@ export default function StatusPage() {
 						disabled={
 							query.isLoading ||
 							selectedRules.length === 0 ||
-							createMutation.isPending ||
-							updateMutation.isPending
+							createMutation.isPending
 						}
 						size="md"
 					>
-						{createMutation.isPending || updateMutation.isPending
+						{createMutation.isPending
 							? t("status.generate.submitting")
 							: t("status.generate.submit")}
 					</Button>
@@ -747,6 +692,7 @@ export default function StatusPage() {
 									item={item}
 									// The first item on the first page is expanded by default; the rest are collapsed.
 									defaultExpanded={recentPage === 1 && index === 0}
+									onBuildContent={buildGeneratedContent}
 								/>
 							))}
 						</ul>
