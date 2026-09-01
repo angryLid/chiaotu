@@ -38,9 +38,8 @@ async function handleGet(request: Request, ctx: ApiCtx): Promise<Response> {
 	// UA check: clash-family clients identify via a User-Agent containing
 	// "clash" (case-insensitive) and need the filename to save the config;
 	// everyone else gets the YAML inline without a filename attachment.
-	const isClashClient = (request.headers.get("user-agent") ?? "")
-		.toLowerCase()
-		.includes("clash");
+	const ua = (request.headers.get("user-agent") ?? "").toLowerCase();
+	const isClashClient = ua.includes("clash");
 
 	const { data, error } = await ctx.supabaseAdmin
 		.from("generated")
@@ -57,7 +56,8 @@ async function handleGet(request: Request, ctx: ApiCtx): Promise<Response> {
 	};
 	if (isClashClient) {
 		const filename = (g.display_name ?? g.name).replace(/[\\"\r\n]/g, "_");
-		headers["Content-Disposition"] = `attachment; filename="${filename}.yaml"`;
+		const ext = /flclash/i.test(ua) ? "" : ".yaml";
+		headers["Content-Disposition"] = `attachment; filename="${filename}${ext}"`;
 	}
 	return new Response(g.content, { status: 200, headers });
 }
