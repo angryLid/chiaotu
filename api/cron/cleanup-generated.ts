@@ -10,7 +10,7 @@ export default withApi(async (request, ctx) => {
 });
 
 async function cleanupGenerated(ctx: ApiCtx): Promise<Response> {
-	const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+	const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 	const { data, error } = await ctx.supabaseAdmin
 		.from("generated")
 		.update({ deleted_at: new Date().toISOString() })
