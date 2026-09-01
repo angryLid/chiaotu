@@ -237,6 +237,9 @@ export const en: DeepString<typeof zhCN> = {
 			qrTitle: "Scan to subscribe",
 			qrHint:
 				"Point your phone camera at the code to open the subscription link.",
+			pageOf: "Page {{page}} of {{total}}",
+			prev: "Previous",
+			next: "Next",
 		},
 	},
 	errors: {

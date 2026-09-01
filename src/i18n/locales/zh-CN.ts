@@ -222,6 +222,9 @@ export const zhCN = {
 			copied: "已复制",
 			qrTitle: "扫码订阅",
 			qrHint: "用手机相机扫码即可获取订阅链接。",
+			pageOf: "第 {{page}} / {{total}} 页",
+			prev: "上一页",
+			next: "下一页",
 		},
 	},
 	errors: {

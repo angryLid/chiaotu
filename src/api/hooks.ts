@@ -60,10 +60,8 @@ const hostsProfileDetailKey = (id: number) => ["hostsProfile", id] as const;
 
 const latestGeneratedKey = ["latestGenerated"] as const;
 
-/** Recent-history page size for the run-status panel. */
-const RECENT_GENERATED_LIMIT = 5;
-
-const recentGeneratedKey = ["recentGenerated", RECENT_GENERATED_LIMIT] as const;
+const recentGeneratedKey = (page: number) =>
+	["recentGenerated", page] as const;
 
 // ---- queries ----
 
@@ -216,11 +214,11 @@ export function useLatestGenerated() {
 	});
 }
 
-/** The most recently generated results, newest first, up to 5 (run-status panel). */
-export function useRecentGenerated() {
+/** One page of generated results, newest first (run-status panel). */
+export function useRecentGenerated(page: number) {
 	return useQuery({
-		queryKey: recentGeneratedKey,
-		queryFn: () => getRecentGenerated(RECENT_GENERATED_LIMIT),
+		queryKey: recentGeneratedKey(page),
+		queryFn: () => getRecentGenerated(page),
 	});
 }
 
@@ -336,20 +334,18 @@ export function useDeleteRule() {
 	});
 }
 
-/** Store a new generated result; invalidate the recent list on success so the panel shows it. */
+/**
+ * Store a new generated result: update the latest-result cache and invalidate
+ * every recent-page query so the paged history re-reads on the next render.
+ * A paged list cannot be updated safely from a single mutation response
+ * (a create may push items across page boundaries).
+ */
 function updateGeneratedCaches(
 	queryClient: ReturnType<typeof useQueryClient>,
 	generated: Generated,
 ) {
-	queryClient.setQueryData<Generated[]>(recentGeneratedKey, (items) =>
-		items === undefined
-			? items
-			: [generated, ...items.filter((item) => item.id !== generated.id)].slice(
-					0,
-					RECENT_GENERATED_LIMIT,
-				),
-	);
 	queryClient.setQueryData(latestGeneratedKey, generated);
+	void queryClient.invalidateQueries({ queryKey: ["recentGenerated"] });
 }
 
 export function useCreateGenerated() {

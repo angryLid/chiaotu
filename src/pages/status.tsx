@@ -262,7 +262,8 @@ function GeneratedItem({
 export default function StatusPage() {
 	const { t } = useTranslation();
 	const query = useInitialDump();
-	const recentQuery = useRecentGenerated();
+	const [recentPage, setRecentPage] = useState(1);
+	const recentQuery = useRecentGenerated(recentPage);
 	const createMutation = useCreateGenerated();
 	const updateMutation = useUpdateGenerated();
 
@@ -720,7 +721,7 @@ export default function StatusPage() {
 								className="mt-1 min-h-11 w-full rounded border border-slate-300 bg-white px-3"
 							>
 								<option value="">{t("status.generate.createNew")}</option>
-								{(recentQuery.data ?? []).map((item) => (
+								{(recentQuery.data?.items ?? []).map((item) => (
 									<option key={item.id} value={item.name}>
 										{item.display_name || item.name}
 									</option>
@@ -781,21 +782,61 @@ export default function StatusPage() {
 					<div className="mt-3">
 						<ErrorBox>{errorMessage(recentQuery.error)}</ErrorBox>
 					</div>
-				) : recentQuery.data !== undefined && recentQuery.data.length === 0 ? (
+				) : recentQuery.data !== undefined &&
+					recentQuery.data.items.length === 0 ? (
 					<p className="mt-3 text-sm text-slate-400">
 						{t("status.latest.empty")}
 					</p>
 				) : recentQuery.data !== undefined ? (
-					<ul className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-						{recentQuery.data.map((item, index) => (
-							<GeneratedItem
-								key={item.id}
-								item={item}
-								// The most recent result is expanded by default; the rest are collapsed.
-								defaultExpanded={index === 0}
-							/>
-						))}
-					</ul>
+					<>
+						<ul className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+							{recentQuery.data.items.map((item, index) => (
+								<GeneratedItem
+									key={item.id}
+									item={item}
+									// The first item on the first page is expanded by default; the rest are collapsed.
+									defaultExpanded={recentPage === 1 && index === 0}
+								/>
+							))}
+						</ul>
+						{recentQuery.data.total_pages > 1 ? (
+							<div className="mt-3 flex items-center justify-between gap-2">
+								<span className="text-xs text-slate-400">
+									{t("status.latest.pageOf", {
+										page: recentQuery.data.page,
+										total: recentQuery.data.total_pages,
+									})}
+								</span>
+								<div className="flex gap-2">
+									<Button
+										type="button"
+										variant="outlineDisabled"
+										size="xs"
+										minH
+										disabled={
+											recentPage <= 1 || recentQuery.isFetching
+										}
+										onClick={() => setRecentPage((page) => page - 1)}
+									>
+										{t("status.latest.prev")}
+									</Button>
+									<Button
+										type="button"
+										variant="outlineDisabled"
+										size="xs"
+										minH
+										disabled={
+											recentPage >= recentQuery.data.total_pages ||
+											recentQuery.isFetching
+										}
+										onClick={() => setRecentPage((page) => page + 1)}
+									>
+										{t("status.latest.next")}
+									</Button>
+								</div>
+							</div>
+						) : null}
+					</>
 				) : null}
 			</div>
 		</div>

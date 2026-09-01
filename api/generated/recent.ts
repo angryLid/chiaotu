@@ -1,9 +1,8 @@
 /**
- * /api/generated/recent — recent-history listing.
- *   GET  the most recently generated results, newest first (default 5, clamped 1–20)
- * Used by the run-status panel to show a collapsible history of the last few
- * generated configs. Returns an empty array (not Err:NOT_FOUND) when nothing
- * has been generated yet.
+ * /api/generated/recent — paged generated-history listing.
+ *   GET  a page of generated results, newest first (10 per page)
+ * Used by the run-status panel to show a paged history of generated configs.
+ * Returns an empty page (not Err:NOT_FOUND) when nothing has been generated yet.
  */
 
 import { err, methodNotAllowed, ok } from "../_lib/envelope";
@@ -11,11 +10,10 @@ import { type ApiCtx, withApi } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 
-/** Default page size when no `limit` query param is given. */
-const DEFAULT_LIMIT = 5;
-/** Hard bounds for the `limit` query param. */
-const MIN_LIMIT = 1;
-const MAX_LIMIT = 20;
+/** Fixed page size for the generated-history listing. */
+const PAGE_SIZE = 10;
+/** Default 1-based page number when no `page` query param is given. */
+const DEFAULT_PAGE = 1;
 
 export default withApi(async (request, ctx) => {
 	switch (request.method) {
@@ -26,27 +24,46 @@ export default withApi(async (request, ctx) => {
 	}
 });
 
-/** Parse the `limit` query param (default 5, clamped to 1–20). */
-function parseLimit(request: Request): number {
-	const raw = new URL(request.url).searchParams.get("limit");
-	if (raw === null || raw === "") return DEFAULT_LIMIT;
+/** Parse the `page` query param (default 1, clamped to >= 1). */
+function parsePage(request: Request): number {
+	const raw = new URL(request.url).searchParams.get("page");
+	if (raw === null || raw === "") return DEFAULT_PAGE;
 	const n = Number(raw);
-	if (!Number.isFinite(n)) return DEFAULT_LIMIT;
-	return Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, Math.trunc(n)));
+	if (!Number.isFinite(n)) return DEFAULT_PAGE;
+	return Math.max(DEFAULT_PAGE, Math.trunc(n));
 }
 
-/** GET: the most recently generated results, newest first, up to `limit`. */
+/** GET: one page of generated results, newest first. */
 async function recentGenerated(
 	request: Request,
 	ctx: ApiCtx,
 ): Promise<Response> {
-	const limit = parseLimit(request);
+	const page = parsePage(request);
+
+	const { count, error: countError } = await ctx.supabaseAdmin
+		.from("generated")
+		.select("id", { count: "exact", head: true })
+		.is("deleted_at", null);
+	if (countError) return err(new Error(countError.message));
+
+	const total = count ?? 0;
+	const totalPages = Math.ceil(total / PAGE_SIZE);
+	const pageNumber = totalPages === 0 ? 0 : Math.min(page, totalPages);
+	const fromClamped = totalPages === 0 ? 0 : (pageNumber - 1) * PAGE_SIZE;
+
 	const { data, error } = await ctx.supabaseAdmin
 		.from("generated")
 		.select("*")
 		.is("deleted_at", null)
 		.order("created_at", { ascending: false })
-		.limit(limit);
+		.range(fromClamped, fromClamped + PAGE_SIZE - 1);
 	if (error) return err(new Error(error.message));
-	return ok(data ?? []);
+
+	return ok({
+		items: data ?? [],
+		page: pageNumber,
+		page_size: PAGE_SIZE,
+		total,
+		total_pages: totalPages,
+	});
 }
