@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	useCreateHostsProfile,
@@ -13,6 +13,7 @@ import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
 import { SkeletonArea, SkeletonListItem } from "~/components/Skeleton";
 import { Switch } from "~/components/Switch";
+import { errorMessage } from "~/i18n";
 import type { HostsProfile } from "~/persistence/hosts";
 import { parseHostsInput } from "~/persistence/hosts";
 import { useAppStore } from "~/store/app-store";
@@ -25,6 +26,109 @@ function validIPv4(value: string) {
 		p.every((x) => /^(?:0|[1-9]\d{0,2})$/.test(x) && Number(x) <= 255)
 	);
 }
+function Modal({
+	title,
+	onClose,
+	children,
+}: {
+	title: string;
+	onClose: () => void;
+	children: ReactNode;
+}) {
+	const { t } = useTranslation();
+	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: backdrop is a mouse-only click-to-close convenience
+		// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users close via the dialog's ✕ button
+		<div
+			className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/50 p-4"
+			onClick={(event) => {
+				if (event.target === event.currentTarget) onClose();
+			}}
+		>
+			<div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
+				<div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+					<h2 className="text-base font-semibold">{title}</h2>
+					<Button
+						type="button"
+						onClick={onClose}
+						aria-label={t("common.close")}
+						variant="close"
+						size="xs"
+					>
+						✕
+					</Button>
+				</div>
+				<div className="overflow-y-auto p-4">{children}</div>
+			</div>
+		</div>
+	);
+}
+
+function CreateHostsProfileModal({
+	mutation,
+	onClose,
+}: {
+	mutation: ReturnType<typeof useCreateHostsProfile>;
+	onClose: () => void;
+}) {
+	const { t } = useTranslation();
+	const [name, setName] = useState("");
+
+	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (name.trim() === "") return;
+		try {
+			await mutation.mutateAsync({ name: name.trim() });
+			onClose();
+		} catch {
+			// Failure message is rendered from mutation.error
+		}
+	}
+
+	return (
+		<Modal title={t("hosts.createTitle")} onClose={onClose}>
+			<form onSubmit={handleSubmit} className="space-y-4">
+				<label className="block">
+					<span className="text-sm font-medium text-slate-700">
+						{t("hosts.profileName")}
+					</span>
+					<input
+						value={name}
+						onChange={(event) => setName(event.target.value)}
+						placeholder={t("hosts.profileNamePlaceholder")}
+						className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-300 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+					/>
+				</label>
+
+				{mutation.isError && !mutation.isPending ? (
+					<div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+						{errorMessage(mutation.error)}
+					</div>
+				) : null}
+
+				<div className="flex justify-end gap-2 pt-1">
+					<Button
+						type="button"
+						onClick={onClose}
+						disabled={mutation.isPending}
+						variant="outline"
+						size="md"
+					>
+						{t("common.cancel")}
+					</Button>
+					<Button
+						type="submit"
+						disabled={mutation.isPending || name.trim() === ""}
+						size="md"
+					>
+						{mutation.isPending ? t("hosts.creating") : t("hosts.createProfile")}
+					</Button>
+				</div>
+			</form>
+		</Modal>
+	);
+}
+
 /** Multi-line import modal: type in raw hosts text, preview the parsed lines,
  * then confirm to import into the target profile. */
 function ImportHostsModal({
@@ -240,7 +344,8 @@ export default function HostsPage() {
 	const query = useInitialDump();
 	// Single open collapsible (accordion): expanding one closes the others.
 	const [expandedId, setExpandedId] = useState<number | null>(null);
-	const [name, setName] = useState("");
+	// Whether the create-profile modal is open.
+	const [createOpen, setCreateOpen] = useState(false);
 	// Which profile's import modal is open (null = none).
 	const [importProfileId, setImportProfileId] = useState<number | null>(null);
 	const [override, setOverride] = useState(() => {
@@ -269,18 +374,19 @@ export default function HostsPage() {
 		localStorage.setItem(LOOPBACK_KEY, value);
 		setSavedOverride(value);
 	}
-	function createProfile() {
-		if (name.trim()) {
-			create.mutate({ name: name.trim() });
-			setName("");
-		}
-	}
 	return (
-		<div className="space-y-4">
-			<div>
+		<div>
+			<div className="mb-4 flex items-center justify-between gap-3">
 				<h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
-				<p className="mt-1 text-sm text-slate-500">{t("hosts.description")}</p>
+				<Button
+					type="button"
+					onClick={() => setCreateOpen(true)}
+					size="sm"
+				>
+					{t("hosts.new")}
+				</Button>
 			</div>
+			<p className="mb-4 text-sm text-slate-500">{t("hosts.description")}</p>
 			<section className="rounded-lg border border-slate-200 bg-white p-4">
 				<h2 className="font-semibold">{t("hosts.loopback.title")}</h2>
 				<div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -300,21 +406,7 @@ export default function HostsPage() {
 						: t("hosts.loopback.disabled")}
 				</p>
 			</section>
-			<section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-				<div className="flex flex-wrap items-center justify-between gap-2 p-4">
-					<h2 className="font-semibold">{t("hosts.profiles")}</h2>
-					<div className="flex gap-2">
-						<input
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							className="min-h-11 rounded-md border border-slate-300 px-3"
-							placeholder={t("hosts.profileNamePlaceholder")}
-						/>
-						<Button type="button" onClick={createProfile} size="md" minH>
-							{t("hosts.createProfile")}
-						</Button>
-					</div>
-				</div>
+			<section className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
 				{/* Skeleton while the initial dump is in flight - the empty state must not flash before the data arrives. */}
 				{query.isLoading ? (
 					<SkeletonArea>
@@ -364,6 +456,12 @@ export default function HostsPage() {
 					</ul>
 				)}
 			</section>
+			{createOpen ? (
+				<CreateHostsProfileModal
+					mutation={create}
+					onClose={() => setCreateOpen(false)}
+				/>
+			) : null}
 			{importProfileId !== null ? (
 				<ImportHostsModal
 					profile={
