@@ -25,15 +25,6 @@ function validIPv4(value: string) {
 		p.every((x) => /^(?:0|[1-9]\d{0,2})$/.test(x) && Number(x) <= 255)
 	);
 }
-function getOverride() {
-	try {
-		const value = localStorage.getItem(LOOPBACK_KEY) ?? "";
-		return validIPv4(value) ? value : null;
-	} catch {
-		return null;
-	}
-}
-
 /** Multi-line import modal: type in raw hosts text, preview the parsed lines,
  * then confirm to import into the target profile. */
 function ImportHostsModal({
@@ -259,12 +250,24 @@ export default function HostsPage() {
 			return "";
 		}
 	});
+	const [savedOverride, setSavedOverride] = useState(() => {
+		try {
+			return localStorage.getItem(LOOPBACK_KEY) ?? "";
+		} catch {
+			return "";
+		}
+	});
 	const create = useCreateHostsProfile();
 	const remove = useDeleteHostsProfile();
 	const importer = useImportHostsEntries();
 	const update = useUpdateHostsEntry();
+	const effectiveOverride = validIPv4(savedOverride)
+		? savedOverride.trim()
+		: null;
 	function saveOverride() {
-		localStorage.setItem(LOOPBACK_KEY, override.trim());
+		const value = override.trim();
+		localStorage.setItem(LOOPBACK_KEY, value);
+		setSavedOverride(value);
 	}
 	function createProfile() {
 		if (name.trim()) {
@@ -292,8 +295,8 @@ export default function HostsPage() {
 					</Button>
 				</div>
 				<p className="mt-2 text-xs text-slate-500">
-					{getOverride()
-						? t("hosts.loopback.enabled", { ip: getOverride() ?? "" })
+					{effectiveOverride
+						? t("hosts.loopback.enabled", { ip: effectiveOverride })
 						: t("hosts.loopback.disabled")}
 				</p>
 			</section>
