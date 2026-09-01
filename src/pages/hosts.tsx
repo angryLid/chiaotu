@@ -128,7 +128,9 @@ function CreateHostsProfileModal({
 						disabled={mutation.isPending || name.trim() === ""}
 						size="md"
 					>
-						{mutation.isPending ? t("hosts.creating") : t("hosts.createProfile")}
+						{mutation.isPending
+							? t("hosts.creating")
+							: t("hosts.createProfile")}
 					</Button>
 				</div>
 			</form>
@@ -442,11 +444,7 @@ export default function HostsPage() {
 		<div>
 			<div className="mb-4 flex items-center justify-between gap-3">
 				<h1 className="text-xl font-semibold">{t("hosts.title")}</h1>
-				<Button
-					type="button"
-					onClick={() => setCreateOpen(true)}
-					size="sm"
-				>
+				<Button type="button" onClick={() => setCreateOpen(true)} size="sm">
 					{t("hosts.new")}
 				</Button>
 			</div>

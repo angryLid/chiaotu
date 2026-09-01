@@ -32,12 +32,12 @@ import {
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
-import { TransferList } from "~/components/TransferList";
 import {
 	Skeleton,
 	SkeletonArea,
 	SkeletonListItem,
 } from "~/components/Skeleton";
+import { TransferList } from "~/components/TransferList";
 import { errorMessage, formatDateTime } from "~/i18n";
 import type { Rule } from "~/persistence/rules";
 import { useAppStore } from "~/store/app-store";
@@ -453,12 +453,7 @@ export default function StatusPage() {
 				? value
 				: null;
 		})();
-		return buildProfile(
-			baseTemplate,
-			sources,
-			hostsSources,
-			loopbackOverride,
-		);
+		return buildProfile(baseTemplate, sources, hostsSources, loopbackOverride);
 	}
 
 	async function handleGenerate(event: FormEvent<HTMLFormElement>) {
@@ -710,9 +705,7 @@ export default function StatusPage() {
 										variant="outlineDisabled"
 										size="xs"
 										minH
-										disabled={
-											recentPage <= 1 || recentQuery.isFetching
-										}
+										disabled={recentPage <= 1 || recentQuery.isFetching}
 										onClick={() => setRecentPage((page) => page - 1)}
 									>
 										{t("status.latest.prev")}

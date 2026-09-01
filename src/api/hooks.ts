@@ -60,8 +60,7 @@ const hostsProfileDetailKey = (id: number) => ["hostsProfile", id] as const;
 
 const latestGeneratedKey = ["latestGenerated"] as const;
 
-const recentGeneratedKey = (page: number) =>
-	["recentGenerated", page] as const;
+const recentGeneratedKey = (page: number) => ["recentGenerated", page] as const;
 
 // ---- queries ----
 

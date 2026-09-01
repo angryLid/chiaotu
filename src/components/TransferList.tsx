@@ -93,12 +93,7 @@ export function TransferList({
 							{availableItems.length}
 						</span>
 					</span>
-					<Button
-						type="button"
-						onClick={addAll}
-						variant="outline"
-						size="xs"
-					>
+					<Button type="button" onClick={addAll} variant="outline" size="xs">
 						{t("transfer.addAll")}
 					</Button>
 				</div>
