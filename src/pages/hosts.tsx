@@ -1,4 +1,11 @@
-import { type FormEvent, type ReactNode, useMemo, useState } from "react";
+import {
+	type FormEvent,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
 	useCreateHostsProfile,
@@ -14,7 +21,7 @@ import { LinkButton } from "~/components/LinkButton";
 import { SkeletonArea, SkeletonListItem } from "~/components/Skeleton";
 import { Switch } from "~/components/Switch";
 import { errorMessage } from "~/i18n";
-import type { HostsProfile } from "~/persistence/hosts";
+import type { HostsEntry, HostsProfile } from "~/persistence/hosts";
 import { parseHostsInput } from "~/persistence/hosts";
 import { useAppStore } from "~/store/app-store";
 
@@ -258,6 +265,81 @@ function ImportHostsModal({
 	);
 }
 
+/**
+ * One hosts entry row. The IP input and enabled switch are locally controlled so
+ * edits reflect immediately without waiting for the network round-trip: the IP
+ * commits on a short debounce (only when it is a valid IPv4 or empty), while the
+ * switch commits instantly and flushes any pending IP edit.
+ */
+function HostsEntryRow({
+	entry,
+	onUpdateEntry,
+}: {
+	entry: HostsEntry;
+	onUpdateEntry: (
+		entryId: number,
+		patch: { ip: string; enabled: boolean },
+	) => Promise<void>;
+}) {
+	const { t } = useTranslation();
+	const [ip, setIp] = useState(entry.ip);
+	const [enabled, setEnabled] = useState(entry.enabled);
+	const timerRef = useRef<number | null>(null);
+
+	async function commit(nextIp: string, nextEnabled: boolean) {
+		if (timerRef.current !== null) {
+			window.clearTimeout(timerRef.current);
+			timerRef.current = null;
+		}
+		try {
+			await onUpdateEntry(entry.id, { ip: nextIp, enabled: nextEnabled });
+		} catch {
+			setIp(entry.ip);
+			setEnabled(entry.enabled);
+		}
+	}
+
+	function handleIpChange(value: string) {
+		setIp(value);
+		const normalized = value.trim();
+		if (normalized !== "" && !validIPv4(normalized)) return;
+		if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+		timerRef.current = window.setTimeout(() => {
+			timerRef.current = null;
+			void commit(normalized, enabled);
+		}, 400);
+	}
+
+	function handleToggle(next: boolean) {
+		setEnabled(next);
+		void commit(ip.trim(), next);
+	}
+
+	// Clear any pending debounce when the row unmounts.
+	useEffect(
+		() => () => {
+			if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+		},
+		[],
+	);
+
+	return (
+		<div className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 sm:flex-row sm:items-center">
+			<Switch
+				checked={enabled}
+				onChange={handleToggle}
+				ariaLabel={t("hosts.entryEnabled", { domain: entry.domain })}
+			/>
+			<input
+				value={ip}
+				onChange={(event) => handleIpChange(event.target.value)}
+				className="min-h-11 rounded border border-slate-300 px-2 sm:w-44"
+			/>
+			<span className="font-mono text-sm">{entry.domain}</span>
+		</div>
+	);
+}
+
 /** One collapsible hosts profile: header shows name + entry count with
  * link-button import / delete actions; the body hosts the entry list. */
 function HostsProfileItem({
@@ -275,7 +357,7 @@ function HostsProfileItem({
 	onUpdateEntry: (
 		entryId: number,
 		patch: { ip: string; enabled: boolean },
-	) => void;
+	) => Promise<void>;
 	onDelete: () => void;
 }) {
 	const { t } = useTranslation();
@@ -308,29 +390,11 @@ function HostsProfileItem({
 		>
 			<div className="space-y-2">
 				{profile.entries.map((entry) => (
-					<div
+					<HostsEntryRow
 						key={entry.id}
-						className="flex flex-col gap-2 rounded-md border border-slate-200 p-3 sm:flex-row sm:items-center"
-					>
-						<Switch
-							checked={entry.enabled}
-							onChange={(enabled) =>
-								onUpdateEntry(entry.id, { ip: entry.ip, enabled })
-							}
-							ariaLabel={t("hosts.entryEnabled", { domain: entry.domain })}
-						/>
-						<input
-							value={entry.ip}
-							onChange={(e) =>
-								onUpdateEntry(entry.id, {
-									ip: e.target.value,
-									enabled: entry.enabled,
-								})
-							}
-							className="min-h-11 rounded border border-slate-300 px-2 sm:w-44"
-						/>
-						<span className="font-mono text-sm">{entry.domain}</span>
-					</div>
+						entry={entry}
+						onUpdateEntry={onUpdateEntry}
+					/>
 				))}
 			</div>
 		</Collapsible>
@@ -430,16 +494,16 @@ export default function HostsPage() {
 									expanded={expanded}
 									onToggle={() => setExpandedId(expanded ? null : profile.id)}
 									onImport={() => setImportProfileId(profile.id)}
-									onUpdateEntry={(entryId, patch) =>
-										update.mutate({
+									onUpdateEntry={async (entryId, patch) => {
+										await update.mutateAsync({
 											profileId: profile.id,
 											entryId,
 											domain:
 												profile.entries.find((e) => e.id === entryId)?.domain ??
 												"",
 											...patch,
-										})
-									}
+										});
+									}}
 									onDelete={() => {
 										if (
 											window.confirm(
