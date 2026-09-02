@@ -333,6 +333,7 @@ export const en: DeepString<typeof zhCN> = {
 			toggle: "Generated result {{name}}",
 			size: "{{lines}} lines",
 			generatedAt: "Generated at",
+			modifiedAt: "Modified at",
 			download: "Download",
 			link: "Download link",
 			copy: "Copy link",

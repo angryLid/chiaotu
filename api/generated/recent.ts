@@ -1,6 +1,6 @@
 /**
  * /api/generated/recent — paged generated-history listing.
- *   GET  a page of generated results, newest first (10 per page)
+ *   GET  a page of generated results, newest modified first (10 per page)
  * Used by the run-status panel to show a paged history of generated configs.
  * Returns an empty page (not Err:NOT_FOUND) when nothing has been generated yet.
  */
@@ -33,7 +33,7 @@ function parsePage(request: Request): number {
 	return Math.max(DEFAULT_PAGE, Math.trunc(n));
 }
 
-/** GET: one page of generated results, newest first. */
+/** GET: one page of generated results, newest modified first. */
 async function recentGenerated(
 	request: Request,
 	ctx: ApiCtx,
@@ -55,7 +55,7 @@ async function recentGenerated(
 		.from("generated")
 		.select("*")
 		.is("deleted_at", null)
-		.order("created_at", { ascending: false })
+		.order("updated_at", { ascending: false })
 		.range(fromClamped, fromClamped + PAGE_SIZE - 1);
 	if (error) return err(new Error(error.message));
 

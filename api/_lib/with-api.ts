@@ -79,6 +79,32 @@ export function withPublicCtx(handler: ApiHandler) {
 	return (request: Request) => withContext(request, handler);
 }
 
+/**
+ * Wrap a handler with the Vercel Cron secret check and a Supabase context.
+ * Vercel sends `Authorization: Bearer <CRON_SECRET>` on cron invocations, so
+ * this is how a cron endpoint verifies the request really came from Vercel.
+ * Unlike the app-level API_TOKEN check, CRON_SECRET is compared as-is (Vercel
+ * does not Base64-encode it).
+ */
+export function withCron(handler: ApiHandler) {
+	return async (request: Request): Promise<Response> => {
+		const failure = cronSecretFailure(request);
+		if (failure !== null) return failure;
+		return withContext(request, handler);
+	};
+}
+
+/** Err:UNAUTHORIZED when the CRON_SECRET bearer credential is missing or wrong. */
+function cronSecretFailure(request: Request): Response | null {
+	const expected = process.env.CRON_SECRET;
+	// Fail closed: without a configured CRON_SECRET, refuse every cron request.
+	if (!expected) return unauthorized();
+
+	const header = request.headers.get("authorization");
+	if (!header || header !== `Bearer ${expected}`) return unauthorized();
+	return null;
+}
+
 /** Create the context; render env misconfiguration as the envelope. */
 async function withContext(
 	request: Request,

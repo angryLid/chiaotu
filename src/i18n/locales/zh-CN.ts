@@ -319,6 +319,7 @@ export const zhCN = {
 			toggle: "{{name}} 的生成结果",
 			size: "{{lines}} 行",
 			generatedAt: "生成时间",
+			modifiedAt: "修改时间",
 			download: "下载",
 			link: "下载链接",
 			copy: "复制链接",
