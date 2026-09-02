@@ -12,6 +12,7 @@
 		"dev": "vite dev",
 		"dev:all": "vercel dev",
 		"build": "tsc --noEmit && vite build",
+		"test": "node --test --import ./src/test/register.mjs \"src/**/*.test.ts\"",
 		"preview": "vite preview",
 		"start": "tsx src/index.ts",
 		"lint:type": "tsc --noEmit > type-fix.log",
