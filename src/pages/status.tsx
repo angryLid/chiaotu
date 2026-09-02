@@ -226,7 +226,7 @@ function GeneratedItem({
 						{item.display_name || item.name}
 					</span>
 					<span className="mt-0.5 block text-xs text-slate-400">
-						{t("status.latest.generatedAt")}：{formatDateTime(item.created_at)}
+						{t("status.latest.modifiedAt")}：{formatDateTime(item.updated_at)}
 					</span>
 				</>
 			}

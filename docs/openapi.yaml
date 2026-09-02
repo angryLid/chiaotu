@@ -668,10 +668,10 @@ paths:
     get:
       summary: List generated results by page
       description: |
-        Returns a page of generated results, newest first (soft-deleted rows
-        excluded). Each page holds up to 10 items. Used by the run-status panel
-        to show a paged history of generated configs. When nothing has been
-        generated yet, returns an empty page.
+        Returns a page of generated results, ordered by updated_at descending
+        (soft-deleted rows excluded). Each page holds up to 10 items. Used by
+        the run-status panel to show a paged history of generated configs. When
+        nothing has been generated yet, returns an empty page.
       operationId: recentGenerated
       tags: [generated]
       parameters:
@@ -685,7 +685,7 @@ paths:
             minimum: 1
       responses:
         "200":
-          description: Success; result is a page of generated results (newest first, with content)
+          description: Success; result is a page of generated results (newest modified first, with content)
           content:
             application/json:
               schema:
@@ -1064,8 +1064,9 @@ components:
 
     GeneratedPage:
       description: |
-        A page of generated results. items are ordered newest first; page is
-        1-based. total_pages is 0 when there are no results.
+        A page of generated results. items are ordered by updated_at descending
+        (newest modified first); page is 1-based. total_pages is 0 when there
+        are no results.
       type: object
       required: [items, page, page_size, total, total_pages]
       properties:
