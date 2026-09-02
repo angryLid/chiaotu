@@ -1,9 +1,9 @@
 /**
  * Global application store (zustand): holds the domain state hydrated from
- * GET /api/initial-dump — full subscriptions, rules, and the per-subscription
- * node parse results. It is the single client-side source of truth for data
- * that spans pages (the subscriptions page's node tables, the rule engine's
- * input).
+ * GET /api/initial-dump — full subscriptions, rules, Hosts profiles, rule sets,
+ * and the per-subscription node parse results. It is the single client-side
+ * source of truth for data that spans pages (the subscriptions page's node
+ * tables, the rule engine's input, the generator's rule-set selection).
  *
  * Data flow:
  * - App fetches the initial dump via react-query (useInitialDump) and calls
@@ -21,6 +21,7 @@ import { create } from "zustand";
 import { ApiError } from "~/api/errors";
 import type { InitialDump, Subscription } from "~/api/subscriptions";
 import type { HostsProfile } from "~/persistence/hosts";
+import type { RuleSet } from "~/persistence/rule-sets";
 import type { Rule } from "~/persistence/rules";
 import { type NodeProxy, parseNodes } from "~/utils/nodes";
 
@@ -36,6 +37,8 @@ interface AppStore {
 	/** All rules, newest first, from the initial dump. */
 	rules: Rule[];
 	hostsProfiles: HostsProfile[];
+	/** All active rule sets, newest first, from the initial dump. */
+	ruleSets: RuleSet[];
 	/** Per-subscription parse result, keyed by subId (string). */
 	parsed: Record<string, ParsedSubscription>;
 	/** Client-side timestamp of the last hydration (for "synced at" display). */
@@ -48,6 +51,7 @@ export const useAppStore = create<AppStore>()((set) => ({
 	subscriptions: [],
 	rules: [],
 	hostsProfiles: [],
+	ruleSets: [],
 	parsed: {},
 	hydratedAt: null,
 	hydrate: (dump) => {
@@ -72,6 +76,7 @@ export const useAppStore = create<AppStore>()((set) => ({
 			subscriptions: dump.subscriptions,
 			rules: dump.rules,
 			hostsProfiles: dump.hostsProfiles,
+			ruleSets: dump.ruleSets,
 			parsed,
 			hydratedAt: Date.now(),
 		});

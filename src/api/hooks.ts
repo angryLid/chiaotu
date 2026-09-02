@@ -16,6 +16,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { HostsProfile } from "~/persistence/hosts";
+import type { RuleSet, RuleSetItem } from "~/persistence/rule-sets";
 import {
 	createGenerated,
 	type Generated,
@@ -32,6 +33,18 @@ import {
 	importHostsEntries,
 	updateHostsEntry,
 } from "./hosts";
+import {
+	createRuleSet,
+	deleteRuleSet,
+	deleteRuleSetItem,
+	getRuleSet,
+	importRuleSetItems,
+	type RuleSetImportItem,
+	type RuleSetInput,
+	rotateRuleSetSlug,
+	updateRuleSet,
+	updateRuleSetItem,
+} from "./rule-sets";
 import {
 	createRule,
 	deleteRule,
@@ -57,6 +70,7 @@ const subscriptionDetailKey = (id: number) => ["subscription", id] as const;
 
 const ruleDetailKey = (id: number) => ["rule", id] as const;
 const hostsProfileDetailKey = (id: number) => ["hostsProfile", id] as const;
+const ruleSetDetailKey = (id: number) => ["ruleSet", id] as const;
 
 const latestGeneratedKey = ["latestGenerated"] as const;
 
@@ -361,5 +375,152 @@ export function useUpdateGenerated() {
 		mutationFn: ({ name, input }: { name: string; input: GeneratedUpdate }) =>
 			updateGenerated(name, input),
 		onSuccess: (generated) => updateGeneratedCaches(queryClient, generated),
+	});
+}
+
+// ---- rule sets ----
+
+/**
+ * Write one rule set into both caches it can appear in (the initial dump list
+ * and its own detail entry). Every rule-set mutation returns the full resource,
+ * so the caches are updated from the response instead of refetching.
+ */
+function putRuleSet(
+	queryClient: ReturnType<typeof useQueryClient>,
+	ruleSet: RuleSet,
+) {
+	queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+		dump === undefined
+			? dump
+			: {
+					...dump,
+					ruleSets: dump.ruleSets.some((item) => item.id === ruleSet.id)
+						? dump.ruleSets.map((item) =>
+								item.id === ruleSet.id ? ruleSet : item,
+							)
+						: [ruleSet, ...dump.ruleSets],
+				},
+	);
+	queryClient.setQueryData(ruleSetDetailKey(ruleSet.id), ruleSet);
+}
+
+/** Replace one rule set's item list in both caches (import / toggle / delete). */
+function putRuleSetItems(
+	queryClient: ReturnType<typeof useQueryClient>,
+	id: number,
+	update: (items: RuleSetItem[]) => RuleSetItem[],
+) {
+	queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+		dump === undefined
+			? dump
+			: {
+					...dump,
+					ruleSets: dump.ruleSets.map((item) =>
+						item.id === id ? { ...item, items: update(item.items) } : item,
+					),
+				},
+	);
+	queryClient.setQueryData<RuleSet>(ruleSetDetailKey(id), (ruleSet) =>
+		ruleSet === undefined
+			? ruleSet
+			: { ...ruleSet, items: update(ruleSet.items) },
+	);
+}
+
+/** Single rule set; shares its cache entry with the list. */
+export function useRuleSet(id: number) {
+	return useQuery({
+		queryKey: ruleSetDetailKey(id),
+		queryFn: () => getRuleSet(id),
+	});
+}
+
+export function useCreateRuleSet() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: createRuleSet,
+		onSuccess: (ruleSet) => putRuleSet(queryClient, ruleSet),
+	});
+}
+
+export function useUpdateRuleSet() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ id, input }: { id: number; input: RuleSetInput }) =>
+			updateRuleSet(id, input),
+		onSuccess: (ruleSet) => putRuleSet(queryClient, ruleSet),
+	});
+}
+
+/**
+ * Rotate the slug. The response carries the new slug, so the caches update in
+ * place — but every generated config referencing the old URL is now stale and
+ * has to be regenerated (the UI warns before calling this).
+ */
+export function useRotateRuleSetSlug() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: rotateRuleSetSlug,
+		onSuccess: (ruleSet) => putRuleSet(queryClient, ruleSet),
+	});
+}
+
+export function useDeleteRuleSet() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: deleteRuleSet,
+		onSuccess: (_result, id) => {
+			queryClient.setQueryData<InitialDump>(initialDumpKey, (dump) =>
+				dump === undefined
+					? dump
+					: {
+							...dump,
+							ruleSets: dump.ruleSets.filter((item) => item.id !== id),
+						},
+			);
+			queryClient.removeQueries({ queryKey: ruleSetDetailKey(id) });
+		},
+	});
+}
+
+/** Import: the response is the set's full active item list, so it replaces items wholesale. */
+export function useImportRuleSetItems() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ id, items }: { id: number; items: RuleSetImportItem[] }) =>
+			importRuleSetItems(id, items),
+		onSuccess: (items, variables) =>
+			putRuleSetItems(queryClient, variables.id, () => items),
+	});
+}
+
+export function useUpdateRuleSetItem() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			id,
+			itemId,
+			enabled,
+		}: {
+			id: number;
+			itemId: number;
+			enabled: boolean;
+		}) => updateRuleSetItem(id, itemId, enabled),
+		onSuccess: (item, variables) =>
+			putRuleSetItems(queryClient, variables.id, (items) =>
+				items.map((existing) => (existing.id === item.id ? item : existing)),
+			),
+	});
+}
+
+export function useDeleteRuleSetItem() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ id, itemId }: { id: number; itemId: number }) =>
+			deleteRuleSetItem(id, itemId),
+		onSuccess: (_result, variables) =>
+			putRuleSetItems(queryClient, variables.id, (items) =>
+				items.filter((item) => item.id !== variables.itemId),
+			),
 	});
 }

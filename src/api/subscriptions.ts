@@ -16,6 +16,7 @@ import { ApiError } from "./errors";
 export { ApiError, type ApiErrorCode } from "./errors";
 
 import type { HostsProfile } from "~/persistence/hosts";
+import type { RuleSet } from "~/persistence/rule-sets";
 import type { Rule } from "~/persistence/rules";
 import { useAuthStore } from "~/store/auth-store";
 
@@ -56,6 +57,7 @@ export interface InitialDump {
 	subscriptions: Subscription[];
 	rules: Rule[];
 	hostsProfiles: HostsProfile[];
+	ruleSets: RuleSet[];
 }
 
 export interface SubscriptionInput {
@@ -106,10 +108,14 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 			console.error(`FETCH_FAILED server stack:\n${stack}\n`, envelope.result);
 		}
 
+		// No params are injected per code: LIMIT_EXCEEDED is raised by several
+		// resources with different caps (subscriptions, rule sets, rule-set items),
+		// so its copy has to stay resource-neutral. Pages that know their own cap
+		// render it themselves (see subs.limitReached / ruleSets.limitReached).
 		throw new ApiError(
 			envelope.result,
 			code,
-			code === "LIMIT_EXCEEDED" ? { max: MAX_SUBSCRIPTIONS } : undefined,
+			undefined,
 			typeof stack === "string" ? stack : undefined,
 		);
 	}
