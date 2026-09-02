@@ -10,6 +10,7 @@ import { useInitialDump } from "~/api/hooks";
 import { changeLanguage, DEFAULT_LANGUAGE, type Language } from "~/i18n";
 import AuthPage from "~/pages/auth";
 import HostsPage from "~/pages/hosts";
+import RuleSetsPage from "~/pages/rule-sets";
 import RulesPage, { RuleFormPage } from "~/pages/rules";
 import StatusPage from "~/pages/status";
 import SubscriptionsPage from "~/pages/subscriptions";
@@ -17,7 +18,7 @@ import { navigate } from "~/router";
 import { useAppStore } from "~/store/app-store";
 import { useAuthStore } from "~/store/auth-store";
 
-type NavKey = "subscriptions" | "rules" | "hosts" | "status";
+type NavKey = "subscriptions" | "rules" | "hosts" | "rulesets" | "status";
 
 /**
  * App route, derived from the URL path (history API, no router dependency).
@@ -29,9 +30,10 @@ type Route =
 	| { page: "rules"; view: "new" }
 	| { page: "rules"; view: "edit"; id: number }
 	| { page: "status" }
-	| { page: "hosts" };
+	| { page: "hosts" }
+	| { page: "rulesets" };
 
-/** Parse /subscriptions | /rules | /rules/new | /rules/{id}/edit | /status. */
+/** Parse /subscriptions | /rules | /rules/new | /rules/{id}/edit | /hosts | /rulesets | /status. */
 function parsePath(path: string): Route {
 	const parts = path
 		.replace(/^\/?/, "")
@@ -51,6 +53,8 @@ function parsePath(path: string): Route {
 			return { page: "status" };
 		case "hosts":
 			return { page: "hosts" };
+		case "rulesets":
+			return { page: "rulesets" };
 		default:
 			// Unmatched or empty paths land on the status dashboard (the default route).
 			return { page: "status" };
@@ -62,6 +66,7 @@ const NAV_ITEMS = [
 	{ key: "subscriptions", labelKey: "app.nav.subscriptions", icon: "📥" },
 	{ key: "rules", labelKey: "app.nav.rules", icon: "📜" },
 	{ key: "hosts", labelKey: "app.nav.hosts", icon: "🧩" },
+	{ key: "rulesets", labelKey: "app.nav.ruleSets", icon: "🧭" },
 ] as const;
 
 function navigateTo(key: NavKey) {
@@ -231,7 +236,9 @@ function Dashboard() {
 				? "status"
 				: route.page === "hosts"
 					? "hosts"
-					: "subscriptions";
+					: route.page === "rulesets"
+						? "rulesets"
+						: "subscriptions";
 
 	return (
 		<div className="min-h-screen bg-slate-50 text-slate-900">
@@ -285,6 +292,8 @@ function Dashboard() {
 					<SubscriptionsPage />
 				) : route.page === "hosts" ? (
 					<HostsPage />
+				) : route.page === "rulesets" ? (
+					<RuleSetsPage />
 				) : route.page === "status" ? (
 					<StatusPage />
 				) : route.view === "list" ? (
