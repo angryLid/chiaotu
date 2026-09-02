@@ -8,6 +8,9 @@
  *   nodes parsed from the initial dump and becomes its own proxy group named
  *   after the rule (run through the produce pipeline, buildProfile), then the
  *   result is uploaded (name = nanoid) to the backend via POST /api/generated;
+ * - lets the user attach Hosts profiles and rule sets to that config; rule sets
+ *   enter it as `rule-providers` pointing at their public payload URLs, so their
+ *   content keeps updating in the client without regenerating anything;
  * - shows the most recently generated result (GET /api/generated) with a
  *   content preview and a download button.
  */
@@ -29,6 +32,7 @@ import {
 	useRecentGenerated,
 	useUpdateGenerated,
 } from "~/api/hooks";
+import { ruleSetPayloadUrl } from "~/api/rule-sets";
 import { Button } from "~/components/Button";
 import { Collapsible } from "~/components/Collapsible";
 import { LinkButton } from "~/components/LinkButton";
@@ -44,6 +48,7 @@ import { useAppStore } from "~/store/app-store";
 import {
 	buildProfile,
 	type HostsSource,
+	type RuleSetSource,
 	type RuleSource,
 } from "~/utils/produceProfile";
 import {
@@ -58,6 +63,7 @@ const GENERATED_NAME_LENGTH = 10;
 /** localStorage keys for the status-page shuttle selections. */
 const RULES_STORAGE_KEY = "chiaotu.status.rules";
 const HOSTS_STORAGE_KEY = "chiaotu.status.hosts";
+const RULE_SETS_STORAGE_KEY = "chiaotu.status.ruleSets";
 
 function readStoredIds(key: string): number[] {
 	try {
@@ -328,6 +334,7 @@ export default function StatusPage() {
 	const subscriptions = useAppStore((s) => s.subscriptions);
 	const rules = useAppStore((s) => s.rules);
 	const hostsProfiles = useAppStore((s) => s.hostsProfiles);
+	const ruleSets = useAppStore((s) => s.ruleSets);
 	const parsed = useAppStore((s) => s.parsed);
 	const hydratedAt = useAppStore((s) => s.hydratedAt);
 
@@ -338,6 +345,9 @@ export default function StatusPage() {
 	const [selectedHostsProfileIds, setSelectedHostsProfileIds] = useState<
 		number[]
 	>(() => readStoredIds(HOSTS_STORAGE_KEY));
+	const [selectedRuleSetIds, setSelectedRuleSetIds] = useState<number[]>(() =>
+		readStoredIds(RULE_SETS_STORAGE_KEY),
+	);
 	const [generationError, setGenerationError] = useState<string | null>(null);
 
 	// Persist shuttle selections so they survive a reload; prune ids that no
@@ -355,6 +365,12 @@ export default function StatusPage() {
 		);
 	}, [selectedHostsProfileIds]);
 	useEffect(() => {
+		window.localStorage.setItem(
+			RULE_SETS_STORAGE_KEY,
+			JSON.stringify(selectedRuleSetIds),
+		);
+	}, [selectedRuleSetIds]);
+	useEffect(() => {
 		if (hydratedAt === null) return;
 		const valid = new Set(rules.map((rule) => rule.id));
 		setSelectedRuleId((current) =>
@@ -368,6 +384,11 @@ export default function StatusPage() {
 			current.filter((id) => valid.has(id)),
 		);
 	}, [hostsProfiles, hydratedAt]);
+	useEffect(() => {
+		if (hydratedAt === null) return;
+		const valid = new Set(ruleSets.map((ruleSet) => ruleSet.id));
+		setSelectedRuleSetIds((current) => current.filter((id) => valid.has(id)));
+	}, [ruleSets, hydratedAt]);
 
 	const selectedRules: Rule[] = useMemo(
 		() => rules.filter((rule) => rule.id === selectedRuleId),
@@ -418,6 +439,7 @@ export default function StatusPage() {
 	function clearSelections() {
 		setSelectedRuleId(null);
 		setSelectedHostsProfileIds([]);
+		setSelectedRuleSetIds([]);
 		setGenerationError(null);
 	}
 
@@ -441,6 +463,23 @@ export default function StatusPage() {
 					profile !== undefined,
 			)
 			.map((profile) => ({ name: profile.name, entries: profile.entries }));
+		// Rule sets enter the config as live rule-providers: the config carries the
+		// public payload URL, not a snapshot, so editing a set later takes effect in
+		// the client without regenerating. The order the user arranged them in is
+		// the match order.
+		const ruleSetSources: RuleSetSource[] = selectedRuleSetIds
+			.map((id) => ruleSets.find((ruleSet) => ruleSet.id === id))
+			.filter(
+				(ruleSet): ruleSet is NonNullable<typeof ruleSet> =>
+					ruleSet !== undefined,
+			)
+			.map((ruleSet) => ({
+				key: ruleSet.key,
+				url: ruleSetPayloadUrl(ruleSet.slug),
+				policy: ruleSet.policy,
+				policyNode: ruleSet.policy_node,
+				name: ruleSet.name,
+			}));
 		const baseTemplate = await loadBaseTemplate();
 		const loopbackOverride = (() => {
 			const value =
@@ -453,7 +492,13 @@ export default function StatusPage() {
 				? value
 				: null;
 		})();
-		return buildProfile(baseTemplate, sources, hostsSources, loopbackOverride);
+		return buildProfile(
+			baseTemplate,
+			sources,
+			hostsSources,
+			loopbackOverride,
+			ruleSetSources,
+		);
 	}
 
 	async function handleGenerate(event: FormEvent<HTMLFormElement>) {
@@ -616,6 +661,35 @@ export default function StatusPage() {
 					)}
 					<p className="mt-1 text-xs text-slate-400">
 						{t("hosts.orderedHint")}
+					</p>
+				</div>
+
+				<div className="mt-4">
+					<span className="text-sm font-medium text-slate-700">
+						{t("ruleSets.select.label")}
+					</span>
+					{ruleSets.length === 0 ? (
+						<p className="mt-2 text-sm text-slate-400">
+							{t("ruleSets.select.none")}
+						</p>
+					) : (
+						<div className="mt-2">
+							<TransferList
+								items={ruleSets.map((ruleSet) => ({
+									id: ruleSet.id,
+									label: ruleSet.name,
+								}))}
+								selectedIds={selectedRuleSetIds}
+								onChange={(ids) => {
+									setSelectedRuleSetIds(ids);
+									setGenerationError(null);
+								}}
+								ordered
+							/>
+						</div>
+					)}
+					<p className="mt-1 text-xs text-slate-400">
+						{t("ruleSets.select.hint")}
 					</p>
 				</div>
 
