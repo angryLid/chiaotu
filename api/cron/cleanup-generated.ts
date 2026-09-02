@@ -1,10 +1,10 @@
-/** Vercel Cron: soft-delete unnamed generated artifacts older than 14 days. */
+/** Vercel Cron: soft-delete unnamed generated artifacts whose updated_at is older than 3 days. */
 import { methodNotAllowed, ok } from "../_lib/envelope";
-import { type ApiCtx, withApi } from "../_lib/with-api";
+import { type ApiCtx, withCron } from "../_lib/with-api";
 
 export const config = { runtime: "edge" };
 
-export default withApi(async (request, ctx) => {
+export default withCron(async (request, ctx) => {
 	if (request.method !== "GET") return methodNotAllowed();
 	return cleanupGenerated(ctx);
 });
@@ -16,7 +16,7 @@ async function cleanupGenerated(ctx: ApiCtx): Promise<Response> {
 		.update({ deleted_at: new Date().toISOString() })
 		.is("deleted_at", null)
 		.is("display_name", null)
-		.lt("created_at", cutoff)
+		.lt("updated_at", cutoff)
 		.select("id");
 	if (error) throw new Error(error.message);
 	return ok({ deleted: (data ?? []).length });
