@@ -1,7 +1,7 @@
 /**
  * Typed database schema for the Supabase client, mirroring what `supabase gen
- * types` emits for supabase/migrations/0001_init.sql. Passed as the Database
- * generic to @supabase/server's context creation so ctx.supabaseAdmin
+ * types` emits for the migrations under supabase/migrations/. Passed as the
+ * Database generic to @supabase/server's context creation so ctx.supabaseAdmin
  * queries are checked against real column shapes.
  *
  * bigint identity columns -> number; timestamptz -> string (RFC3339).
@@ -78,9 +78,59 @@ export interface Database {
 				}>;
 				Relationships: [];
 			};
+			hosts_profiles: {
+				Row: {
+					id: number;
+					name: string;
+					created_at: string;
+					updated_at: string;
+					deleted_at: string | null;
+				};
+				Insert: { name: string };
+				Update: Partial<{ name: string; deleted_at: string | null }>;
+				Relationships: [];
+			};
+			hosts_entries: {
+				Row: {
+					id: number;
+					profile_id: number;
+					domain: string;
+					ip: string;
+					enabled: boolean;
+					created_at: string;
+					updated_at: string;
+					deleted_at: string | null;
+				};
+				Insert: {
+					profile_id: number;
+					domain: string;
+					ip?: string;
+					enabled?: boolean;
+				};
+				Update: Partial<{
+					domain: string;
+					ip: string;
+					enabled: boolean;
+					deleted_at: string | null;
+				}>;
+				Relationships: [
+					{
+						foreignKeyName: "hosts_entries_profile_id_fkey";
+						columns: ["profile_id"];
+						isOneToOne: false;
+						referencedRelation: "hosts_profiles";
+						referencedColumns: ["id"];
+					},
+				];
+			};
 		};
 		Views: Record<string, never>;
-		Functions: Record<string, never>;
+		Functions: {
+			soft_delete_hosts_profile: {
+				Args: { p_profile_id: number };
+				Returns: boolean;
+			};
+		};
 		Enums: Record<string, never>;
 		CompositeTypes: Record<string, never>;
 	};
