@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: friend-cats API
   description: |
-    The REST API of friend-cats. It currently provides three kinds of resources:
+    The REST API of friend-cats. It currently provides the following kinds of resources:
 
     - subscription: a subscription is a text config file of a few tens of KB; the raw
       content is stored directly in SQLite and is not parsed in any way for now. Node
@@ -20,6 +20,16 @@ info:
       most recent result. `GET /api/generated` returns the latest one (by generation
       time), `POST /api/generated` stores a new one. Rows carry a soft-delete
       tombstone (deleted_at), though no delete endpoint exists yet.
+    - rule set: a named collection of routing matchers (DOMAIN / DOMAIN-SUFFIX /
+      DOMAIN-KEYWORD / DOMAIN-WILDCARD / IP-CIDR) distributed as a standalone
+      mihomo `classical` rule-provider payload. Every rule set is addressed by its
+      `slug`, and `GET /api/rulesets/payload/{slug}` serves it as `text/plain`
+      **without authentication** — the slug is the capability itself, exactly like
+      `GET /api/generated/{name}`. Generated configs reference that URL from
+      `rule-providers`, so editing a rule set propagates to every client on its own
+      refresh interval (live reference, not a snapshot).
+    - hosts profile: a named collection of domain → IP mappings injected into the
+      generated config's `hosts` block during browser-side generation.
 
     In addition, `GET /api/initial-dump` returns the complete application state (all
     active subscriptions with content + all rules) in one call, so the frontend can
@@ -68,9 +78,10 @@ info:
     characters. A missing or wrong credential is reported as the unified
     envelope `Err:UNAUTHORIZED` (HTTP stays 200).
 
-    **Single exception**: `GET /api/generated/{name}` is unauthenticated — the
-    name in the path is the access capability itself (the name is the secret;
-    see that endpoint).
+    **Exceptions**: `GET /api/generated/{name}` and
+    `GET /api/rulesets/payload/{slug}` are unauthenticated — the name / slug in the path is the access capability
+    itself (the link is the secret; see those endpoints). Every other method on
+    those same paths requires the bearer token as usual.
 
     ## Cross-origin access (CORS)
 
@@ -98,6 +109,8 @@ tags:
     description: Generated result files (the frontend produces them in the browser and uploads them; the backend stores and serves the latest one)
   - name: hosts
     description: Hosts profiles and entries used during browser-side projection generation
+  - name: rulesets
+    description: Rule sets distributed as standalone mihomo classical rule-provider payloads
 
 paths:
   /healthz:
@@ -122,12 +135,13 @@ paths:
 
   /api/initial-dump:
     get:
-      summary: Get the complete application state (subscriptions with content + rules)
+      summary: Get the complete application state (subscriptions with content + rules + hosts + rule sets)
       description: |
         The single entry-point call of the chiaotu SPA: returns all active
-        subscriptions (full content) and all rules (newest first) in one response,
-        so the frontend can hydrate its global store with one round trip. Node
-        parsing stays in the browser — the backend never parses YAML.
+        subscriptions (full content), all rules (newest first), all Hosts
+        profiles and all rule sets in one response, so the frontend can hydrate
+        its global store with one round trip. Node parsing stays in the browser —
+        the backend never parses YAML.
       operationId: initialDump
       tags: [subscription]
       responses:
@@ -157,6 +171,24 @@ paths:
                       name: my-rule
                       filter:
                         nameKeywords: ["香港", "US"]
+                      created_at: "2026-01-01T00:00:00Z"
+                      updated_at: "2026-01-01T00:00:00Z"
+                  hostsProfiles: []
+                  ruleSets:
+                    - id: 1
+                      name: work
+                      slug: V1StGXR8Z5
+                      key: chiaotu_rs_1
+                      policy: PROXY
+                      policy_node: null
+                      items:
+                        - id: 1
+                          rule_set_id: 1
+                          type: DOMAIN-SUFFIX
+                          payload: example.com
+                          enabled: true
+                          created_at: "2026-01-01T00:00:00Z"
+                          updated_at: "2026-01-01T00:00:00Z"
                       created_at: "2026-01-01T00:00:00Z"
                       updated_at: "2026-01-01T00:00:00Z"
         "500":
@@ -272,6 +304,366 @@ paths:
       tags: [hosts]
       responses:
         "200": { description: Deleted entry, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+
+  /api/rulesets:
+    get:
+      summary: List active rule sets (with their items)
+      description: |
+        Returns all active (non-soft-deleted) rule sets, newest first, each with
+        its active items. Soft-deleted rule sets and items are excluded.
+      operationId: listRuleSets
+      tags: [rulesets]
+      responses:
+        "200":
+          description: Success; result is an array of rule sets (newest first)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result:
+                        type: array
+                        items: { $ref: "#/components/schemas/RuleSet" }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      summary: Create a rule set
+      description: |
+        name is required (non-empty, unique among active rule sets, at most 100
+        characters). policy is optional and defaults to `PROXY`; when it is
+        `NODE`, policy_node must name the node the RULE-SET should point at.
+        The backend assigns the `slug` (16 random lowercase alphanumerics from
+        the Web Crypto API) — it is the public capability
+        for `GET /api/rulesets/payload/{slug}` and is never supplied by the client.
+        Fails with Err:LIMIT_EXCEEDED once 20 active rule sets exist.
+      operationId: createRuleSet
+      tags: [rulesets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RuleSetInput" }
+      responses:
+        "200":
+          description: Success; result is the created rule set (with an empty items array)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/RuleSet" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "409":
+          $ref: "#/components/responses/LimitExceeded"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rulesets/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Rule set ID
+        schema: { type: integer, format: int64, minimum: 1 }
+    get:
+      summary: Get a single rule set (with its active items)
+      operationId: getRuleSet
+      tags: [rulesets]
+      responses:
+        "200":
+          description: Success; result is the rule set
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/RuleSet" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      summary: Update a rule set's name / policy
+      description: |
+        Replaces name, policy and policy_node with the values of this request
+        (same validation as creation). The slug is immutable — rotate it via
+        POST /api/rulesets/{id}/rotate-slug instead. Items are managed through
+        the items endpoints and are unaffected.
+      operationId: updateRuleSet
+      tags: [rulesets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RuleSetInput" }
+      responses:
+        "200":
+          description: Success; result is the updated rule set
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/RuleSet" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      summary: Soft-delete a rule set and all its items
+      description: |
+        Soft delete: the rule set and every item under it are marked deleted
+        (deleted_at set) atomically via the soft_delete_rule_set RPC and are
+        excluded from all reads. Afterwards GET /api/rulesets/payload/{slug} answers
+        Err:NOT_FOUND.
+
+        Caveat: mihomo keeps serving its last successfully downloaded copy of a
+        rule-provider when a refresh fails, so deleting a rule set does not
+        revoke it from clients that already cached the payload.
+      operationId: deleteRuleSet
+      tags: [rulesets]
+      responses:
+        "200":
+          description: Success; result is null
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { type: "null" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rulesets/{id}/rotate-slug:
+    post:
+      summary: Rotate a rule set's public slug
+      description: |
+        Issues a fresh slug, invalidating the previous distribution link. Any
+        generated config still referencing the old URL will fail to refresh its
+        rule-provider (and mihomo will fall back to its cached copy), so the
+        config must be regenerated.
+      operationId: rotateRuleSetSlug
+      tags: [rulesets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "200":
+          description: Success; result is the rule set carrying its new slug
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/RuleSet" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rulesets/{id}/items/import:
+    post:
+      summary: Import up to 50 normalized rule-set items
+      description: |
+        Mirrors the Hosts entry import: the frontend parses the pasted text (at
+        most the first 50 physical lines) and posts normalized {type, payload}
+        pairs. Items already present in the set are revived / left in place
+        rather than duplicated; the response is the set's full active item list.
+      operationId: importRuleSetItems
+      tags: [rulesets]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RuleSetImportInput" }
+      responses:
+        "200":
+          description: Success; result is the active items after the import
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result:
+                        type: array
+                        items: { $ref: "#/components/schemas/RuleSetItem" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/LimitExceeded"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rulesets/{id}/items/{itemId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: integer, format: int64, minimum: 1 }
+    put:
+      summary: Update a rule-set item's enabled state
+      description: |
+        Only `enabled` is mutable: type / payload are immutable because they are
+        the item's identity (a partial unique index covers them). To change a
+        matcher, delete the item and import the new one.
+      operationId: updateRuleSetItem
+      tags: [rulesets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RuleSetItemInput" }
+      responses:
+        "200":
+          description: Success; result is the updated item
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { $ref: "#/components/schemas/RuleSetItem" }
+        "400":
+          $ref: "#/components/responses/InvalidArgument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Soft-delete a rule-set item
+      operationId: deleteRuleSetItem
+      tags: [rulesets]
+      responses:
+        "200":
+          description: Success; result is null
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      status: { type: string, enum: ["Ok"] }
+                      result: { type: "null" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/rulesets/payload/{slug}:
+    get:
+      summary: Download a rule set as a mihomo classical rule-provider payload
+      description: |
+        **This endpoint is intentionally UNAUTHENTICATED.** The slug (a
+        backend-generated random string) is the capability itself — the link is the
+        secret — so it can be pasted straight into a `rule-providers` entry with
+        no token machinery, exactly like `GET /api/generated/{name}`. It lives
+        under its own `payload/` path segment so it can never be confused with
+        the authenticated `/api/rulesets/{id}` item route.
+
+        The response body is the raw payload (envelope exception — this is a
+        file download, one matcher per line, `TYPE,PAYLOAD`), served as
+        `text/plain; charset=utf-8` with `X-Content-Type-Options: nosniff`
+        because the body is user-controlled text hosted on the app's own origin.
+        Disabled items are omitted. An `ETag` (weak hash of the payload) plus
+        `Cache-Control: public, max-age=300` keep client refresh polling cheap;
+        a matching `If-None-Match` is answered with 304 and no body.
+
+        Consume it from a generated config as:
+
+        ```yaml
+        rule-providers:
+          <key>:
+            type: http
+            behavior: classical
+            format: text
+            interval: 43200
+            url: https://<origin>/api/rulesets/payload/<slug>
+        ```
+
+        Not-found keeps the JSON envelope (Err:NOT_FOUND).
+      operationId: downloadRuleSet
+      tags: [rulesets]
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: The rule set's public slug (the capability)
+          schema: { type: string }
+        - name: If-None-Match
+          in: header
+          required: false
+          description: When it matches the current ETag the server answers 304 with no body
+          schema: { type: string }
+      responses:
+        "200":
+          description: The raw classical rule-provider payload (one `TYPE,PAYLOAD` per line)
+          headers:
+            ETag:
+              description: Weak hash of the payload
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, example: "public, max-age=300" }
+            X-Content-Type-Options:
+              schema: { type: string, enum: ["nosniff"] }
+          content:
+            text/plain:
+              schema: { type: string }
+              example: |
+                DOMAIN-SUFFIX,example.com
+                DOMAIN-KEYWORD,tracker
+                IP-CIDR,10.0.0.0/8
+        "304":
+          description: Not modified (If-None-Match matched the current ETag)
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/subscriptions:
     get:
@@ -895,8 +1287,8 @@ components:
         - required: [url]
         - required: [content]
 
-    NodeProxy was removed together with the "all nodes" build feature; node
-    shapes are now a purely client-side concern (see chiaotu SPA).
+    # NodeProxy was removed together with the "all nodes" build feature; node
+    # shapes are now a purely client-side concern (see chiaotu SPA).
 
     RuleFilter:
       description: |
@@ -1014,18 +1406,125 @@ components:
             properties:
               domain: { type: string }
               ip: { type: string }
+    RuleSetItem:
+      description: |
+        One matcher inside a rule set. `type` + `payload` render verbatim as a
+        `TYPE,PAYLOAD` line of the classical rule-provider payload; `enabled`
+        false keeps the row but omits the line.
+      type: object
+      required: [id, rule_set_id, type, payload, enabled, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        rule_set_id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [DOMAIN, DOMAIN-SUFFIX, DOMAIN-KEYWORD, DOMAIN-WILDCARD, IP-CIDR]
+        payload:
+          type: string
+          description: |
+            The matcher body, normalized on write: domains are lower-cased with
+            the trailing dot stripped, and a bare IP gets its /32 (IPv4) or /128
+            (IPv6) prefix appended. Commas / whitespace are rejected because they
+            would break the line format.
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time, nullable: true }
+
+    RuleSet:
+      description: |
+        A named collection of routing matchers distributed as its own mihomo
+        `classical` rule-provider payload. `slug` is the public capability used
+        by GET /api/rulesets/payload/{slug}; `key` is the deterministic YAML key the
+        generated config declares under `rule-providers` (derived from the id, so
+        it can never collide with the base template's own provider names).
+      type: object
+      required: [id, name, slug, key, policy, policy_node, items, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, description: "Display name (unique among active rule sets)" }
+        slug:
+          type: string
+          description: Public capability for the unauthenticated download link
+        key:
+          type: string
+          description: "YAML key under rule-providers; `chiaotu_rs_<id>`"
+        policy:
+          type: string
+          enum: [DIRECT, REJECT, PROXY, NODE]
+          description: |
+            Symbolic RULE-SET target, resolved at generation time: DIRECT /
+            REJECT map to the built-ins, PROXY maps to the always-present
+            "\U0001F310 手动选择" group, and NODE maps to the single node named by
+            policy_node.
+        policy_node:
+          type: string
+          nullable: true
+          description: Node name; required when policy is NODE, NULL otherwise
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RuleSetItem" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        deleted_at: { type: string, format: date-time, nullable: true }
+
+    RuleSetInput:
+      description: |
+        Request body for creating / updating a rule set. The slug is assigned by
+        the backend and is not accepted here.
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        policy:
+          type: string
+          enum: [DIRECT, REJECT, PROXY, NODE]
+          default: PROXY
+        policy_node:
+          type: string
+          nullable: true
+          description: Required (non-empty) when policy is NODE; ignored otherwise
+
+    RuleSetItemInput:
+      description: Only the enabled flag is mutable; type / payload are the item's identity.
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+
+    RuleSetImportInput:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [type, payload]
+            properties:
+              type:
+                type: string
+                enum: [DOMAIN, DOMAIN-SUFFIX, DOMAIN-KEYWORD, DOMAIN-WILDCARD, IP-CIDR]
+              payload: { type: string, minLength: 1 }
+
     InitialDump:
       description: |
         Complete application state returned by GET /api/initial-dump: all active
-        subscriptions (full content) and all rules (newest first). The frontend
-        calls this once on entry and hydrates its store from the single response;
-        the backend never parses YAML, node parsing stays in the browser.
+        subscriptions (full content), all rules (newest first), all Hosts
+        profiles and all rule sets (each with their active children). The
+        frontend calls this once on entry and hydrates its store from the single
+        response; the backend never parses YAML, node parsing stays in the
+        browser.
       type: object
-      required: [subscriptions, rules, hostsProfiles]
+      required: [subscriptions, rules, hostsProfiles, ruleSets]
       properties:
         hostsProfiles:
           type: array
           items: { $ref: "#/components/schemas/HostsProfile" }
+        ruleSets:
+          type: array
+          items: { $ref: "#/components/schemas/RuleSet" }
         subscriptions:
           type: array
           items: { $ref: "#/components/schemas/Subscription" }
@@ -1143,7 +1642,11 @@ components:
             status: "Err:FETCH_FAILED"
             result: "upstream returned status code 404"
     LimitExceeded:
-      description: A resource limit was exceeded (subscriptions are capped at 10)
+      description: |
+        A resource limit was exceeded. Current caps: 10 subscriptions, 20 rule
+        sets, 500 items per rule set, 50 items per import call. The message
+        names the resource, so client copy for this code must stay
+        resource-neutral.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Envelope" }
