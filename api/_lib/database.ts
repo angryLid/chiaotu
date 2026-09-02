@@ -123,11 +123,74 @@ export interface Database {
 					},
 				];
 			};
+			rule_sets: {
+				Row: {
+					id: number;
+					name: string;
+					slug: string;
+					policy: string;
+					policy_node: string | null;
+					created_at: string;
+					updated_at: string;
+					deleted_at: string | null;
+				};
+				Insert: {
+					name: string;
+					slug: string;
+					policy?: string;
+					policy_node?: string | null;
+				};
+				Update: Partial<{
+					name: string;
+					slug: string;
+					policy: string;
+					policy_node: string | null;
+					deleted_at: string | null;
+				}>;
+				Relationships: [];
+			};
+			rule_set_items: {
+				Row: {
+					id: number;
+					rule_set_id: number;
+					type: string;
+					payload: string;
+					enabled: boolean;
+					created_at: string;
+					updated_at: string;
+					deleted_at: string | null;
+				};
+				Insert: {
+					rule_set_id: number;
+					type: string;
+					payload: string;
+					enabled?: boolean;
+				};
+				Update: Partial<{
+					type: string;
+					payload: string;
+					enabled: boolean;
+					deleted_at: string | null;
+				}>;
+				Relationships: [
+					{
+						foreignKeyName: "rule_set_items_rule_set_id_fkey";
+						columns: ["rule_set_id"];
+						isOneToOne: false;
+						referencedRelation: "rule_sets";
+						referencedColumns: ["id"];
+					},
+				];
+			};
 		};
 		Views: Record<string, never>;
 		Functions: {
 			soft_delete_hosts_profile: {
 				Args: { p_profile_id: number };
+				Returns: boolean;
+			};
+			soft_delete_rule_set: {
+				Args: { p_rule_set_id: number };
 				Returns: boolean;
 			};
 		};
