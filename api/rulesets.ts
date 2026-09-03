@@ -53,7 +53,7 @@ async function listRuleSets(ctx: ApiCtx): Promise<Response> {
 /** POST: create a rule set. */
 async function createRuleSet(request: Request, ctx: ApiCtx): Promise<Response> {
 	const input = await readJson(request, MAX_RULE_SET_SIZE);
-	const { name, policy, policy_node } = resolveRuleSet(input);
+	const { name, policy } = resolveRuleSet(input);
 
 	const { count, error: countError } = await ctx.supabaseAdmin
 		.from("rule_sets")
@@ -73,7 +73,7 @@ async function createRuleSet(request: Request, ctx: ApiCtx): Promise<Response> {
 	for (let attempt = 0; attempt < SLUG_ATTEMPTS; attempt += 1) {
 		const { data, error } = await ctx.supabaseAdmin
 			.from("rule_sets")
-			.insert({ name, slug: generateSlug(), policy, policy_node })
+			.insert({ name, slug: generateSlug(), policy })
 			.select()
 			.single();
 		if (!error) {

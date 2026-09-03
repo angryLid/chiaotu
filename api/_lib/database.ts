@@ -129,7 +129,6 @@ export interface Database {
 					name: string;
 					slug: string;
 					policy: string;
-					policy_node: string | null;
 					created_at: string;
 					updated_at: string;
 					deleted_at: string | null;
@@ -138,13 +137,11 @@ export interface Database {
 					name: string;
 					slug: string;
 					policy?: string;
-					policy_node?: string | null;
 				};
 				Update: Partial<{
 					name: string;
 					slug: string;
 					policy: string;
-					policy_node: string | null;
 					deleted_at: string | null;
 				}>;
 				Relationships: [];

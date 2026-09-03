@@ -477,7 +477,6 @@ export default function StatusPage() {
 				key: ruleSet.key,
 				url: ruleSetPayloadUrl(ruleSet.slug),
 				policy: ruleSet.policy,
-				policyNode: ruleSet.policy_node,
 				name: ruleSet.name,
 			}));
 		const baseTemplate = await loadBaseTemplate();
@@ -691,6 +690,14 @@ export default function StatusPage() {
 					<p className="mt-1 text-xs text-slate-400">
 						{t("ruleSets.select.hint")}
 					</p>
+					{selectedRuleSetIds.some(
+						(id) =>
+							ruleSets.find((ruleSet) => ruleSet.id === id)?.policy === "GROUP",
+					) ? (
+						<p className="mt-1 text-xs text-slate-400">
+							{t("ruleSets.select.groupHint")}
+						</p>
+					) : null}
 				</div>
 
 				<p className="mt-2 text-xs text-slate-400">

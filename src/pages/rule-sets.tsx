@@ -5,7 +5,7 @@
  * generated configs reference as a mihomo `rule-provider`. This page owns the
  * whole lifecycle:
  * - create / rename a set and choose the single policy its matchers resolve to
- *   (DIRECT / REJECT / proxy / one specific node);
+ *   (DIRECT / REJECT / its own proxy group);
  * - paste matchers in bulk (first 50 lines, previewed before import) and toggle
  *   or delete them individually;
  * - copy the distribution link, or rotate it when it leaks.
@@ -35,6 +35,8 @@ import { SkeletonArea, SkeletonListItem } from "~/components/Skeleton";
 import { Switch } from "~/components/Switch";
 import { errorMessage } from "~/i18n";
 import {
+	FORBIDDEN_NAME_CHARS,
+	MAX_RULE_SET_NAME,
 	MAX_RULE_SETS,
 	parseRuleSetInput,
 	RULE_SET_POLICIES,
@@ -43,10 +45,7 @@ import {
 	type RuleSetPolicy,
 } from "~/persistence/rule-sets";
 import { useAppStore } from "~/store/app-store";
-import { displayNodeName, isExpiredNodeName } from "~/utils/produceProfile";
-
-/** Sentinel for the "type the node name myself" option of the node picker. */
-const CUSTOM_NODE = "\u0000custom";
+import { ruleSetGroupName } from "~/utils/produceProfile";
 
 /** Copy text to the clipboard, falling back to a hidden textarea off secure contexts. */
 async function copyText(text: string): Promise<boolean> {
@@ -118,10 +117,9 @@ function Modal({
 }
 
 /**
- * Name + policy form, shared by create and edit. The node picker lists the node
- * names as they will appear in a generated config (flag prefix included), with a
- * manual-entry escape hatch for a node that is not in the currently loaded
- * subscriptions.
+ * Name + policy form, shared by create and edit. With the GROUP policy the name
+ * also becomes a proxy-group name inside a comma-separated rule line, so the
+ * comma / control-character rule the backend enforces is checked here too.
  */
 function RuleSetForm({
 	initial,
@@ -135,52 +133,36 @@ function RuleSetForm({
 	pending: boolean;
 	error: unknown;
 	submitLabel: string;
-	onSubmit: (input: {
-		name: string;
-		policy: RuleSetPolicy;
-		policy_node: string | null;
-	}) => Promise<void>;
+	onSubmit: (input: { name: string; policy: RuleSetPolicy }) => Promise<void>;
 	onCancel: () => void;
 }) {
 	const { t } = useTranslation();
-	const nodeNames = useNodeNames();
 
 	const [name, setName] = useState(initial?.name ?? "");
 	const [policy, setPolicy] = useState<RuleSetPolicy>(
-		initial?.policy ?? "PROXY",
-	);
-	// The initial node may no longer be in the loaded subscriptions; keep it
-	// selectable by falling back to the manual input pre-filled with it.
-	const initialNode = initial?.policy_node ?? "";
-	const [nodeChoice, setNodeChoice] = useState(
-		initialNode !== "" && !nodeNames.includes(initialNode)
-			? CUSTOM_NODE
-			: initialNode,
-	);
-	const [customNode, setCustomNode] = useState(
-		initialNode !== "" && !nodeNames.includes(initialNode) ? initialNode : "",
+		initial?.policy ?? "GROUP",
 	);
 	const [validation, setValidation] = useState<string | null>(null);
 
-	const resolvedNode =
-		nodeChoice === CUSTOM_NODE ? customNode.trim() : nodeChoice;
-
 	async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (name.trim() === "") {
+		const trimmed = name.trim();
+		if (trimmed === "") {
 			setValidation(t("ruleSets.validation.nameRequired"));
 			return;
 		}
-		if (policy === "NODE" && resolvedNode === "") {
-			setValidation(t("ruleSets.validation.nodeRequired"));
+		if (trimmed.length > MAX_RULE_SET_NAME) {
+			setValidation(
+				t("ruleSets.validation.nameTooLong", { max: MAX_RULE_SET_NAME }),
+			);
+			return;
+		}
+		if (FORBIDDEN_NAME_CHARS.test(trimmed)) {
+			setValidation(t("ruleSets.validation.nameChars"));
 			return;
 		}
 		setValidation(null);
-		await onSubmit({
-			name: name.trim(),
-			policy,
-			policy_node: policy === "NODE" ? resolvedNode : null,
-		});
+		await onSubmit({ name: trimmed, policy });
 	}
 
 	return (
@@ -220,42 +202,12 @@ function RuleSetForm({
 				</span>
 			</label>
 
-			{policy === "NODE" ? (
-				<div className="space-y-2">
-					<label className="block">
-						<span className="text-sm font-medium text-slate-700">
-							{t("ruleSets.field.policyNode")}
-						</span>
-						<select
-							value={nodeChoice}
-							onChange={(event) => setNodeChoice(event.target.value)}
-							className="mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
-						>
-							<option value="">
-								{t("ruleSets.field.policyNodePlaceholder")}
-							</option>
-							{nodeNames.map((node) => (
-								<option key={node} value={node}>
-									{node}
-								</option>
-							))}
-							<option value={CUSTOM_NODE}>
-								{t("ruleSets.field.policyNodeCustom")}
-							</option>
-						</select>
-					</label>
-					{nodeChoice === CUSTOM_NODE ? (
-						<input
-							value={customNode}
-							onChange={(event) => setCustomNode(event.target.value)}
-							placeholder={t("ruleSets.field.policyNodeCustomPlaceholder")}
-							className="min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm"
-						/>
-					) : null}
-					<p className="text-xs text-slate-400">
-						{t("ruleSets.field.policyNodeHint")}
-					</p>
-				</div>
+			{policy === "GROUP" ? (
+				<p className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+					{t("ruleSets.policyDetail.GROUP", {
+						group: ruleSetGroupName(name.trim() === "" ? "…" : name.trim()),
+					})}
+				</p>
 			) : null}
 
 			{validation !== null ? <ErrorBox>{validation}</ErrorBox> : null}
@@ -577,9 +529,11 @@ function RuleSetListItem({
 	const updateItem = useUpdateRuleSetItem();
 	const removeItem = useDeleteRuleSetItem();
 
+	// A GROUP set shows the group name a client will list it under, the way the
+	// retired NODE policy used to show its node name.
 	const policyLabel =
-		ruleSet.policy === "NODE"
-			? (ruleSet.policy_node ?? t("ruleSets.policy.NODE"))
+		ruleSet.policy === "GROUP"
+			? ruleSetGroupName(ruleSet.name)
 			: t(`ruleSets.policy.${ruleSet.policy}`);
 
 	return (
@@ -684,26 +638,6 @@ function RuleSetListItem({
 			) : null}
 		</Collapsible>
 	);
-}
-
-/**
- * Every node name a generated config could declare, in the form it will carry
- * there (flag-prefixed, quota pseudo-nodes dropped). Used by the NODE policy
- * picker so the stored name matches what buildProfile validates against.
- */
-function useNodeNames(): string[] {
-	const subscriptions = useAppStore((s) => s.subscriptions);
-	const parsed = useAppStore((s) => s.parsed);
-	return useMemo(() => {
-		const names = new Set<string>();
-		for (const sub of subscriptions) {
-			for (const node of parsed[String(sub.id)]?.nodes ?? []) {
-				if (isExpiredNodeName(node.name)) continue;
-				names.add(displayNodeName(node.name));
-			}
-		}
-		return [...names].sort((a, b) => a.localeCompare(b));
-	}, [subscriptions, parsed]);
 }
 
 export default function RuleSetsPage() {

@@ -29,6 +29,15 @@ export const MAX_IMPORT_ITEMS = 50;
 /** Rule-set name length cap (mirrors hosts profile names). */
 export const MAX_RULE_SET_NAME = 100;
 
+/**
+ * Characters a rule-set name may not contain. With the GROUP policy the name is
+ * emitted as the target of a `RULE-SET,<key>,<target>` line, and mihomo splits
+ * that line on commas — a comma would produce a malformed rule and make the
+ * client reject the whole config. Control characters are rejected for the same
+ * reason. The DB CHECK enforces the same set.
+ */
+const FORBIDDEN_NAME_CHARS = /[,\p{Cc}]/u;
+
 /** Request body cap for rule-set writes; an import of 50 matchers is tiny. */
 export const MAX_RULE_SET_SIZE = 64 << 10;
 
@@ -51,11 +60,12 @@ export type RuleSetType = (typeof RULE_SET_TYPES)[number];
 /**
  * Symbolic RULE-SET targets. The literal proxy-group names of a generated config
  * depend on which projection rules were selected at generation time, so a rule
- * set stores intent instead of a name: DIRECT / REJECT are mihomo built-ins,
- * PROXY resolves to the always-present manual-select group, and NODE resolves to
- * the single node named by `policy_node`.
+ * set stores intent instead of a name: DIRECT / REJECT are mihomo built-ins, and
+ * GROUP makes the generating client declare a dedicated select group for this
+ * rule set (DIRECT + the manual-select group + every projected node) and point
+ * the RULE-SET line at it.
  */
-export const RULE_SET_POLICIES = ["DIRECT", "REJECT", "PROXY", "NODE"] as const;
+export const RULE_SET_POLICIES = ["DIRECT", "REJECT", "GROUP"] as const;
 
 export type RuleSetPolicy = (typeof RULE_SET_POLICIES)[number];
 
@@ -219,7 +229,6 @@ export interface RuleSetRow {
 	name: string;
 	slug: string;
 	policy: string;
-	policy_node: string | null;
 	created_at: string;
 	updated_at: string;
 	deleted_at: string | null;
@@ -246,26 +255,30 @@ export function asRuleSetType(value: unknown): RuleSetType | null {
 
 /**
  * Validate a rule-set name / policy pair (shared by create and update).
- * `policy_node` is only meaningful for the NODE policy; it is dropped otherwise
- * so a stale node name can never linger (the DB CHECK enforces the same).
  *
- * The node itself is intentionally NOT verified here: nodes live inside
- * subscription YAML, which the backend never parses. The generating client
- * checks that the node survived into the config it builds.
+ * The name is checked against FORBIDDEN_NAME_CHARS because a GROUP rule set's
+ * name becomes a proxy-group name inside a comma-separated rule line; the DB
+ * CHECK enforces the same. Which nodes end up in that group is decided by the
+ * generating client: nodes live inside subscription YAML, which the backend never
+ * parses.
  */
-export function resolveRuleSet(input: {
-	name?: unknown;
-	policy?: unknown;
-	policy_node?: unknown;
-}): { name: string; policy: RuleSetPolicy; policy_node: string | null } {
+export function resolveRuleSet(input: { name?: unknown; policy?: unknown }): {
+	name: string;
+	policy: RuleSetPolicy;
+} {
 	const name = typeof input.name === "string" ? input.name.trim() : "";
 	if (name === "" || name.length > MAX_RULE_SET_NAME) {
 		throw InvalidArgument(
 			`rule set name is required and must be at most ${MAX_RULE_SET_NAME} characters`,
 		);
 	}
+	if (FORBIDDEN_NAME_CHARS.test(name)) {
+		throw InvalidArgument(
+			"rule set name must not contain a comma or control character",
+		);
+	}
 
-	const rawPolicy = input.policy === undefined ? "PROXY" : input.policy;
+	const rawPolicy = input.policy === undefined ? "GROUP" : input.policy;
 	if (
 		typeof rawPolicy !== "string" ||
 		!(RULE_SET_POLICIES as readonly string[]).includes(rawPolicy)
@@ -274,16 +287,7 @@ export function resolveRuleSet(input: {
 			`policy must be one of ${RULE_SET_POLICIES.join(" / ")}`,
 		);
 	}
-	const policy = rawPolicy as RuleSetPolicy;
-
-	if (policy !== "NODE") return { name, policy, policy_node: null };
-
-	const node =
-		typeof input.policy_node === "string" ? input.policy_node.trim() : "";
-	if (node === "") {
-		throw InvalidArgument("policy_node is required when policy is NODE");
-	}
-	return { name, policy, policy_node: node };
+	return { name, policy: rawPolicy as RuleSetPolicy };
 }
 
 /** One normalized import item. */

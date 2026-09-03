@@ -11,6 +11,7 @@
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
 import yaml from "js-yaml";
+import type { ProxyGroup } from "~/persistence/clash-profile";
 import {
 	buildProfile,
 	type RuleSetSource,
@@ -49,8 +50,7 @@ function ruleSet(overrides: Partial<RuleSetSource> = {}): RuleSetSource {
 	return {
 		key: "chiaotu_rs_1",
 		url: "https://example.com/api/rulesets/payload/abc123",
-		policy: "PROXY",
-		policyNode: null,
+		policy: "GROUP",
 		name: "work",
 		...overrides,
 	};
@@ -59,8 +59,15 @@ function ruleSet(overrides: Partial<RuleSetSource> = {}): RuleSetSource {
 function build(
 	ruleSets: RuleSetSource[],
 	hosts: Parameters<typeof buildProfile>[2] = [],
+	extraRules: RuleSource[] = [],
 ): Record<string, unknown> {
-	const dumped = buildProfile(BASE_TEMPLATE, RULES, hosts, null, ruleSets);
+	const dumped = buildProfile(
+		BASE_TEMPLATE,
+		[...RULES, ...extraRules],
+		hosts,
+		null,
+		ruleSets,
+	);
 	return yaml.load(dumped) as Record<string, unknown>;
 }
 
@@ -101,7 +108,7 @@ describe("buildProfile / rule ordering", () => {
 	test("puts RULE-SET lines before the template's DIRECT block", () => {
 		const rules = build([ruleSet()]).rules as string[];
 		const ruleSetIndex = rules.indexOf(
-			"RULE-SET,chiaotu_rs_1,🌐 手动选择,no-resolve",
+			"RULE-SET,chiaotu_rs_1,📦 work,no-resolve",
 		);
 		const cnIndex = rules.indexOf("DOMAIN-SUFFIX,cn,DIRECT");
 		// mihomo matches top-down: after DOMAIN-SUFFIX,cn a .cn domain would never
@@ -122,7 +129,7 @@ describe("buildProfile / rule ordering", () => {
 		).rules as string[];
 		assert.deepEqual(rules.slice(0, 3), [
 			"DOMAIN,router.local,DIRECT",
-			"RULE-SET,chiaotu_rs_1,🌐 手动选择,no-resolve",
+			"RULE-SET,chiaotu_rs_1,📦 work,no-resolve",
 			"RULE-SET,lan_ip,DIRECT",
 		]);
 	});
@@ -133,7 +140,7 @@ describe("buildProfile / rule ordering", () => {
 			ruleSet({ key: "chiaotu_rs_1", name: "first", policy: "DIRECT" }),
 		]).rules as string[];
 		assert.deepEqual(rules.slice(0, 2), [
-			"RULE-SET,chiaotu_rs_2,🌐 手动选择,no-resolve",
+			"RULE-SET,chiaotu_rs_2,📦 second,no-resolve",
 			"RULE-SET,chiaotu_rs_1,DIRECT,no-resolve",
 		]);
 	});
@@ -157,11 +164,6 @@ describe("buildProfile / rule ordering", () => {
 });
 
 describe("buildProfile / policy resolution", () => {
-	test("PROXY resolves to the always-present manual-select group", () => {
-		const rules = build([ruleSet({ policy: "PROXY" })]).rules as string[];
-		assert.equal(rules[0], "RULE-SET,chiaotu_rs_1,🌐 手动选择,no-resolve");
-	});
-
 	test("DIRECT / REJECT pass through as built-ins", () => {
 		assert.equal(
 			(build([ruleSet({ policy: "DIRECT" })]).rules as string[])[0],
@@ -173,31 +175,59 @@ describe("buildProfile / policy resolution", () => {
 		);
 	});
 
-	test("NODE targets a node that survived into this config", () => {
-		const rules = build([ruleSet({ policy: "NODE", policyNode: "🇭🇰 HK-1" })])
-			.rules as string[];
-		assert.equal(rules[0], "RULE-SET,chiaotu_rs_1,🇭🇰 HK-1,no-resolve");
+	test("GROUP points the RULE-SET line at the set's own group", () => {
+		const rules = build([ruleSet({ policy: "GROUP" })]).rules as string[];
+		assert.equal(rules[0], "RULE-SET,chiaotu_rs_1,📦 work,no-resolve");
 	});
 
-	test("a rule-group name is a valid NODE target too", () => {
-		const rules = build([ruleSet({ policy: "NODE", policyNode: "vendor-a" })])
-			.rules as string[];
-		assert.equal(rules[0], "RULE-SET,chiaotu_rs_1,vendor-a,no-resolve");
+	test("GROUP declares a select group of DIRECT, manual-select and every node", () => {
+		const groups = build([ruleSet({ policy: "GROUP" })])[
+			"proxy-groups"
+		] as ProxyGroup[];
+		const group = groups.find(({ name }) => name === "📦 work");
+		assert.deepEqual(group, {
+			name: "📦 work",
+			type: "select",
+			// DIRECT leads so an untouched group behaves as if the set were absent;
+			// 🌐 手动选择 and the nodes cover the old PROXY / NODE policies.
+			proxies: ["DIRECT", "🌐 手动选择", "🇭🇰 HK-1", "🇺🇸 US-1"],
+		});
 	});
 
-	test("fails generation when the node is not in this config", () => {
-		// Loud failure here beats a config the client rejects wholesale with
-		// "proxy [X] not found".
+	test("declares one group per GROUP set and none for DIRECT / REJECT", () => {
+		const groups = build([
+			ruleSet({ key: "chiaotu_rs_1", name: "work" }),
+			ruleSet({ key: "chiaotu_rs_2", name: "ads", policy: "REJECT" }),
+			ruleSet({ key: "chiaotu_rs_3", name: "intranet" }),
+		])["proxy-groups"] as ProxyGroup[];
+		const ruleSetGroups = groups
+			.map(({ name }) => name)
+			.filter((name) => name.startsWith("📦 "));
+		assert.deepEqual(ruleSetGroups, ["📦 work", "📦 intranet"]);
+	});
+
+	test("fails generation when the group name collides with a projection rule", () => {
+		// mihomo rejects the whole file when two policies share a name, so a loud
+		// failure here beats a config the client refuses to load.
 		assert.throws(
-			() => build([ruleSet({ policy: "NODE", policyNode: "🇯🇵 JP-9" })]),
-			/does not exist in this configuration/,
+			() =>
+				build(
+					[ruleSet({ policy: "GROUP", name: "vendor-a" })],
+					[],
+					[{ name: "📦 vendor-a", nodes: [{ name: "🇯🇵 JP-1", type: "ss" }] }],
+				),
+			/declared twice in this configuration/,
 		);
 	});
 
-	test("fails generation when NODE carries no node name", () => {
+	test("fails generation when two rule sets resolve to the same group", () => {
 		assert.throws(
-			() => build([ruleSet({ policy: "NODE", policyNode: null })]),
-			/does not exist in this configuration/,
+			() =>
+				build([
+					ruleSet({ key: "chiaotu_rs_1", name: "work" }),
+					ruleSet({ key: "chiaotu_rs_2", name: "work" }),
+				]),
+			/declared twice in this configuration/,
 		);
 	});
 });

@@ -179,8 +179,7 @@ paths:
                       name: work
                       slug: V1StGXR8Z5
                       key: chiaotu_rs_1
-                      policy: PROXY
-                      policy_node: null
+                      policy: GROUP
                       items:
                         - id: 1
                           rule_set_id: 1
@@ -334,8 +333,9 @@ paths:
       summary: Create a rule set
       description: |
         name is required (non-empty, unique among active rule sets, at most 100
-        characters). policy is optional and defaults to `PROXY`; when it is
-        `NODE`, policy_node must name the node the RULE-SET should point at.
+        characters, no comma or control character — with the `GROUP` policy the
+        name becomes a proxy-group name inside a comma-separated rule line).
+        policy is optional and defaults to `GROUP`.
         The backend assigns the `slug` (16 random lowercase alphanumerics from
         the Web Crypto API) — it is the public capability
         for `GET /api/rulesets/payload/{slug}` and is never supplied by the client.
@@ -397,8 +397,8 @@ paths:
     put:
       summary: Update a rule set's name / policy
       description: |
-        Replaces name, policy and policy_node with the values of this request
-        (same validation as creation). The slug is immutable — rotate it via
+        Replaces name and policy with the values of this request (same validation
+        as creation). The slug is immutable — rotate it via
         POST /api/rulesets/{id}/rotate-slug instead. Items are managed through
         the items endpoints and are unaffected.
       operationId: updateRuleSet
@@ -1439,10 +1439,15 @@ components:
         generated config declares under `rule-providers` (derived from the id, so
         it can never collide with the base template's own provider names).
       type: object
-      required: [id, name, slug, key, policy, policy_node, items, created_at, updated_at]
+      required: [id, name, slug, key, policy, items, created_at, updated_at]
       properties:
         id: { type: integer, format: int64 }
-        name: { type: string, description: "Display name (unique among active rule sets)" }
+        name:
+          type: string
+          description: |
+            Display name (unique among active rule sets). With the GROUP policy it
+            also names the generated proxy group, so commas and control
+            characters are rejected on write.
         slug:
           type: string
           description: Public capability for the unauthenticated download link
@@ -1451,16 +1456,13 @@ components:
           description: "YAML key under rule-providers; `chiaotu_rs_<id>`"
         policy:
           type: string
-          enum: [DIRECT, REJECT, PROXY, NODE]
+          enum: [DIRECT, REJECT, GROUP]
           description: |
             Symbolic RULE-SET target, resolved at generation time: DIRECT /
-            REJECT map to the built-ins, PROXY maps to the always-present
-            "\U0001F310 手动选择" group, and NODE maps to the single node named by
-            policy_node.
-        policy_node:
-          type: string
-          nullable: true
-          description: Node name; required when policy is NODE, NULL otherwise
+            REJECT map to the built-ins, and GROUP makes the generated config
+            declare a dedicated select group named "\U0001F4E6 <name>" holding
+            DIRECT, the "\U0001F310 手动选择" group and every projected node, with
+            the RULE-SET line pointing at it.
         items:
           type: array
           items: { $ref: "#/components/schemas/RuleSetItem" }
@@ -1475,15 +1477,17 @@ components:
       type: object
       required: [name]
       properties:
-        name: { type: string, minLength: 1, maxLength: 100 }
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: |
+            No comma or control character: with the GROUP policy the name is
+            emitted inside a comma-separated `RULE-SET,<key>,<target>` line.
         policy:
           type: string
-          enum: [DIRECT, REJECT, PROXY, NODE]
-          default: PROXY
-        policy_node:
-          type: string
-          nullable: true
-          description: Required (non-empty) when policy is NODE; ignored otherwise
+          enum: [DIRECT, REJECT, GROUP]
+          default: GROUP
 
     RuleSetItemInput:
       description: Only the enabled flag is mutable; type / payload are the item's identity.

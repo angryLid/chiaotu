@@ -231,26 +231,25 @@ export const en: DeepString<typeof zhCN> = {
 		field: {
 			name: "Rule set name",
 			namePlaceholder: "e.g. Work",
-			nameHint: "Required; globally unique, used for display only",
+			nameHint:
+				"Required; globally unique, no comma (with “Create a proxy group” it also names the proxy group)",
 			policy: "Target on match",
 			policyHint:
 				"Every rule in the set shares this one target; split into several sets if you need different targets.",
-			policyNode: "Node",
-			policyNodePlaceholder: "Select a node",
-			policyNodeHint:
-				"The node must exist when a config is generated, otherwise generation fails (a client would refuse the whole config).",
-			policyNodeCustom: "Enter manually…",
-			policyNodeCustomPlaceholder: "Node name (including the flag prefix)",
 		},
 		policy: {
 			DIRECT: "Direct (DIRECT)",
 			REJECT: "Reject (REJECT)",
-			PROXY: "Proxy (🌐 手动选择)",
-			NODE: "Specific node",
+			GROUP: "Create a proxy group",
+		},
+		policyDetail: {
+			GROUP:
+				"A generated config declares a dedicated proxy group “{{group}}” for this rule set, holding DIRECT, 🌐 手动选择 and every projected node. It defaults to DIRECT; switch inside the client to change where this rule set goes.",
 		},
 		validation: {
 			nameRequired: "Enter a rule set name",
-			nodeRequired: "Select or type a node name",
+			nameTooLong: "The name may be at most {{max}} characters",
+			nameChars: "The name must not contain a comma or control character",
 		},
 		link: {
 			title: "Distribution link",
@@ -296,6 +295,8 @@ export const en: DeepString<typeof zhCN> = {
 			label: "Referenced rule sets",
 			none: "No rule sets yet. Create one under “Rule Sets” first.",
 			hint: "Rule sets earlier in the list win; all of them take precedence over the template's own rules.",
+			groupHint:
+				"Every rule set targeting “Create a proxy group” gets its own “📦 name” group in the config, defaulting to DIRECT.",
 		},
 	},
 	status: {

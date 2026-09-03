@@ -3,7 +3,7 @@
  *
  * Contract points (see docs/openapi.yaml):
  * - HTTP is always 200; success is decided by the envelope { status, result };
- * - a rule set is { id, name, slug, key, policy, policy_node, items }, where
+ * - a rule set is { id, name, slug, key, policy, items }, where
  *   `slug` is the public capability of the distribution link and `key` is the
  *   YAML key a generated config declares it under in `rule-providers`;
  * - the slug is assigned by the backend and rotated through its own endpoint;
@@ -26,7 +26,6 @@ import { request } from "./subscriptions";
 export interface RuleSetInput {
 	name: string;
 	policy: RuleSetPolicy;
-	policy_node?: string | null;
 }
 
 /** One matcher of an import batch (already normalized by the caller). */

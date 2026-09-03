@@ -1,7 +1,7 @@
 /**
  * /api/rulesets/{id} — item.
  *   GET    a single rule set with its active items
- *   PUT    replace name / policy / policy_node (slug is immutable)
+ *   PUT    replace name / policy (slug is immutable)
  *   DELETE soft-delete the set and all its items (atomic RPC)
  */
 
@@ -57,10 +57,10 @@ async function updateRuleSet(
 	id: number,
 ): Promise<Response> {
 	const input = await readJson(request, MAX_RULE_SET_SIZE);
-	const { name, policy, policy_node } = resolveRuleSet(input);
+	const { name, policy } = resolveRuleSet(input);
 	const { data, error } = await ctx.supabaseAdmin
 		.from("rule_sets")
-		.update({ name, policy, policy_node })
+		.update({ name, policy })
 		.eq("id", id)
 		.is("deleted_at", null)
 		.select("*, rule_set_items(*)")

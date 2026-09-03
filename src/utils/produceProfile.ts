@@ -37,30 +37,42 @@ export interface RuleSource {
  * set's public payload URL plus the `RULE-SET` line that references it.
  *
  * `policy` is symbolic because the literal group names depend on which projection
- * rules were selected for this very config. It is resolved here (see
- * resolvePolicy) so an unresolvable target fails generation loudly instead of
- * producing a config the client refuses to load — mihomo's config parser aborts
- * the whole file with "proxy [X] not found".
+ * rules were selected for this very config, so it is resolved here (see
+ * resolvePolicy). DIRECT / REJECT are mihomo built-ins; GROUP gets the rule set
+ * its own select group, declared alongside the projection and service groups.
  */
 export interface RuleSetSource {
 	/** YAML key under `rule-providers`. */
 	key: string;
 	/** Public payload URL (unauthenticated; the slug is the capability). */
 	url: string;
-	policy: "DIRECT" | "REJECT" | "PROXY" | "NODE";
-	/** Node name; only meaningful when policy is NODE. */
-	policyNode: string | null;
-	/** Display name, used in error messages. */
+	policy: "DIRECT" | "REJECT" | "GROUP";
+	/** Display name; also the basis of the GROUP policy's group name. */
 	name: string;
 }
 
 /**
  * The manual-select group. Always present in a generated config (it is created
  * unconditionally by createGroupsByCountry and is what the base template's
- * `MATCH` targets), which is why a rule set's PROXY policy can safely resolve to
- * it without checking anything else.
+ * `MATCH` targets), which is why every GROUP rule set can safely offer it as a
+ * member without checking anything else.
  */
 const MANUAL_SELECT_GROUP = "🌐 手动选择";
+
+/**
+ * Prefix of a GROUP rule set's own select group. It keeps the group visually
+ * distinct in the client's group list and out of collision range of the
+ * projection groups (named after the rules) and the service groups.
+ */
+const RULE_SET_GROUP_PREFIX = "📦 ";
+
+/**
+ * The proxy-group name a GROUP rule set resolves to. Exported so the UI can show
+ * the exact name the client will display instead of hard-coding the prefix again.
+ */
+export function ruleSetGroupName(name: string): string {
+	return `${RULE_SET_GROUP_PREFIX}${name}`;
+}
 
 /** Rule-set payload refresh interval (seconds), matching the base template's own providers. */
 const RULE_PROVIDER_INTERVAL = 43200;
@@ -70,16 +82,15 @@ const RULE_PROVIDER_INTERVAL = 43200;
  * advertise quota / expiry ("剩余流量", "到期时间"). They are dropped from every
  * generated config.
  */
-export function isExpiredNodeName(name: string): boolean {
+function isExpiredNodeName(name: string): boolean {
 	return name.includes("剩余") || name.includes("到期");
 }
 
 /**
  * The name a node carries inside a generated config: a flag emoji is prefixed
- * when the raw name has none. Exported so a UI that has to name a node (picking
- * a rule set's NODE target) offers exactly the strings the generator will emit.
+ * when the raw name has none.
  */
-export function displayNodeName(name: string): string {
+function displayNodeName(name: string): string {
 	return flagRegExp.test(name) ? name : `${getFlagByNodeName(name)} ${name}`;
 }
 
@@ -95,8 +106,9 @@ export function displayNodeName(name: string): string {
  *    after the rule (rules left with no nodes are skipped);
  * 4. append the service / country groups (🌐 手动选择, 🤖 AI, 🟦 Microsoft,
  *    🍎 Apple) referencing the rule groups;
- * 5. declare each selected rule set under `rule-providers` and prepend its
- *    `RULE-SET` line to `rules` (see assembleRules for the ordering rationale);
+ * 5. declare each selected rule set under `rule-providers`, give every GROUP rule
+ *    set its own select group, and prepend its `RULE-SET` line to `rules` (see
+ *    assembleRules for the ordering rationale);
  * 6. dump the assembled profile as YAML.
  */
 export function buildProfile(
@@ -155,10 +167,13 @@ export function buildProfile(
 	// (the template already declares `proxies` / `proxy-groups`).
 	const assembled: Record<string, unknown> = { ...baseProfile };
 	assembled.proxies = proxies;
-	assembled["proxy-groups"] = [
-		...ruleGroups,
-		...createGroupsByCountry(ruleGroups.map(({ name }) => name)),
-	];
+	const serviceGroups = createGroupsByCountry(
+		ruleGroups.map(({ name }) => name),
+	);
+	const ruleSetGroups = createRuleSetGroups(ruleSetSources, proxies);
+	const allGroups = [...ruleGroups, ...serviceGroups, ...ruleSetGroups];
+	assertUniqueNames(allGroups, proxies);
+	assembled["proxy-groups"] = allGroups;
 
 	const hosts = new Map<string, string>();
 	for (const source of hostsSources) {
@@ -186,7 +201,6 @@ export function buildProfile(
 		baseProfile.rules ?? [],
 		[...hosts.keys()],
 		ruleSetSources,
-		availableTargets(ruleGroups, proxies),
 	);
 
 	return yaml.dump(assembled, {
@@ -197,39 +211,56 @@ export function buildProfile(
 }
 
 /**
- * Every policy target the assembled config actually declares: the built-ins, the
- * per-rule groups, the service groups, and each individual node. A `RULE-SET`
- * pointing anywhere else makes the client reject the entire config, so this set
- * is what resolvePolicy validates against.
+ * One select group per GROUP rule set, so its `RULE-SET` line has a target that
+ * is declared by construction (DIRECT / REJECT need no declaration at all). The
+ * membership is what makes one policy cover the old PROXY and NODE ones: the user
+ * picks the behaviour in the client instead of at creation time.
  */
-function availableTargets(
-	ruleGroups: ProxyGroup[],
+function createRuleSetGroups(
+	sources: RuleSetSource[],
 	proxies: NodeProxy[],
-): Set<string> {
-	const ruleGroupNames = ruleGroups.map(({ name }) => name);
-	return new Set<string>([
-		"DIRECT",
-		"REJECT",
-		...ruleGroupNames,
-		...createGroupsByCountry(ruleGroupNames).map(({ name }) => name),
-		...proxies.map(({ name }) => name),
-	]);
+): ProxyGroup[] {
+	return sources
+		.filter((source) => source.policy === "GROUP")
+		.map((source) => ({
+			name: ruleSetGroupName(source.name),
+			type: "select",
+			// DIRECT leads, so a client that never touches the group behaves as if the
+			// rule set were not there; the manual-select group reproduces the old PROXY
+			// policy, and the individual nodes reproduce pinning one node by hand.
+			proxies: [
+				"DIRECT",
+				MANUAL_SELECT_GROUP,
+				...proxies.map(({ name }) => name),
+			],
+		}));
 }
 
-/** Resolve a rule set's symbolic policy to a target that exists in this config. */
-function resolvePolicy(source: RuleSetSource, available: Set<string>): string {
-	const target =
-		source.policy === "PROXY"
-			? MANUAL_SELECT_GROUP
-			: source.policy === "NODE"
-				? (source.policyNode ?? "")
-				: source.policy;
-	if (target === "" || !available.has(target)) {
-		throw new Error(
-			`Rule set "${source.name}" targets "${target === "" ? source.policy : target}", which does not exist in this configuration. Choose another target, or include the projection rule that provides that node.`,
-		);
+/**
+ * Fail on a name the config declares twice. mihomo rejects the whole file when a
+ * proxy group shares its name with a node or another group, so a rule set whose
+ * group name collides with a projection rule (or with a node literally named
+ * "📦 …") has to stop generation here instead of shipping a config the client
+ * refuses to load.
+ */
+function assertUniqueNames(groups: ProxyGroup[], proxies: NodeProxy[]): void {
+	// The proxies list is already deduplicated by name while it is built.
+	const seen = new Set<string>(proxies.map(({ name }) => name));
+	for (const { name } of groups) {
+		if (seen.has(name)) {
+			throw new Error(
+				`"${name}" is declared twice in this configuration: a proxy group cannot share its name with a node or with another group. Rename the projection rule or the rule set that produced it.`,
+			);
+		}
+		seen.add(name);
 	}
-	return target;
+}
+
+/** Resolve a rule set's symbolic policy to the target this config declares for it. */
+function resolvePolicy(source: RuleSetSource): string {
+	return source.policy === "GROUP"
+		? ruleSetGroupName(source.name)
+		: source.policy;
 }
 
 /** Declare each rule set as an http / classical / text rule-provider. */
@@ -266,13 +297,11 @@ function assembleRules(
 	baseRules: string[],
 	hostDomains: string[],
 	ruleSetSources: RuleSetSource[],
-	available: Set<string>,
 ): string[] {
 	return [
 		...hostDomains.map((domain) => `DOMAIN,${domain},DIRECT`),
 		...ruleSetSources.map(
-			(source) =>
-				`RULE-SET,${source.key},${resolvePolicy(source, available)},no-resolve`,
+			(source) => `RULE-SET,${source.key},${resolvePolicy(source)},no-resolve`,
 		),
 		...baseRules,
 	];

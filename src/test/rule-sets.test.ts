@@ -16,12 +16,15 @@
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
 import {
+	FORBIDDEN_NAME_CHARS,
 	normalizePayload,
 	parseRuleSetInput,
+	RULE_SET_POLICIES,
 	RULE_SET_TYPES,
 	type RuleSetType,
 } from "~/persistence/rule-sets";
 import {
+	RULE_SET_POLICIES as API_RULE_SET_POLICIES,
 	normalizePayload as apiNormalizePayload,
 	payloadETag,
 	renderPayload,
@@ -137,6 +140,12 @@ describe("frontend / backend normalization mirror", () => {
 			}
 		});
 	}
+
+	test("the policy lists agree", () => {
+		// The select on the rule-set page is rendered straight from the frontend
+		// list, so an extra value there would offer a policy the API rejects.
+		assert.deepEqual([...RULE_SET_POLICIES], [...API_RULE_SET_POLICIES]);
+	});
 });
 
 describe("parseRuleSetInput", () => {
@@ -267,28 +276,15 @@ describe("resolveImport", () => {
 });
 
 describe("resolveRuleSet", () => {
-	test("defaults to the PROXY policy and drops policy_node", () => {
+	test("trims the name and defaults to the GROUP policy", () => {
 		assert.deepEqual(resolveRuleSet({ name: " work " }), {
 			name: "work",
-			policy: "PROXY",
-			policy_node: null,
+			policy: "GROUP",
 		});
-		// A non-NODE policy must not keep a stale node name (the DB CHECK agrees).
-		assert.deepEqual(
-			resolveRuleSet({ name: "work", policy: "DIRECT", policy_node: "🇭🇰 HK" }),
-			{ name: "work", policy: "DIRECT", policy_node: null },
-		);
-	});
-
-	test("requires policy_node for the NODE policy", () => {
-		assert.deepEqual(
-			resolveRuleSet({ name: "w", policy: "NODE", policy_node: " 🇭🇰 HK " }),
-			{ name: "w", policy: "NODE", policy_node: "🇭🇰 HK" },
-		);
-		assert.throws(
-			() => resolveRuleSet({ name: "w", policy: "NODE" }),
-			/policy_node is required/,
-		);
+		assert.deepEqual(resolveRuleSet({ name: "work", policy: "DIRECT" }), {
+			name: "work",
+			policy: "DIRECT",
+		});
 	});
 
 	test("rejects an empty / overlong name and an unknown policy", () => {
@@ -301,6 +297,48 @@ describe("resolveRuleSet", () => {
 			() => resolveRuleSet({ name: "w", policy: "🌐 手动选择" }),
 			/policy must be one of/,
 		);
+		// The retired policies must not keep working through the API.
+		for (const policy of ["PROXY", "NODE"]) {
+			assert.throws(
+				() => resolveRuleSet({ name: "w", policy }),
+				/policy must be one of/,
+			);
+		}
+	});
+
+	test("rejects a comma or control character in the name", () => {
+		// A GROUP set's name is emitted as the target of `RULE-SET,<key>,<target>`,
+		// so a comma would split that line and make mihomo reject the whole config.
+		assert.throws(
+			() => resolveRuleSet({ name: "work,home" }),
+			/must not contain a comma/,
+		);
+		assert.throws(
+			() => resolveRuleSet({ name: "work\nhome" }),
+			/must not contain a comma/,
+		);
+		// The same holds for DIRECT / REJECT: the policy is editable afterwards.
+		assert.throws(
+			() => resolveRuleSet({ name: "a,b", policy: "REJECT" }),
+			/must not contain a comma/,
+		);
+	});
+
+	test("mirrors the frontend's forbidden-character rule", () => {
+		// The two modules are duplicated on purpose; drift would let the form accept
+		// a name the API rejects (or worse, the other way round).
+		for (const name of ["work,home", "work\u0000", "work\u007f", "a\tb"]) {
+			assert.equal(FORBIDDEN_NAME_CHARS.test(name), true);
+			assert.throws(
+				() => resolveRuleSet({ name }),
+				/must not contain a comma/,
+				name,
+			);
+		}
+		for (const name of ["work", "工作 常用", "📦 work"]) {
+			assert.equal(FORBIDDEN_NAME_CHARS.test(name), false);
+			assert.equal(resolveRuleSet({ name }).name, name);
+		}
 	});
 });
 

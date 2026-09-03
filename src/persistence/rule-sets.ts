@@ -29,11 +29,24 @@ export type RuleSetType = (typeof RULE_SET_TYPES)[number];
 /**
  * Symbolic RULE-SET targets, resolved to real names at generation time. The
  * literal proxy-group names of a config depend on which projection rules were
- * selected, so a rule set stores intent instead of a name.
+ * selected, so a rule set stores intent instead of a name: DIRECT / REJECT are
+ * mihomo built-ins, and GROUP makes the generated config declare a dedicated
+ * select group for this rule set (DIRECT + the manual-select group + every
+ * projected node) and point the RULE-SET line at it.
  */
-export const RULE_SET_POLICIES = ["DIRECT", "REJECT", "PROXY", "NODE"] as const;
+export const RULE_SET_POLICIES = ["DIRECT", "REJECT", "GROUP"] as const;
 
 export type RuleSetPolicy = (typeof RULE_SET_POLICIES)[number];
+
+/** Rule-set name length cap, mirrored from the backend. */
+export const MAX_RULE_SET_NAME = 100;
+
+/**
+ * Characters a rule-set name may not contain, mirrored from the backend. With
+ * the GROUP policy the name becomes the target of a comma-separated
+ * `RULE-SET,<key>,<target>` line, so a comma would make mihomo reject the config.
+ */
+export const FORBIDDEN_NAME_CHARS = /[,\p{Cc}]/u;
 
 /** Items accepted by one import call (mirrors the Hosts entry import). */
 export const MAX_IMPORT_ITEMS = 50;
@@ -61,7 +74,6 @@ export const RuleSetSchema = z.object({
 	/** YAML key under `rule-providers` in a generated config. */
 	key: z.string().min(1),
 	policy: z.enum(RULE_SET_POLICIES),
-	policy_node: z.string().nullable(),
 	items: z.array(RuleSetItemSchema),
 	created_at: z.string(),
 	updated_at: z.string(),

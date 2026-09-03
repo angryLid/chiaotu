@@ -220,26 +220,25 @@ export const zhCN = {
 		field: {
 			name: "规则集名称",
 			namePlaceholder: "例如：工作常用",
-			nameHint: "必填；名称全局唯一，仅用于界面展示",
+			nameHint:
+				"必填；名称全局唯一，不能包含逗号（选「创建代理组」时它同时作为代理组名）",
 			policy: "命中后的去向",
 			policyHint:
 				"集合内所有规则共用这一个去向；需要不同去向请拆成多个规则集。",
-			policyNode: "指定节点",
-			policyNodePlaceholder: "请选择节点",
-			policyNodeHint:
-				"生成配置时该节点必须存在，否则生成会失败（客户端会整份拒绝加载配置）。",
-			policyNodeCustom: "手动输入…",
-			policyNodeCustomPlaceholder: "节点名称（含国旗前缀）",
 		},
 		policy: {
 			DIRECT: "直连 DIRECT",
 			REJECT: "拒绝 REJECT",
-			PROXY: "走代理（🌐 手动选择）",
-			NODE: "指定节点",
+			GROUP: "创建代理组",
+		},
+		policyDetail: {
+			GROUP:
+				"生成配置时会为本规则集单独建一个代理组「{{group}}」，成员为 DIRECT、🌐 手动选择以及所有投影节点；默认 DIRECT，在客户端里切换即可改变本规则集的去向。",
 		},
 		validation: {
 			nameRequired: "请填写规则集名称",
-			nodeRequired: "请选择或输入节点名称",
+			nameTooLong: "名称最多 {{max}} 个字符",
+			nameChars: "名称不能包含逗号或控制字符",
 		},
 		link: {
 			title: "分发链接",
@@ -285,6 +284,8 @@ export const zhCN = {
 			label: "引用规则集",
 			none: "还没有规则集，请先到「规则集」创建。",
 			hint: "列表中位置越靠前的规则集优先级越高；它们整体优先于模板自带的规则。",
+			groupHint:
+				"去向为「创建代理组」的规则集会各自在配置里生成一个代理组「📦 名称」，默认 DIRECT。",
 		},
 	},
 	status: {
